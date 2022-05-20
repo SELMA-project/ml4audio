@@ -1,3 +1,5 @@
+# Nvidia NeMo ClusteringDiarizer
+![](images/speaker_visualization.png)
 * [Speaker_Diarization_Inference.ipynb](https://github.com/NVIDIA/NeMo/blob/main/tutorials/speaker_tasks/Speaker_Diarization_Inference.ipynb) 
 ```shell
 python nemo_diarization_tutorial.py
