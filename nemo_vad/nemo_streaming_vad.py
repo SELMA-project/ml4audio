@@ -8,12 +8,15 @@ import librosa
 import numpy as np
 import torch
 from beartype import beartype
+from misc_utils.beartypes import NumpyInt16Dim1, NumpyFloat1DArray
 from nemo.collections import asr as nemo_asr
 from nemo.collections.asr.models.classification_models import EncDecClassificationModel
 from numpy.typing import NDArray
 from omegaconf.dictconfig import DictConfig
 from tqdm import tqdm
 
+from audio_utils.audio_io import read_audio_chunks_from_file, MAX_16_BIT_PCM
+from misc_utils.buildable import Buildable
 
 """
 based on: https://github.com/NVIDIA/NeMo/blob/v1.0.0/tutorials/asr/07_Online_Offline_Microphone_VAD_Demo.ipynb
@@ -25,24 +28,31 @@ DEBUG = False
 if DEBUG:
     debug_name = "16kHz"
     # debug_name= "8kHz"
-    DEBUG_DIR = f"{BASE_PATHES['base_path']}/data/tmp/debug_vad_{debug_name}"
+    DEBUG_DIR = f"debug_vad_{debug_name}"
     shutil.rmtree(DEBUG_DIR, ignore_errors=True)
     os.makedirs(DEBUG_DIR, exist_ok=True)
 
 
-def infer_signal(model: EncDecClassificationModel, batch):
-    audio_signal, audio_signal_len = batch
-    audio_signal, audio_signal_len = (
-        audio_signal.to(model.device),
-        audio_signal_len.to(model.device),
+@beartype
+def infer_signal(
+    model: EncDecClassificationModel, signal: NumpyInt16Dim1
+) -> NumpyFloat1DArray:
+    """
+    based on https://github.com/NVIDIA/NeMo/blob/main/tutorials/asr/Online_Offline_Microphone_VAD_Demo.ipynb
+    """
+
+    signal = signal.astype(np.float32) / MAX_16_BIT_PCM
+    audio_signal = (
+        torch.as_tensor(signal, dtype=torch.float32).unsqueeze(0).to(model.device)
     )
+    audio_signal_len = torch.as_tensor([signal.size], dtype=torch.int64).to(
+        model.device
+    )
+
     logits = model.forward(
         input_signal=audio_signal, input_signal_length=audio_signal_len
     )
-    return logits
-
-
-counter = 0
+    return logits.squeeze().cpu().numpy()
 
 
 @dataclass
@@ -57,9 +67,7 @@ class VADOutput:
 @dataclass
 class NeMoVAD(Buildable):
     """
-    TODO: this thing has a buffer -> state might be better treating it as StreamProcessor
-        like intended months ago
-
+    TODO: this thing has a buffer -> state -> split away!
     """
 
     vad_model_name: str = "vad_marblenet"
@@ -68,7 +76,7 @@ class NeMoVAD(Buildable):
     window_len_in_secs: float = 0.5  # seconds
     input_sample_rate: Optional[int] = None
 
-    buffer: NDArray = field(init=False, repr=False)
+    buffer: NumpyInt16Dim1 = field(init=False, repr=False)
     buffer_size: int = field(init=False, repr=False)
     frame_len: int = field(init=False, repr=False)
     vocab: list[str] = field(init=False, repr=False)
@@ -91,38 +99,14 @@ class NeMoVAD(Buildable):
         self.reset()
         return self
 
-    def is_speech(self, frame: np.ndarray) -> bool:
+    @beartype
+    def is_speech(self, frame: NumpyInt16Dim1) -> bool:
         o = self.predict(frame)
         return True if o.label_id == 1 else False
 
-    def build_batch(
-        self,
-        signal: np.ndarray,
-    ):
-        """
-        TODO: who needs batch?
-            this EncDecClassificationModel always expects batches?
-        """
-        assert signal.dtype == np.int16
-        signal = signal.astype(np.float32) / MAX_16_BIT_PCM
-        tgt_sr = self.cfg.train_ds.sample_rate
-        if self.input_sample_rate != tgt_sr:
-            signal = librosa.resample(
-                signal,
-                self.input_sample_rate,
-                tgt_sr,
-                scale=True,
-                res_type="kaiser_best",
-            )
-
-        return (
-            torch.as_tensor(signal, dtype=torch.float32).unsqueeze(0),
-            torch.as_tensor([signal.size], dtype=torch.int64),
-        )
-
     @beartype
     @torch.no_grad()
-    def predict(self, frame: NDArray) -> VADOutput:
+    def predict(self, frame: NumpyInt16Dim1) -> VADOutput:
         """
         buffering logic see: https://github.com/NVIDIA/NeMo/blob/v1.0.0/tutorials/asr/07_Online_Offline_Microphone_VAD_Demo.ipynb
         """
@@ -140,9 +124,7 @@ class NeMoVAD(Buildable):
         ), f"len(frame)={len(frame)}, self.n_frame_len={self.frame_len}"
         self.buffer[: -self.frame_len] = self.buffer[self.frame_len :]
         self.buffer[-self.frame_len :] = frame
-        logits = (
-            infer_signal(self.vad_model, self.build_batch(self.buffer)).cpu().numpy()[0]
-        )
+        logits = infer_signal(self.vad_model, self.buffer)
 
         assert logits.shape[0]
         probs = torch.softmax(torch.as_tensor(logits), dim=-1)
@@ -157,9 +139,6 @@ class NeMoVAD(Buildable):
         )
 
     def reset(self) -> None:
-        """
-        TODO: who need this?
-        """
         self.buffer = np.zeros(shape=self.buffer_size, dtype=np.int16)
 
 
@@ -167,7 +146,7 @@ class NeMoVAD(Buildable):
 def load_vad_model(
     model_name: str = "vad_marblenet",
 ) -> tuple[DictConfig, EncDecClassificationModel]:
-    vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained(model_name)
+    vad_model = EncDecClassificationModel.from_pretrained(model_name)
     cfg = copy.deepcopy(vad_model._cfg)
     vad_model.preprocessor = vad_model.from_config_dict(cfg.preprocessor)
     vad_model.eval()
@@ -185,9 +164,9 @@ if __name__ == "__main__":
         input_sample_rate=16000,
     ).build()
 
-    wav_file = f"tests/resources/VAD_demo.wav"
+    wav_file = f"nemo_vad/tests/resources/VAD_demo.wav"
     for chunk in tqdm(
-        resample_stream_file(
+        read_audio_chunks_from_file(
             wav_file, vad.input_sample_rate, chunk_duration=vad.frame_duration
         )
     ):

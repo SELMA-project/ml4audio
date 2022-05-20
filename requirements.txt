@@ -1,7 +1,8 @@
 # misc_utils@git+https://github.com/dertilo/misc-utils@main#egg=misc_utils
-numba==0.53.1 # why this version?
-torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
+Cython
+numba # why this version?
+# torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
 # torchaudio -> # install gpu version
-datasets
-nemo_toolkit[asr,nlp]
-speechbrain
+# datasets
+pytest
+# speechbrain

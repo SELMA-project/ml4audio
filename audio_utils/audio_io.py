@@ -190,6 +190,9 @@ def read_audio_chunks_from_file(
     duration=None,
     chunk_duration=0.05,
 ) -> Iterator[NumpyInt16Dim1]:
+    """
+    formerly named resample_stream_file
+    """
     array = load_and_resample_16bit_PCM(
         audio_filepath, target_sample_rate, offset, duration
     )

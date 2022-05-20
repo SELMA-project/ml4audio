@@ -5,13 +5,16 @@ import numpy as np
 import os
 import librosa
 import matplotlib.pyplot as plt
-from audio_data.speech_utils import torchaudio_info
 
-from nemo_vad.nemo_streaming_vad import NeMoVAD
-from audio_utils.audio_streaming import (
-    break_into_chunks,
-    load_and_resample,
+from audio_utils.audio_io import (
+    read_audio_chunks_from_file,
+    break_array_into_chunks,
+    load_and_resample_16bit_PCM,
+    load_resample_with_nemo,
+    convert_to_16bit_array,
 )
+from audio_utils.torchaudio_utils import torchaudio_info
+from nemo_vad.nemo_streaming_vad import NeMoVAD
 
 
 def offline_inference(vad: NeMoVAD, signal_chunks):
@@ -32,6 +35,9 @@ def offline_inference(vad: NeMoVAD, signal_chunks):
 
 
 def visualize(results, audio, sample_rate, threshold, dur):
+    """
+    copypasted from: https://github.com/NVIDIA/NeMo/blob/main/tutorials/asr/Online_Offline_Microphone_VAD_Demo.ipynb
+    """
     import librosa.display
 
     plt.figure(figsize=[20, 10])
@@ -75,36 +81,39 @@ def visualize(results, audio, sample_rate, threshold, dur):
 
 
 def main():
-    file = "../../audio-classification/sns_classification/tests/resources/VAD_demo.wav"
-    if not os.path.exists(file):
-        os.system(
-            'wget "https://dldata-public.s3.us-east-2.amazonaws.com/VAD_demo.wav" '
-        )
+    file = "nemo_vad/tests/resources/VAD_demo.wav"
+    # if not os.path.exists(file):
+    #     os.system(
+    #         'wget "https://dldata-public.s3.us-east-2.amazonaws.com/VAD_demo.wav" '
+    #     )
 
-    RATE = 16_000
-    speech_array = load_and_resample(file, RATE)
+    sr = 16_000
+    audio = load_resample_with_nemo(file, sr)
+    speech_array = convert_to_16bit_array(audio)
 
-    num_frames, sample_rate = torchaudio_info(file)
-    audio, sample_rate = librosa.load(file, sr=sample_rate)
-    dur = librosa.get_duration(audio)
-    print(dur)
+    num_frames, sample_rate, dur = torchaudio_info(file)
+    # audio, sample_rate = librosa.load(file, sr=sample_rate)
+    # dur = librosa.get_duration(audio)
+    # print(dur)
 
     threshold = 0.2
-    STEP_LIST = [0.01]
-    WINDOW_SIZE_LIST = [0.4]
+    STEP_LIST = [0.01, 0.01]
+    WINDOW_SIZE_LIST = [0.31, 0.15]
 
     results = []
     for STEP, WINDOW_SIZE in zip(
         STEP_LIST,
         WINDOW_SIZE_LIST,
     ):
-        arrays = list(break_into_chunks(speech_array, int(RATE * STEP)))
+
+        arrays = list(break_array_into_chunks(speech_array, int(sr * STEP)))
 
         vad = NeMoVAD(
             threshold=threshold,
             frame_duration=STEP,
             window_len_in_secs=WINDOW_SIZE,
-        )
+            input_sample_rate=sr,
+        ).build()
 
         print(f"====== STEP is {STEP}s, WINDOW_SIZE is {WINDOW_SIZE}s ====== ")
         preds, proba_b, proba_s = offline_inference(
