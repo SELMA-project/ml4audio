@@ -14,7 +14,7 @@ from data_io.readwrite_files import (
     write_jsonl,
     read_jsonl,
 )
-from misc_utils.beartypes import bearify, NeStr
+from misc_utils.beartypes import NeStr
 from misc_utils.buildable import Buildable
 from misc_utils.cached_data import (
     CachedData,
@@ -25,17 +25,14 @@ from misc_utils.dataclass_utils import (
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from misc_utils.utils import TimedIterable, just_try
-from speech_data.asr_corpora import (
+from ml4audio.audio_utils.audio_data_models import (
     AudioTextData,
     ArrayText,
-)
-from blueprints.asr_data_models import (
-    FileLikeAudioDatum,
     FileLikeAudioCorpus,
-    SegmentCorpus,
-    SegmentAnnotation,
-    TranscribedAudioCorpus,
-    TranscribedAudio,
+)
+from ml4audio.audio_utils.audio_io import (
+    FileLikeAudioDatum,
+    load_audio_array_from_filelike,
 )
 
 
@@ -122,6 +119,23 @@ class TarGzTranscripts(CachedData):
             if file_path.endswith(f"{s}/transcripts.txt"):
                 self.todo.pop(self.todo.index(s))
         return len(self.todo) == 0
+
+
+@dataclass
+class TranscribedAudio:
+    audio_datum: FileLikeAudioDatum
+    text: str
+
+
+@dataclass
+class TranscribedAudioCorpus(Iterable[TranscribedAudio]):
+    @property
+    def id(self) -> NeStr:
+        raise NotImplementedError
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[TranscribedAudio]:
+        raise NotImplementedError
 
 
 @dataclass
@@ -241,22 +255,23 @@ class TarGzAudioFileCorpus(FileLikeAudioCorpus, Buildable):
         )
 
 
-@dataclass
-class SegmentsFromTarGzASRCorpus(SegmentCorpus, Buildable):
-    corpus: Union[_UNDEFINED, TarGzASRCorpus] = UNDEFINED
-
-    def __post_init__(self):
-        self.id = bearify(self.build_segment_corpus_id(self.corpus.name), NeStr)
-        self.audiocorpus_id = bearify(self.corpus.name, NeStr)
-        super().__post_init__()
-
-    @classmethod
-    def build_segment_corpus_id(cls, corpus_id):
-        return f"{corpus_id}-segmentation"
-
-    def __iter__(self) -> Iterator[SegmentAnnotation]:
-        for eid in self.corpus.id2transcript.keys():
-            yield SegmentAnnotation(id=eid, audio_id=eid)
+# TODO what was this SegmentsFromTarGzASRCorpus good for?
+# @dataclass
+# class SegmentsFromTarGzASRCorpus(SegmentCorpus, Buildable):
+#     corpus: Union[_UNDEFINED, TarGzASRCorpus] = UNDEFINED
+#
+#     def __post_init__(self):
+#         self.id = bearify(self.build_segment_corpus_id(self.corpus.name), NeStr)
+#         self.audiocorpus_id = bearify(self.corpus.name, NeStr)
+#         super().__post_init__()
+#
+#     @classmethod
+#     def build_segment_corpus_id(cls, corpus_id):
+#         return f"{corpus_id}-segmentation"
+#
+#     def __iter__(self) -> Iterator[SegmentAnnotation]:
+#         for eid in self.corpus.id2transcript.keys():
+#             yield SegmentAnnotation(id=eid, audio_id=eid)
 
 
 # TODO: why would I ever need this extract thing?

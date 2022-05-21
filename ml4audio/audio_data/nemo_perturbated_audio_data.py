@@ -15,7 +15,7 @@ from nemo.collections.asr.parts.preprocessing import (
 )
 from tqdm import tqdm
 
-from ml4audio.audio_data.audio_data_models import AudioData, IdArray
+from ml4audio.audio_utils.audio_data_models import AudioData, IdArray
 from ml4audio.audio_data.nemo_perturbation import (
     apply_nemo_perturbations_with_retry,
     ProbaPerturbationDC,
