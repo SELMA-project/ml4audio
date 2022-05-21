@@ -1,0 +1,13 @@
+nemo_toolkit[asr]
+jiwer
+soundfile
+librosa
+# samplerate
+scipy
+# audiomentations
+# torch-audiomentations
+# pyloudnorm
+# homoglyphs
+# pandas
+matplotlib
+wandb
