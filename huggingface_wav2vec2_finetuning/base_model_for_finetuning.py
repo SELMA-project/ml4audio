@@ -21,7 +21,8 @@ from wav2vec2_finetuning.data_loading.data_collator import DataCollatorCTCWithPa
 @dataclass
 class ModelIdentity:
     """
-    Model To Finetune: name / handle / address
+    formerly known as ModelToFinetune: name / handle / address
+
 
     """
 

@@ -1,26 +1,29 @@
 import sys
 
 from beartype import beartype
-
-from data_loading.stream_ftdataset import IterableASRCorporaDataset
-from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
-from speech_data.asr_corpora import (
-    Auteda,
-)
-from speech_data.mls_corpora import MLSIterableDataset, MLSTarGzTranscripts
-from speech_data.targz_asr_dataset import TarGzArrayText
-
-from hf_wav2vec2_finetuning.finetune_huggingface_wav2vec2 import (
-    HFWav2vec2Finetuner,
-    TrainArgs,
-)
-from hf_wav2vec2_finetuning.finetune_model import FinetuneModel, ModelToFinetune
+#
+# from data_loading.stream_ftdataset import IterableASRCorporaDataset
+# from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+# from speech_data.asr_corpora import (
+#     Auteda,
+# )
+# from speech_data.mls_corpora import MLSIterableDataset, MLSTarGzTranscripts
+# from speech_data.targz_asr_dataset import TarGzArrayText
+#
+# from hf_wav2vec2_finetuning.finetune_huggingface_wav2vec2 import (
+#     HFWav2vec2Finetuner,
+#     TrainArgs,
+# )
+# from hf_wav2vec2_finetuning.finetune_model import FinetuneModel, ModelToFinetune
+#
+from huggingface_wav2vec2_finetuning.base_model_for_finetuning import \
+    BaseModelForFinetuning, ModelIdentity
 
 
 @beartype
 def create_finetuner(
     run_name_for_wandb: str,
-    model_to_finetune: ModelToFinetune,
+    model_to_finetune: ModelIdentity,
     train_corpus: Auteda,
     eval_corpus: Auteda,
     do_normalize_audio: bool,
@@ -29,7 +32,7 @@ def create_finetuner(
         # TranscodePerturbationDC(0.5),
         # SoxPerturbations(proba=0.75),
     ]
-    fm = FinetuneModel(
+    fm = BaseModelForFinetuning(
         model_to_finetune=model_to_finetune,
         text_normalizer="de",
         new_vocab=None,
