@@ -2,18 +2,11 @@
 # coding: utf-8
 
 import numpy as np
-import os
-import librosa
 import matplotlib.pyplot as plt
 
-from audio_utils.audio_io import (
-    read_audio_chunks_from_file,
-    break_array_into_chunks,
-    load_and_resample_16bit_PCM,
-    load_resample_with_nemo,
-    convert_to_16bit_array,
-)
-from audio_utils.torchaudio_utils import torchaudio_info
+from ml4audio.audio_utils.audio_io import load_resample_with_nemo, \
+    convert_to_16bit_array, break_array_into_chunks
+from ml4audio.audio_utils.torchaudio_utils import torchaudio_info
 from nemo_vad.nemo_streaming_vad import NeMoVAD
 
 

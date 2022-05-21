@@ -1,6 +1,5 @@
 from typing import Optional
 
-import icdiff as icdiff
 from beartype import beartype
 
 from ml4audio.text_processing.smith_waterman_alignment import align_split
@@ -14,6 +13,7 @@ def smithwaterman_aligned_icdiff(
     ref_header: Optional[str] = "ref",
     hyp_header: Optional[str] = "hyp",
 ):
+    import icdiff
     refs, hyps = align_split(ref, hyp, split_len_a=split_len_a, debug=False)
     cd = icdiff.ConsoleDiff(cols=2 * split_len_a + 20)
 
