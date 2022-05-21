@@ -140,6 +140,9 @@ class TranscribedAudioCorpus(Iterable[TranscribedAudio]):
 
 @dataclass
 class TarGzASRCorpus(TranscribedAudioCorpus, Buildable):
+    """
+    TODO: better naming!
+    """
     targztranscripts: Union[_UNDEFINED, TarGzTranscripts] = UNDEFINED
     split: str = "dev"
 

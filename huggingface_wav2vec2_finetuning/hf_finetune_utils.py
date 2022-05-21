@@ -10,6 +10,7 @@ from misc_utils.beartypes import NumpyFloat1DArray
 
 SILENCE_SYMBOL = "|"
 
+
 def detecting_last_checkpoint(training_args, logger):
     last_checkpoint = None
     if (

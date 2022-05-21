@@ -13,14 +13,13 @@ from typing import Union, Optional, Any
 import wandb
 
 from data_io.readwrite_files import read_json
-from wav2vec2_finetuning.data_loading.data_loading_commons import IterableDatasetBase
-from wav2vec2_finetuning.data_loading.file_consuming_dataset import FileConsumingDataset
-from wav2vec2_finetuning.data_loading.file_reading_dataset import FileReadingDataset
-from wav2vec2_finetuning.data_production.data_producer_vanilla import (
-    MaxLenDataProducer,
+
+from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
+    BaseModelForFinetuning,
 )
-from wav2vec2_finetuning.data_production.traindata_commons import DataProducerBase
-from wav2vec2_finetuning.hf_wav2vec2_finetuning.hf_finetune_utils import setup_logging
+from huggingface_wav2vec2_finetuning.ctc_trainer import CTCTrainer
+from huggingface_wav2vec2_finetuning.data_loading_commons import IterableDatasetBase
+from huggingface_wav2vec2_finetuning.hf_finetune_utils import setup_logging
 from misc_utils.buildable import Buildable
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import (
@@ -47,10 +46,6 @@ from transformers import (
 )
 from transformers.trainer_utils import is_main_process
 
-from wav2vec2_finetuning.hf_wav2vec2_finetuning.finetune_model import (
-    BaseModelForFinetuning,
-)
-from wav2vec2_finetuning.hf_wav2vec2_finetuning.ctc_trainer import CTCTrainer
 
 torch.set_num_threads(4)
 
@@ -97,22 +92,6 @@ class TrainArgs(Buildable):
 
 
 @dataclass
-class FineTunersIndirectDependencies:
-    """
-    NOT buildable! collect dependencies only for documentation and hashing purposes! to prevent cache clashes!
-    """
-
-    train_data_producer: Union[DataProducerBase, dict]
-
-    def __post_init__(self):
-        s = serialize_dataclass(self.train_data_producer)
-        s = s.replace(
-            "_target_", CLASS_REF_NO_INSTANTIATE
-        )  # to prevent deserialization!
-        self.train_data_producer = json.loads(s)
-
-
-@dataclass
 class HFWav2vec2Finetuner(CachedData):
     """
     runs the finetuning-experiment, training + evaluation
@@ -120,7 +99,6 @@ class HFWav2vec2Finetuner(CachedData):
 
     BASE_PATH: str = "some-where"
     finetune_model: Union[_UNDEFINED, BaseModelForFinetuning] = UNDEFINED
-    indirect_dependencies: Optional[FineTunersIndirectDependencies] = None
     train_dataset: Optional[IterableDatasetBase] = None
     eval_dataset: Optional[torch.utils.data.Dataset] = None
 

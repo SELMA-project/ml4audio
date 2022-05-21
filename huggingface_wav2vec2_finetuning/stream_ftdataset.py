@@ -1,19 +1,16 @@
 import itertools
 from dataclasses import dataclass
-from typing import Optional, List, Iterator, Union
+from typing import Optional, Iterator, Union
 
 import math
-import numpy as np
 import torch
-from transformers import Wav2Vec2Processor
 
+from huggingface_wav2vec2_finetuning.data_loading_commons import IterableDatasetBase
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
 from misc_utils.utils import buffer_shuffle
 
-from speech_data.asr_corpora import ArrayText, Auteda
-from text_processing.asr_text_normalization import normalize_filter_text
-from wav2vec2_finetuning.data_loading.data_loading_commons import IterableDatasetBase
+from ml4audio.audio_utils.audio_data_models import AudioTextData, ArrayText
 
 
 def calc_this_workers_start_end(start, end):
@@ -35,7 +32,7 @@ def calc_this_workers_start_end(start, end):
 
 @dataclass
 class IterableASRCorporaDataset(IterableDatasetBase, Buildable):
-    corpus: Union[_UNDEFINED, Auteda] = UNDEFINED
+    corpus: Union[_UNDEFINED, AudioTextData] = UNDEFINED
     limit: Optional[int] = None
     shufflebuffer_size: Optional[int] = None
 

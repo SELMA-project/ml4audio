@@ -1,31 +1,28 @@
-import sys
+import os
 
 from beartype import beartype
-#
-# from data_loading.stream_ftdataset import IterableASRCorporaDataset
-# from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
-# from speech_data.asr_corpora import (
-#     Auteda,
-# )
-# from speech_data.mls_corpora import MLSIterableDataset, MLSTarGzTranscripts
-# from speech_data.targz_asr_dataset import TarGzArrayText
-#
-# from hf_wav2vec2_finetuning.finetune_huggingface_wav2vec2 import (
-#     HFWav2vec2Finetuner,
-#     TrainArgs,
-# )
-# from hf_wav2vec2_finetuning.finetune_model import FinetuneModel, ModelToFinetune
-#
-from huggingface_wav2vec2_finetuning.base_model_for_finetuning import \
-    BaseModelForFinetuning, ModelIdentity
+
+from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
+    BaseModelForFinetuning,
+    ModelIdentity,
+)
+from huggingface_wav2vec2_finetuning.huggingface_wav2vec2_finetuner import (
+    TrainArgs,
+    HFWav2vec2Finetuner,
+)
+from huggingface_wav2vec2_finetuning.stream_ftdataset import IterableASRCorporaDataset
+from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+from ml4audio.audio_data.mls_corpora import MLSIterableDataset, MLSTarGzTranscripts
+from ml4audio.audio_data.targz_asr_dataset import TarGzArrayText
+from ml4audio.audio_utils.audio_data_models import AudioTextData
 
 
 @beartype
 def create_finetuner(
     run_name_for_wandb: str,
     model_to_finetune: ModelIdentity,
-    train_corpus: Auteda,
-    eval_corpus: Auteda,
+    train_corpus: AudioTextData,
+    eval_corpus: AudioTextData,
     do_normalize_audio: bool,
 ):
     augmentations = [
@@ -80,8 +77,10 @@ def create_finetuner(
 
 if __name__ == "__main__":
 
+    base_path = os.environ["BASE_PATH"]
+    data_root = os.environ["DATA_ROOT"]
     cache_root = f"{base_path}/data/cache"
-    BASE_PATHES["data_root"] = "/p/project/selma-test/data"
+    BASE_PATHES["data_root"] = data_root
     BASE_PATHES["cache_root"] = cache_root
     BASE_PATHES["base_path"] = base_path
     BASE_PATHES["finetune_training"] = PrefixSuffix("cache_root", f"FINETUNE_TRAINING")
@@ -93,9 +92,7 @@ if __name__ == "__main__":
     experiments = (
         finetune_task
         for model_to_finetune in [
-            ModelToFinetune(
-                "jonatasgrosman/wav2vec2-large-xlsr-53-german"
-            ),
+            ModelIdentity("jonatasgrosman/wav2vec2-large-xlsr-53-german"),
         ]
         for eval_corpus in [
             TarGzArrayText(
@@ -105,6 +102,7 @@ if __name__ == "__main__":
                     ),
                     split="test",
                 ),
+                sample_rate=16000,
             )
         ]
         for train_corpus in [
@@ -115,6 +113,7 @@ if __name__ == "__main__":
                     ),
                     split="train",
                 ),
+                sample_rate=16000,
             )
         ]
         for norm_audio in [True]

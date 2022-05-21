@@ -11,7 +11,7 @@ from transformers.trainer_pt_utils import (
     DistributedLengthGroupedSampler,
 )
 
-from wav2vec2_finetuning.data_loading.data_collator import DataCollatorCTCWithPadding
+from huggingface_wav2vec2_finetuning.data_collator import DataCollatorCTCWithPadding
 
 
 def dummpy_step(**kwargs):
@@ -102,7 +102,9 @@ class CTCTrainer(Trainer):
         return loss_d
 
     def _get_train_sampler(self) -> Optional[torch.utils.data.sampler.Sampler]:
-
+        """
+        TODO!
+        """
         if self.args.group_by_length:
             lengths = self.train_dataset.precomputed_lengths
             model_input_name = (

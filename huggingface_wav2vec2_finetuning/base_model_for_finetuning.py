@@ -8,14 +8,14 @@ import torch.nn
 from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC, Wav2Vec2CTCTokenizer
 
 from data_io.readwrite_files import read_json
+from huggingface_wav2vec2_finetuning.data_collator import DataCollatorCTCWithPadding
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import (
     _UNDEFINED,
     UNDEFINED,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
-from text_processing.asr_text_normalization import TranscriptNormalizer, Casing
-from wav2vec2_finetuning.data_loading.data_collator import DataCollatorCTCWithPadding
+from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
 
 
 @dataclass
@@ -29,6 +29,7 @@ class ModelIdentity:
     name: Union[_UNDEFINED, PrefixSuffix, str] = UNDEFINED
     model_name_or_path: Union[_UNDEFINED, PrefixSuffix, str] = UNDEFINED
 
+
 def copy_jsons_into_checkpoint_dir(one_dir_above: str, dirr: str):
     needed_files = [
         "preprocessor_config.json",
@@ -41,6 +42,7 @@ def copy_jsons_into_checkpoint_dir(one_dir_above: str, dirr: str):
         if not os.path.isfile(f"{dirr}/{f}"):
             assert os.path.isfile(file_one_dir_above), file_one_dir_above
             shutil.copy(file_one_dir_above, f"{dirr}/{f}")
+
 
 @dataclass
 class BaseModelForFinetuning(CachedData):

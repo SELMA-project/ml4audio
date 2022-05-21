@@ -18,7 +18,6 @@ from huggingface_wav2vec2_finetuning.hf_finetune_utils import (
     feature_extraction_tokenization_of_train_sample,
 )
 
-sys.path.append("../../audiopolylith/audiomonolith/wav2vec2_finetuning/data_loading")
 
 from typing import Union, Optional, Iterator, Iterable
 
@@ -112,6 +111,3 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
             array, text, self.finetune_model.processor
         )
         return datum
-
-
-
