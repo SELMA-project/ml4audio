@@ -15,13 +15,15 @@ from nemo.collections.asr.parts.preprocessing import (
 )
 from tqdm import tqdm
 
-from audio_data.audio_data_models import AudioData, IdArray
-from audio_data.nemo_perturbation import apply_nemo_perturbations_with_retry, \
-    ProbaPerturbationDC
-from audio_utils.audio_io import (
+from ml4audio.audio_data.audio_data_models import AudioData, IdArray
+from ml4audio.audio_data.nemo_perturbation import (
+    apply_nemo_perturbations_with_retry,
+    ProbaPerturbationDC,
+)
+from ml4audio.audio_utils.audio_io import (
     normalize_audio_array,
 )
-from audio_utils.torchaudio_utils import torchaudio_resample, torchaudio_load
+from ml4audio.audio_utils.torchaudio_utils import torchaudio_resample, torchaudio_load
 from misc_utils.beartypes import (
     NumpyFloat1DArray,
 )

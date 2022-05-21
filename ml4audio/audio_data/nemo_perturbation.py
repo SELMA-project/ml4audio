@@ -15,17 +15,18 @@ from nemo.collections.asr.parts.preprocessing import (
     AudioAugmentor,
 )
 
-from audio_utils.audio_io import normalize_audio_array
+from ml4audio.audio_utils.audio_io import normalize_audio_array
 from misc_utils.beartypes import NumpyFloat1DArray
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
-from audio_data.sox_signal_augmentation import (
+from ml4audio.audio_data.sox_signal_augmentation import (
     add_signals,
     build_sox_distortions_piped,
     build_random_bandpass_cutoffs,
     build_dynamic_noise,
 )
-from audio_data.sox_signal_augmentation import build_random_noise
-from audio_data.sox_signal_augmentation import varying_gain_pert
+from ml4audio.audio_data.sox_signal_augmentation import build_random_noise
+from ml4audio.audio_data.sox_signal_augmentation import varying_gain_pert
+
 
 @dataclass
 class ProbaPerturbationDC(Perturbation):
@@ -183,8 +184,6 @@ class SingleSox(SoxPerturbations):
         pert_params = {"pitch": self.pitch}
         sox_pipe = build_sox_distortions_piped(original_file, pert_params)
         return f"sox <({sox_pipe}) -b 16 {augmented_file}"
-
-
 
 
 @beartype

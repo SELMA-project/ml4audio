@@ -1,4 +1,3 @@
-import io
 import json
 import os
 from dataclasses import dataclass
@@ -9,10 +8,10 @@ from typing import Optional, Union, Iterator, Any
 import numpy as np
 from beartype import beartype
 
-from audio_utils.torchaudio_utils import load_resample_with_torch
+from ml4audio.audio_utils.torchaudio_utils import load_resample_with_torch
 from misc_utils.beartypes import NumpyFloat1DArray, NumpyInt16Dim1, Numpy1DArray
 from misc_utils.processing_utils import exec_command
-from misc_utils.utils import get_val_from_nested_dict, NOT_EXISTING, just_try
+from misc_utils.utils import get_val_from_nested_dict, NOT_EXISTING
 
 MAX_16_BIT_PCM: float = float(2 ** 15)  # 32768.0 for 16 bit, see "format"
 

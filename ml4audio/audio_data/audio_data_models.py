@@ -29,4 +29,3 @@ class AudioData(Iterable[IdArray]):
     @abstractmethod
     def __iter__(self) -> Iterator[IdArray]:
         raise NotImplementedError
-

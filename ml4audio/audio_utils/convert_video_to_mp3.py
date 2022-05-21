@@ -4,7 +4,7 @@ from typing import Iterable, Union
 
 from tqdm import tqdm
 
-from audio_utils.audio_io import extract_streams_from_video_file
+from ml4audio.audio_utils.audio_io import extract_streams_from_video_file
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
 from misc_utils.prefix_suffix import PrefixSuffix
