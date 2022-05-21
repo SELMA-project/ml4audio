@@ -10,6 +10,8 @@ from transformers import Wav2Vec2Processor
 @dataclass
 class DataCollatorCTCWithPadding:
     """
+    based on: https://github.com/huggingface/transformers/blob/b9bb417324c0d9013c505dc39c016ab9ca0e23c8/examples/research_projects/wav2vec2/run_common_voice.py#L143
+
     Data collator that will dynamically pad the inputs received.
     Args:
         processor (:class:`~transformers.Wav2Vec2Processor`)
@@ -41,26 +43,22 @@ class DataCollatorCTCWithPadding:
     pad_to_multiple_of_labels: Optional[int] = None
     some_batch: Optional[Any] = None
 
-    def __call__(
-        self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
-    ) -> Dict[str, torch.Tensor]:
+    def _process_pad(self, features):
         # split inputs and labels since they have to be of different lenghts and need
         # different padding methods
-        try:
-            input_features = [
-                {"input_values": feature["input_values"]} for feature in features
-            ]
-            label_features = [{"input_ids": feature["labels"]} for feature in features]
+        input_features = [
+            {"input_values": feature["input_values"]} for feature in features
+        ]
+        label_features = [{"input_ids": feature["labels"]} for feature in features]
 
-            self.processor.current_processor = self.processor.feature_extractor
-            batch = self.processor.pad(
-                input_features,
-                padding=self.padding,
-                max_length=self.max_length,
-                pad_to_multiple_of=self.pad_to_multiple_of,
-                return_tensors="pt",
-            )
-            self.processor.current_processor = self.processor.tokenizer
+        batch = self.processor.pad(
+            input_features,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors="pt",
+        )
+        with self.processor.as_target_processor():
             labels_batch = self.processor.pad(
                 label_features,
                 padding=self.padding,
@@ -69,12 +67,22 @@ class DataCollatorCTCWithPadding:
                 return_tensors="pt",
             )
 
-            # replace padding with -100 to ignore loss correctly
-            labels = labels_batch["input_ids"].masked_fill(
-                labels_batch.attention_mask.ne(1), -100
-            )
+        # replace padding with -100 to ignore loss correctly
+        labels = labels_batch["input_ids"].masked_fill(
+            labels_batch.attention_mask.ne(1), -100
+        )
+        batch["labels"] = labels
+        return batch
 
-            batch["labels"] = labels
+    def __call__(
+        self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
+        """
+        TODO(tilo): why did I want a try-except here?
+        """
+
+        try:
+            batch = self._process_pad(features)
             if self.some_batch is None:
                 self.some_batch = batch
 
