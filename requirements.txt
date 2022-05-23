@@ -1,8 +1,7 @@
-# misc_utils@git+https://github.com/dertilo/misc-utils@main#egg=misc_utils
+misc_utils@git+https://github.com/dertilo/misc-utils@main#egg=misc_utils
 Cython
-numba # why this version?
+numba
 # torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
 # torchaudio -> # install gpu version
 # datasets
-pytest
 # speechbrain

@@ -18,7 +18,7 @@ with open("README.md") as f:
 
 
 setup(
-    name="hugging_nemo_brain",
+    name="ml4audio",
     version="0.1",
     author="Tilo Himmelsbach",
     author_email="dertilo@gmail.com",
