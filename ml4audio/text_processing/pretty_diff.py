@@ -14,6 +14,7 @@ def smithwaterman_aligned_icdiff(
     hyp_header: Optional[str] = "hyp",
 ):
     import icdiff
+
     refs, hyps = align_split(ref, hyp, split_len_a=split_len_a, debug=False)
     cd = icdiff.ConsoleDiff(cols=2 * split_len_a + 20)
 

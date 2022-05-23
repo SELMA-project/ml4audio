@@ -2,10 +2,13 @@ import abc
 import re
 import string
 
-from ml4audio.text_processing.character_mappings.character_maps import \
-    ENGLISH_CHARACTER_MAPPING, PUNCTUATION_MAPPING
-from ml4audio.text_processing.character_mappings.not_str_translatable_maps import \
-    SAME_SAME_BUT_DIFFERENT
+from ml4audio.text_processing.character_mappings.character_maps import (
+    ENGLISH_CHARACTER_MAPPING,
+    PUNCTUATION_MAPPING,
+)
+from ml4audio.text_processing.character_mappings.not_str_translatable_maps import (
+    SAME_SAME_BUT_DIFFERENT,
+)
 
 
 class PluginNameConflictError(BaseException):

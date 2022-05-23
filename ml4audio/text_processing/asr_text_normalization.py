@@ -21,8 +21,9 @@ from misc_utils.dataclass_utils import (
 #     if not all(bad_keys):
 #         raise ValueError(f"{bad_keys} do not have len of 1!")
 #     return mapping
-from ml4audio.text_processing.character_mappings.character_mapping import \
-    CHARACTER_MAPPINGS
+from ml4audio.text_processing.character_mappings.character_mapping import (
+    CHARACTER_MAPPINGS,
+)
 
 SILENCE_SYMBOL = "|"
 # PUNCTUATION.replace(SILENCE_SYMBOL, "") # how to handle explicit silence? with space or silence-symbol?

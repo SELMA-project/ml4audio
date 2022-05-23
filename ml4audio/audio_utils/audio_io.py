@@ -175,6 +175,19 @@ def break_array_into_chunks(
         yield out
 
 
+@dataclass
+class VarsizeNonOverlapChunker:
+    array: Numpy1DArray
+
+    def get_chunk(self, chunk_size: int) -> Optional[Numpy1DArray]:
+        if len(self.array) > 0:
+            out = self.array[:chunk_size]
+            self.array = self.array[chunk_size:]
+        else:
+            out = None
+        return out
+
+
 @beartype
 def read_audio_chunks_from_file(
     audio_filepath: str,

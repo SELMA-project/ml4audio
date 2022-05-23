@@ -14,7 +14,7 @@ from data_io.readwrite_files import (
     write_jsonl,
     read_jsonl,
 )
-from misc_utils.beartypes import NeStr
+from misc_utils.beartypes import NeStr, bearify
 from misc_utils.buildable import Buildable
 from misc_utils.cached_data import (
     CachedData,
@@ -29,6 +29,8 @@ from ml4audio.audio_utils.audio_data_models import (
     AudioTextData,
     ArrayText,
     FileLikeAudioCorpus,
+    SegmentCorpus,
+    SegmentAnnotation,
 )
 from ml4audio.audio_utils.audio_io import (
     FileLikeAudioDatum,
@@ -143,6 +145,7 @@ class TarGzASRCorpus(TranscribedAudioCorpus, Buildable):
     """
     TODO: better naming!
     """
+
     targztranscripts: Union[_UNDEFINED, TarGzTranscripts] = UNDEFINED
     split: str = "dev"
 
@@ -259,22 +262,22 @@ class TarGzAudioFileCorpus(FileLikeAudioCorpus, Buildable):
 
 
 # TODO what was this SegmentsFromTarGzASRCorpus good for?
-# @dataclass
-# class SegmentsFromTarGzASRCorpus(SegmentCorpus, Buildable):
-#     corpus: Union[_UNDEFINED, TarGzASRCorpus] = UNDEFINED
-#
-#     def __post_init__(self):
-#         self.id = bearify(self.build_segment_corpus_id(self.corpus.name), NeStr)
-#         self.audiocorpus_id = bearify(self.corpus.name, NeStr)
-#         super().__post_init__()
-#
-#     @classmethod
-#     def build_segment_corpus_id(cls, corpus_id):
-#         return f"{corpus_id}-segmentation"
-#
-#     def __iter__(self) -> Iterator[SegmentAnnotation]:
-#         for eid in self.corpus.id2transcript.keys():
-#             yield SegmentAnnotation(id=eid, audio_id=eid)
+@dataclass
+class SegmentsFromTarGzASRCorpus(SegmentCorpus, Buildable):
+    corpus: Union[_UNDEFINED, TarGzASRCorpus] = UNDEFINED
+
+    def __post_init__(self):
+        self.id = bearify(self.build_segment_corpus_id(self.corpus.name), NeStr)
+        self.audiocorpus_id = bearify(self.corpus.name, NeStr)
+        super().__post_init__()
+
+    @classmethod
+    def build_segment_corpus_id(cls, corpus_id):
+        return f"{corpus_id}-segmentation"
+
+    def __iter__(self) -> Iterator[SegmentAnnotation]:
+        for eid in self.corpus.id2transcript.keys():
+            yield SegmentAnnotation(id=eid, audio_id=eid)
 
 
 # TODO: why would I ever need this extract thing?
