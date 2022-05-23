@@ -1,0 +1,5 @@
+misc-utils@git+https://github.com/dertilo/misc-utils.git#egg=misc-utils
+python-multipart
+nemo_toolkit[nlp]
+uvicorn[standard]
+fastapi
