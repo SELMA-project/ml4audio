@@ -11,6 +11,7 @@ from typing import (
 from misc_utils.beartypes import (
     NumpyFloat1DArray,
     NeStr,
+    NumpyInt16Dim1,
 )
 from misc_utils.dataclass_utils import FillUndefined, _UNDEFINED, UNDEFINED
 from misc_utils.utils import Singleton
@@ -19,6 +20,8 @@ ArrayText = tuple[NumpyFloat1DArray, NeStr]
 
 
 IdArray = tuple[NeStr, NumpyFloat1DArray]
+IdInt16Array = tuple[NeStr, NumpyInt16Dim1]
+
 IdText = tuple[NeStr, NeStr]
 
 
