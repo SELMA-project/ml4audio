@@ -10,13 +10,12 @@ TARGET_SAMPLE_RATE = 16000
 
 
 def test_GreedyDecoder(
-    vocab,
+    hfwav2vec2_base_tokenizer,
     librispeech_logtis_file,
     librispeech_ref,
 ):
-    tokenizer = Wav2Vec2CTCTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
     logits = np.load(librispeech_logtis_file, allow_pickle=True)
-    decoder = GreedyDecoder(tokenizer=tokenizer)
+    decoder = GreedyDecoder(tokenizer=hfwav2vec2_base_tokenizer)
     transcript = decoder.decode(torch.from_numpy(logits.squeeze()))[0]
     hyp = transcript.text
 

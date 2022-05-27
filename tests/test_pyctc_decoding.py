@@ -78,6 +78,7 @@ tn = TranscriptNormalizer(
     ],
 )
 def test_PyCTCKenLMDecoder(
+    hfwav2vec2_base_tokenizer,
     lm_data: KenLMForPyCTCDecode,
     max_cer: float,
     librispeech_logtis_file,
@@ -85,16 +86,15 @@ def test_PyCTCKenLMDecoder(
 ):
 
     logits = np.load(librispeech_logtis_file, allow_pickle=True)
-    print(f"{logits.shape=}")
 
     decoder = PyCTCKenLMDecoder(
+        tokenizer=hfwav2vec2_base_tokenizer,
         lm_weight=1.0,
         beta=0.5,
-        vocab=get_test_vocab(),  # WTF!
         lm_data=lm_data,
     )
     decoder.build()
-    transcript = decoder.decode_batch(torch.from_numpy(logits))[0][0]
+    transcript = decoder.decode(torch.from_numpy(logits.squeeze()))[0]
 
     hyp = transcript.text
     cd = icdiff.ConsoleDiff(cols=120)

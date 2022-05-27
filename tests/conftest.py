@@ -2,6 +2,7 @@
 from warnings import filterwarnings
 
 from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
+from transformers import Wav2Vec2CTCTokenizer
 
 from misc_utils.beartypes import NumpyInt16Dim1, NeStr
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import HfCheckpoint
@@ -76,6 +77,10 @@ Z""".split(
 def vocab():
     return get_test_vocab()
 
+@pytest.fixture
+def hfwav2vec2_base_tokenizer():
+    tokenizer = Wav2Vec2CTCTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
+    return tokenizer
 
 @pytest.fixture
 def hfwav2vec2_base_logits_inferencer(request):
