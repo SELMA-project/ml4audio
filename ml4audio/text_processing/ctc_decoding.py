@@ -3,6 +3,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional, Union
 
+import torch
 from beartype import beartype
 from misc_utils.beartypes import TorchTensor3D, TorchTensor2D
 from misc_utils.buildable import Buildable
@@ -177,9 +178,36 @@ class BaseCTCDecoder(Buildable):
     def silence_str(self) -> str:
         return self.vocab[self.silence_idx]
 
+NoneType = type(None)
+
+@dataclass
+class GreedyDecoder(BaseCTCDecoder):
+
+    lm_weight: NoneType = field(default=None, init=False, repr=False)
+    beta: NoneType = field(default=None, init=False, repr=False)
+    num_best: int = field(default=1, init=False, repr=False)
+    beam_size: NoneType = field(default=None, init=False, repr=False)
+
+    @beartype
+    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
+        greedy_path = torch.argmax(ctc_matrix, dim=-1)
+
+        letters = get_prefix(
+            idxs=greedy_path.tolist(),
+            blank_idx=self.blank_idx,
+            silence_idx=self.silence_idx,
+            vocab=self.vocab,
+        )
+        return [
+            LogitAlignedTranscript(
+                text="".join([le for _, le in letters]),
+                logit_ids=[idx for idx, _ in letters],
+            )
+        ]
 
 def map_label(label: str) -> str:
     """
+    TODO: not used anymore?
     Maps the wav2vec2 (characters) vocabulary to pyctcdecoders.
 
     :param label: some letter, character
