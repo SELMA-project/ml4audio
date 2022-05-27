@@ -1,10 +1,15 @@
 import itertools
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 import torch
 from beartype import beartype
+from transformers import Wav2Vec2CTCTokenizer, PreTrainedTokenizer
+from transformers.models.wav2vec2.tokenization_wav2vec2 import (
+    Wav2Vec2CTCTokenizerOutput,
+)
+
 from misc_utils.beartypes import TorchTensor3D, TorchTensor2D
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
@@ -142,7 +147,18 @@ BatchOfAlignedBeams = list[AlignedBeams]
 
 
 @dataclass
-class BaseCTCDecoder(Buildable):
+class BaseCTCDecoder:
+    tokenizer: PreTrainedTokenizer
+
+    @abstractmethod
+    def decode(
+        self, ctc_matrix: TorchTensor2D, state: Optional[Any] = None
+    ) -> AlignedBeams:
+        raise NotImplementedError
+
+
+@dataclass
+class LMCTCDecoder(BaseCTCDecoder):
     """Abstract base-class for ctc-decoders."""
 
     lm_weight: Union[_UNDEFINED, float] = UNDEFINED
@@ -162,48 +178,42 @@ class BaseCTCDecoder(Buildable):
         self.blank_idx = char2idx.get("<pad>", char2idx.get("<s>"))
         self.silence_idx = calc_silence_index(char2idx)
 
-    @abstractmethod
-    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
-        raise NotImplementedError
-
-    def decode_batch(self, batched_ctc_matrix: TorchTensor3D) -> BatchOfAlignedBeams:
-        batch_size, _seq_len, _vocab_size = batched_ctc_matrix.size()
-        beams = [
-            self.decode(batched_ctc_matrix[batch_idx].squeeze())
-            for batch_idx in range(batch_size)
-        ]
-        return beams
-
     @property
     def silence_str(self) -> str:
         return self.vocab[self.silence_idx]
 
+
 NoneType = type(None)
+
 
 @dataclass
 class GreedyDecoder(BaseCTCDecoder):
+    """
+    huggingface does not have a "proper" greedy decoder, but does argmax somewhere in the asr-pipeline
+    see: https://github.com/huggingface/transformers/blob/7999ec125fc31428ed6879bf01bb013483daf704/src/transformers/pipelines/automatic_speech_recognition.py#L323
 
-    lm_weight: NoneType = field(default=None, init=False, repr=False)
-    beta: NoneType = field(default=None, init=False, repr=False)
-    num_best: int = field(default=1, init=False, repr=False)
-    beam_size: NoneType = field(default=None, init=False, repr=False)
+    method called: convert_tokens_to_string in tokenization_wav2vec2
+    see: https://github.com/huggingface/transformers/blob/7999ec125fc31428ed6879bf01bb013483daf704/src/transformers/models/wav2vec2/tokenization_wav2vec2.py#L254
+    does ctc to text conversion (collapsing the sequence)
+    """
 
     @beartype
-    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
-        greedy_path = torch.argmax(ctc_matrix, dim=-1)
+    def decode(
+        self, ctc_matrix: TorchTensor2D, state: Optional[Any] = None
+    ) -> AlignedBeams:
 
-        letters = get_prefix(
-            idxs=greedy_path.tolist(),
-            blank_idx=self.blank_idx,
-            silence_idx=self.silence_idx,
-            vocab=self.vocab,
+        greedy_path = torch.argmax(ctc_matrix, dim=-1).squeeze()
+        out: Wav2Vec2CTCTokenizerOutput = self.tokenizer.decode(  # noqa
+            token_ids=greedy_path, output_char_offsets=True
         )
+        char_offsets: list[dict] = out.char_offsets
         return [
             LogitAlignedTranscript(
-                text="".join([le for _, le in letters]),
-                logit_ids=[idx for idx, _ in letters],
+                text="".join([d["char"] for d in char_offsets]),
+                logit_ids=[int(d["start_offset"]) for d in char_offsets],
             )
         ]
+
 
 def map_label(label: str) -> str:
     """
