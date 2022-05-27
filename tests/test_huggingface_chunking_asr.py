@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from math import floor, ceil
 from time import time
 from typing import Iterable
@@ -8,7 +9,7 @@ import torch
 from beartype import beartype
 
 from conftest import get_test_cache_base
-from misc_utils.beartypes import NumpyFloat1DArray, TorchTensor2D
+from misc_utils.beartypes import NumpyFloat1DArray, TorchTensor2D, NumpyFloat2DArray
 from misc_utils.prefix_suffix import BASE_PATHES
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
@@ -35,11 +36,12 @@ BASE_PATHES["asr_inference"] = get_test_cache_base()
 StartEnd = tuple[int, int]
 
 
+"""
 @beartype
-def chunks_from_audio_array(audio: NumpyFloat1DArray, chunk_len: int, step: int):
-    """
+def hf_original_chunking_method(audio: NumpyFloat1DArray, chunk_len: int, step: int):
+    
     based on: https://github.com/huggingface/transformers/blob/215e0681e4c3f6ade6e219d022a5e640b42fcb76/src/transformers/pipelines/automatic_speech_recognition.py#L53
-    """
+    
     inputs_len = audio.shape[0]
     stride_left = chunk_len - step
     for fi in range(0, inputs_len, step):
@@ -52,6 +54,7 @@ def chunks_from_audio_array(audio: NumpyFloat1DArray, chunk_len: int, step: int)
                 "audio_slice": (fi, fi + len(chunk)),
                 "chunk": chunk,
             }
+"""
 
 
 @beartype
@@ -69,11 +72,6 @@ def hf_chunking_preprocessing(
     small_chunks = break_array_into_chunks(audio_array, int(sr * 0.1))
     chunks_g = (
         am
-        # {
-        #     "chunk": am.audio_array.astype(np.float32) / MAX_16_BIT_PCM,
-        #     "is_last": am.end_of_signal,
-        #     "audio_slice": (am.frame_idx, am.frame_idx + len(am.audio_array)),
-        # }
         for ch in audio_messages_from_chunks("dummy-id", small_chunks)
         for am in chunker.handle_datum(ch)
     )
@@ -81,18 +79,18 @@ def hf_chunking_preprocessing(
 
 
 @beartype
-def _hf_postprocess(model_outputs: Iterable[dict], tokenizer):
+def _hf_postprocess(
+    model_outputs: Iterable[tuple[TorchTensor2D, tuple[int, int]]], tokenizer
+):
     """
     based on: https://github.com/huggingface/transformers/blob/215e0681e4c3f6ade6e219d022a5e640b42fcb76/src/transformers/pipelines/automatic_speech_recognition.py#L337
     """
     ttype = "ctc"
 
     buffer = []
-    key = "logits"
     last_end = 0
-    for outputs in model_outputs:
-        logits: TorchTensor2D = outputs[key]
-        a_start, a_end = outputs.pop("audio_slice")
+    for logits, (a_start, a_end) in model_outputs:
+        # logits: TorchTensor2D
         audio_slice_len = a_end - a_start
         logit_window_len = logits.shape[0]
         audio_to_logits_ratio = audio_slice_len / logit_window_len
@@ -106,23 +104,23 @@ def _hf_postprocess(model_outputs: Iterable[dict], tokenizer):
 
         buffer.append(logits[floor(logits_overlap / 2) :].numpy())
         last_end = a_end
+    return _greedy_decode(tokenizer, buffer)
 
+
+@beartype
+def _greedy_decode(tokenizer, buffer: list[NumpyFloat2DArray]):
     items = np.concatenate(buffer, axis=0)
-    if ttype == "ctc":
-        items = items.argmax(axis=-1)
+    items = items.argmax(axis=-1)
 
-    skip_special_tokens = ttype != "ctc"
+    skip_special_tokens = False
     text = tokenizer.decode(items, skip_special_tokens=skip_special_tokens)
-
-    return {"text": text}
+    return text
 
 
 def _hf_forward(inferencer: HFWav2Vec2LogitsInferencer, ac: AudioMessageChunk):
     logits = inferencer.resample_calc_logits(ac.audio_array)
-    out = {"logits": logits}
-
-    out["audio_slice"] = (ac.frame_idx, ac.frame_idx + len(ac.audio_array))
-    return out
+    start_end = (ac.frame_idx, ac.frame_idx + len(ac.audio_array))
+    return logits, start_end
 
 
 @pytest.mark.parametrize(
@@ -173,9 +171,8 @@ def test_HF_chunking_asr(
             )
             for ac in audio_chunks_g
         ]
-    outp = _hf_postprocess(forward_oupt, tokenizer)
+    hyp = _hf_postprocess(forward_oupt, tokenizer)
     inference_duration = time() - start_time
-    hyp = outp["text"]
 
     ref = normalize_filter_text(
         librispeech_raw_ref,
