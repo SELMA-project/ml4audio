@@ -30,6 +30,7 @@ RUN rm -rf /venv/lib/python3.9/site-packages/sklearn/ensemble && \
     #    rm -rf /venv/lib/python3.9/site-packages/tensorboard && \ -> pytorch-pytorch_lightning wants it!
     #     rm -rf /venv/lib/python3.9/site-packages/onnx -> nemo wants this! ->malparido!
     #     rm -rf /venv/lib/python3.9/site-packages/matplotlib -> nemo wants this! ->malparido!
+
 FROM python:3.9-slim-bullseye AS runtime
 WORKDIR /code
 COPY --from=build /venv /venv

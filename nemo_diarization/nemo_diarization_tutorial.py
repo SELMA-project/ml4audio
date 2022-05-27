@@ -14,7 +14,8 @@ from omegaconf import OmegaConf
 
 # see: https://github.com/NVIDIA/NeMo/blob/main/tutorials/speaker_tasks/Speaker_Diarization_Inference.ipynb
 
-def get_test_data(data_dir:str):
+
+def get_test_data(data_dir: str):
     an4_audio = os.path.join(data_dir, "an4_diarize_test.wav")
     an4_rttm = os.path.join(data_dir, "an4_diarize_test.rttm")
     if not os.path.exists(an4_audio):
@@ -37,7 +38,7 @@ def create_test_manifest(data_dir, an4_audio, an4_rttm):
         "duration": None,
         "label": "infer",
         "text": "-",
-        "num_speakers": 2, # TODO: WTF!! what if I don't know how many speakers?
+        "num_speakers": 2,  # TODO: WTF!! what if I don't know how many speakers?
         "rttm_filepath": an4_rttm,
         "uem_filepath": None,
     }

@@ -28,7 +28,7 @@ class NemoTrainedPunctuationCapitalizationModel(CachedData):
     data: Union[_UNDEFINED, NepucaData] = UNDEFINED
     base_model: str = "bert-base-multilingual-uncased"
     cache_base: PrefixSuffix = field(
-        default_factory=lambda: PrefixSuffix("processed_data", "NEMO_MODELS")
+        default_factory=lambda: PrefixSuffix("cache_root", "NEMO_PUNCTCAP_MODELS")
     )
 
     @property
@@ -63,9 +63,9 @@ BASE_PATH=${{PWD}}
 
 # model configuration
 MODEL_CONFIG_YAML=$BASE_PATH/punctcap_training/conf/punctuation_capitalization_config.yaml
-export PYTHONPATH=${{PYTHONPATH}}:/nm-raid/audio/work/thimmelsba/iais_code/NeMo
+export PYTHONPATH=${{PYTHONPATH}}:$BASE_PATH/iais_code/NeMo
 
-python punctcap_training/punctuation_capitalization_train_evaluate.py \
+python nemo_punctuation_capitalization/punctcap_training/punctuation_capitalization_train_evaluate.py \
     +do_testing=true \
     exp_manager.exp_dir={self.nemo_exp_dir} \
     model.language_model.pretrained_model_name={self.base_model} \
@@ -90,7 +90,7 @@ def train_punctcap(lang_code="deu"):
             file_name=f"{lang_code}.tar",
         )
     ).build()
-    limit = 1100_000
+    limit = 110_000
 
     if wikipedia_data.num_lines < limit:
         print(
@@ -98,7 +98,7 @@ def train_punctcap(lang_code="deu"):
         )
         return
 
-    dev_size = min(100_000, round(0.1 * wikipedia_data.num_lines))
+    dev_size = min(10_000, round(0.1 * wikipedia_data.num_lines))
 
     processed_data = NepucaData(
         train_dev_data=NepucaSplit(
@@ -143,5 +143,5 @@ if __name__ == "__main__":
     lang_codes = TatoebaLanguages().build()
     print(list(lang_codes))
     # lang_codes = ["por", "eng", "deu", "fra", "spa", "ita", "rus", "lit"]
-    for lang in ["rus"]:  #
+    for lang in ["deu"]:  #
         train_punctcap(lang)

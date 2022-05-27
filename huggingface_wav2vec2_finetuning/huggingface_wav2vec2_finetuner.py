@@ -121,7 +121,7 @@ class HFWav2vec2Finetuner(CachedData):
 
     @property
     def _is_ready(self) -> bool:
-        if self._found_dataclass_json():
+        if self._found_cached_data():
             if self.overwrite_old_cache:
                 shutil.rmtree(str(self.cache_dir))
                 print(

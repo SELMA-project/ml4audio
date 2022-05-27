@@ -38,11 +38,11 @@ def infer_signal(
     based on https://github.com/NVIDIA/NeMo/blob/main/tutorials/asr/Online_Offline_Microphone_VAD_Demo.ipynb
     """
 
-    signal = signal.astype(np.float32) / MAX_16_BIT_PCM
+    fsignal = signal.astype(np.float32) / MAX_16_BIT_PCM
     audio_signal = (
-        torch.as_tensor(signal, dtype=torch.float32).unsqueeze(0).to(model.device)
+        torch.as_tensor(fsignal, dtype=torch.float32).unsqueeze(0).to(model.device)
     )
-    audio_signal_len = torch.as_tensor([signal.size], dtype=torch.int64).to(
+    audio_signal_len = torch.as_tensor([fsignal.size], dtype=torch.int64).to(
         model.device
     )
 
@@ -71,7 +71,7 @@ class NeMoVAD(Buildable):
     threshold: float = 0.5
     frame_duration: float = 0.1
     window_len_in_secs: float = 0.5  # seconds
-    input_sample_rate: Optional[int] = None
+    input_sample_rate: int = 16000
 
     buffer: NumpyInt16Dim1 = field(init=False, repr=False)
     buffer_size: int = field(init=False, repr=False)

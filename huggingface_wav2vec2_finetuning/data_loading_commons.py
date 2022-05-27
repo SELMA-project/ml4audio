@@ -5,15 +5,9 @@ from abc import abstractmethod
 from beartype import beartype
 from nemo.collections.asr.parts.preprocessing import AudioAugmentor
 
+from huggingface_wav2vec2_finetuning.base_model_for_finetuning import \
+    BaseModelForFinetuning
 from misc_utils.beartypes import NumpyFloat1DArray
-from speech_data.asr_corpora import ArrayText
-from ml4audio.audio_data import (
-    ProbaPerturbationDC,
-    apply_nemo_perturbations_with_retry,
-)
-from wav2vec2_finetuning.hf_wav2vec2_finetuning.finetune_model import (
-    BaseModelForFinetuning,
-)
 from huggingface_wav2vec2_finetuning.hf_finetune_utils import (
     feature_extraction_tokenization_of_train_sample,
 )
@@ -27,6 +21,10 @@ from misc_utils.utils import just_try, TimedIterable
 import logging
 
 from dataclasses import dataclass, field
+
+from ml4audio.audio_data.nemo_perturbation import ProbaPerturbationDC, \
+    apply_nemo_perturbations_with_retry
+from ml4audio.audio_utils.audio_data_models import ArrayText
 
 logging.getLogger("filelock._api").setLevel(logging.ERROR)
 import torch

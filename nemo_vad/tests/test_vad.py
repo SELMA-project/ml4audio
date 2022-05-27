@@ -2,8 +2,10 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from ml4audio.audio_utils.audio_io import load_and_resample_16bit_PCM, \
-    break_array_into_chunks
+from ml4audio.audio_utils.audio_io import (
+    load_and_resample_16bit_PCM,
+    break_array_into_chunks,
+)
 from nemo_vad.nemo_streaming_vad import NeMoVAD
 
 frame_duration = 0.1

@@ -15,32 +15,37 @@ from tqdm import tqdm
 
 
 @dataclass
-class TatoebaMonolingualData(CachedData):
+class TatoebaMonolingualData(Buildable):
     base_url: Union[
         _UNDEFINED, str
     ] = UNDEFINED  # https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28/deu.tar
     file_name: Union[_UNDEFINED, str] = UNDEFINED
-    cache_base: PrefixSuffix = field(
-        default_factory=lambda: PrefixSuffix("raw_data", "TATOEBA")
+    data_base_dir: PrefixSuffix = field(
+        default_factory=lambda: PrefixSuffix("raw_data", "TATOEBA_WIKIPEDIA_DATA")
     )
 
     @property
     def name(self):
         return self.file_name.replace(".tar", "")
 
-    def _build_cache(self):
-        print(f"downloading: {self.name}")
-        download_data(
-            base_url=self.base_url,
-            file_name=self.file_name,
-            data_folder=self.data_dir,
-            unzip_it=True,
-            remove_zipped=True,
-        )
+    def _build_self(self) -> Any:
+        if not os.path.isdir(
+            f"{self.data_dir}/data"
+        ):  # for german it makes a deu/deu/data path
+            print(f"downloading: {self.name}")
+            download_data(
+                base_url=self.base_url,
+                file_name=self.file_name,
+                data_folder=str(self.data_base_dir),
+                unzip_it=True,
+                remove_zipped=False,
+            )
+        else:
+            print(f"found data in {self.data_dir}")
 
     @property
     def data_dir(self):
-        return self.prefix_cache_dir("data")
+        return f"{self.data_base_dir}/{self.name}"
 
 
 @dataclass

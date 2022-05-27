@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import numpy as np
 import matplotlib.pyplot as plt
-
-from ml4audio.audio_utils.audio_io import load_resample_with_nemo, \
-    convert_to_16bit_array, break_array_into_chunks
+import numpy as np
+from ml4audio.audio_utils.audio_io import (
+    break_array_into_chunks,
+    convert_to_16bit_array,
+    load_resample_with_nemo,
+)
 from ml4audio.audio_utils.torchaudio_utils import torchaudio_info
 from nemo_vad.nemo_streaming_vad import NeMoVAD
 
