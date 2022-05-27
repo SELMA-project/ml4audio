@@ -11,11 +11,8 @@ from pyctcdecode.decoder import (
     LMState,
 )
 
-from ml4audio.text_processing.common import (
-    LogitAlignedTranscript,
-    BaseCTCDecoder,
-    AlignedBeams,
-)
+from ml4audio.text_processing.ctc_decoding import BaseCTCDecoder, AlignedBeams, \
+    LogitAlignedTranscript
 from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode
 from data_io.readwrite_files import read_lines
 from misc_utils.beartypes import NeList, TorchTensor2D
