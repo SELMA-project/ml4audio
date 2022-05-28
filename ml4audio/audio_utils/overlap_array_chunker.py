@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import (
     Iterator,
     Union,
@@ -9,10 +9,9 @@ from typing import (
 
 import numpy as np
 from beartype import beartype
-from beartype.abby import die_if_unbearable
 
 from misc_utils.beartypes import Numpy1DArray, NumpyInt16Dim1
-from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
+from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.utils import Singleton
 from ml4audio.audio_utils.audio_io import read_audio_chunks_from_file
 
@@ -68,26 +67,35 @@ def audio_messages_from_file(
 
 
 @beartype
-def audio_messages_from_chunks(
-    signal_id: str, chunks: Iterable[NumpyInt16Dim1]
-) -> Iterator[AudioMessageChunk]:
+def messages_from_chunks(
+    signal_id: str, chunks: Iterable[Numpy1DArray]
+) -> Iterator[MessageChunk]:
     frame_idx = 0
+    dtype = None
     for chunk in chunks:
-        yield AudioMessageChunk(
-            message_id=signal_id, frame_idx=frame_idx, audio_array=chunk
-        )
+        if dtype is None:
+            dtype = chunk.dtype
+        yield MessageChunk(message_id=signal_id, frame_idx=frame_idx, array=chunk)
         frame_idx += len(chunk)
 
     len_of_dummy_chunk = (
         0  # TODO does empty dummy-chunk really not break anything downstream?
     )
-    dummy_chunk_just_to_transport_eos = np.zeros(len_of_dummy_chunk, dtype=np.int16)
-    yield AudioMessageChunk(
-        signal_id,
+    dummy_chunk_just_to_transport_eos = np.zeros(len_of_dummy_chunk, dtype=dtype)
+    yield MessageChunk(
+        message_id=signal_id,
         frame_idx=frame_idx,
         array=dummy_chunk_just_to_transport_eos,
         end_of_signal=True,
     )
+
+
+@beartype
+def audio_messages_from_chunks(
+    signal_id: str, chunks: Iterable[NumpyInt16Dim1]
+) -> Iterator[AudioMessageChunk]:
+    for m in messages_from_chunks(signal_id, chunks):
+        yield AudioMessageChunk(**asdict(m))
 
 
 @dataclass
