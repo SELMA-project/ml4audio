@@ -9,14 +9,16 @@ from typing import (
 
 import numpy as np
 from beartype import beartype
+from beartype.abby import die_if_unbearable
 
 from misc_utils.beartypes import Numpy1DArray, NumpyInt16Dim1
+from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
 from misc_utils.utils import Singleton
 from ml4audio.audio_utils.audio_io import read_audio_chunks_from_file
 
 
 @dataclass
-class AudioMessageChunk:
+class MessageChunk:
     """
     instance of this represents one chunks of an audio-message
     an audio-message can be split into possibly overlapping chunks, entire message got one message_id
@@ -25,9 +27,24 @@ class AudioMessageChunk:
 
     message_id: str  # same for all chunks of same message
     frame_idx: int  # points to very first frame of this chunk
-    audio_array: NumpyInt16Dim1
-    chunk_idx: Optional[int] = None  # index of this chunk
+    array: Numpy1DArray
     end_of_signal: bool = False
+
+
+@dataclass
+class AudioMessageChunk(MessageChunk):
+    """
+    instance of this represents one chunks of an audio-message
+    an audio-message can be split into possibly overlapping chunks, entire message got one message_id
+    frame_idx is counter/absolut-position of audio-chunk's start frame in entire audio-message
+    """
+
+    # message_id: str  # same for all chunks of same message
+    # frame_idx: int  # points to very first frame of this chunk
+    # array: Union[_UNDEFINED,NumpyInt16Dim1]=UNDEFINED
+    array: NumpyInt16Dim1 = UNDEFINED
+    chunk_idx: Optional[int] = None  # index of this chunk
+    # end_of_signal: bool = False
 
 
 @dataclass
@@ -68,14 +85,16 @@ def audio_messages_from_chunks(
     yield AudioMessageChunk(
         signal_id,
         frame_idx=frame_idx,
-        audio_array=dummy_chunk_just_to_transport_eos,
+        array=dummy_chunk_just_to_transport_eos,
         end_of_signal=True,
     )
 
 
 @dataclass
-class AudioMessageChunker:
+class OverlapArrayChunker:
     """
+
+    formerly called AudioMessageChunker
     TODO: why is this not buildable? where build_self essentially calls reset
     does chunking
     input-stream: consists of numpy arrays
@@ -130,7 +149,7 @@ class AudioMessageChunker:
         return self.frame_counter is None
 
     @beartype
-    def handle_datum(self, datum: AudioMessageChunk) -> Iterator[AudioMessageChunk]:
+    def handle_datum(self, datum: MessageChunk) -> Iterator[MessageChunk]:
         current_message_id = datum.message_id
         if not self.is_very_start:
             if self.frame_counter + self._buffer.shape[0] != datum.frame_idx:
@@ -138,7 +157,7 @@ class AudioMessageChunker:
                     False
                 ), f"frame-counter inconsistency: {self.frame_counter + self._buffer.shape[0]=} != {datum.frame_idx=}"
 
-        self._buffer = np.concatenate([self._buffer, datum.audio_array])
+        self._buffer = np.concatenate([self._buffer, datum.array])
 
         yielded_final = False
         if self.__can_yield_full_grown_chunk():
@@ -168,7 +187,7 @@ class AudioMessageChunker:
 
                 yield AudioMessageChunk(
                     message_id=current_message_id,
-                    audio_array=full_grown_chunk,
+                    array=full_grown_chunk,
                     frame_idx=self.frame_counter,
                     end_of_signal=eos,
                 )
@@ -183,7 +202,7 @@ class AudioMessageChunker:
             premature_chunk = self._buffer
             yield AudioMessageChunk(
                 message_id=current_message_id,
-                audio_array=premature_chunk,
+                array=premature_chunk,
                 frame_idx=0,
                 end_of_signal=datum.end_of_signal,  # can happen for short audio-signals!
             )
@@ -206,7 +225,7 @@ class AudioMessageChunker:
         frame_idx = last_frame_count + last_step_size
         return AudioMessageChunk(
             message_id=message_id,
-            audio_array=flushed_chunk,
+            array=flushed_chunk,
             frame_idx=frame_idx,
             end_of_signal=True,
         )

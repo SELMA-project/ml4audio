@@ -2,15 +2,22 @@
 from warnings import filterwarnings
 
 import icdiff
+from beartype import beartype
 from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
 from transformers import Wav2Vec2CTCTokenizer
 
-from misc_utils.beartypes import NumpyInt16Dim1, NeStr
+from misc_utils.beartypes import NumpyInt16Dim1, NeStr, NumpyFloat1DArray
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import HfCheckpoint
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
 )
-from ml4audio.audio_utils.audio_io import read_audio_chunks_from_file
+from ml4audio.audio_utils.audio_io import (
+    read_audio_chunks_from_file,
+    convert_to_16bit_array,
+    break_array_into_chunks,
+)
+from ml4audio.audio_utils.overlap_array_chunker import OverlapArrayChunker, \
+    audio_messages_from_chunks
 from ml4audio.text_processing.metrics_calculation import calc_cer
 
 filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
@@ -79,13 +86,16 @@ Z""".split(
 def vocab():
     return get_test_vocab()
 
+
 @pytest.fixture
 def hfwav2vec2_base_tokenizer():
     return load_hfwav2vec2_base_tokenizer()
 
+
 def load_hfwav2vec2_base_tokenizer():
     tokenizer = Wav2Vec2CTCTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
     return tokenizer
+
 
 @pytest.fixture
 def hfwav2vec2_base_logits_inferencer(request):
@@ -104,8 +114,6 @@ def hfwav2vec2_base_logits_inferencer(request):
         input_sample_rate=expected_sample_rate,
     ).build()
     return logits_inferencer
-
-
 
 
 # TODO!!
@@ -185,3 +193,23 @@ def assert_transcript_cer(hyp, ref, max_cer):
     print(diff_line)
     cer = calc_cer([(hyp, ref)])
     assert cer < max_cer
+
+
+@beartype
+def overlapping_audio_messages_from_audio_array(
+    audio_array: NumpyFloat1DArray, sr: int, step_dur: float, chunk_dur: float
+):
+    chunker = OverlapArrayChunker(
+        chunk_size=int(chunk_dur * sr),
+        min_step_size=int(step_dur * sr),
+    )
+    chunker.reset()
+
+    audio_array = convert_to_16bit_array(audio_array)
+    small_chunks = break_array_into_chunks(audio_array, int(sr * 0.1))
+    chunks_g = (
+        am
+        for ch in audio_messages_from_chunks("dummy-id", small_chunks)
+        for am in chunker.handle_datum(ch)
+    )
+    yield from chunks_g

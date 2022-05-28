@@ -5,8 +5,12 @@ import numpy as np
 import pytest
 from beartype import beartype
 
-from ml4audio.audio_utils.audio_message_chunking import AudioMessageChunk, \
-    _DONT_EMIT_PREMATURE_CHUNKS, DONT_EMIT_PREMATURE_CHUNKS, OverlappingArrayChunker
+from ml4audio.audio_utils.overlap_array_chunker import (
+    AudioMessageChunk,
+    _DONT_EMIT_PREMATURE_CHUNKS,
+    DONT_EMIT_PREMATURE_CHUNKS,
+    OverlapArrayChunker,
+)
 
 
 @beartype
@@ -176,30 +180,6 @@ test_case_premature_3_varlen = TestCase(
 )
 
 
-# @pytest.mark.parametrize(
-#     "test_case",
-#     [
-#         test_case_0,
-#         test_case_premature,
-#         test_case_premature_2,
-#     ],
-# )
-# def test_audio_message_chunker_generator(test_case: TestCase):
-#
-#     ab = AudioMessageChunker(
-#         test_case.chunk_size,
-#         test_case.step_size,
-#         minimum_chunk_size=test_case.minimum_chunk_size,
-#     )
-#     out = [
-#         x.audio_array
-#         for x in audio_message_chunker_generator(ab, test_case.input_chunks)
-#     ]
-#
-#     pred = np.concatenate(out).tolist()
-#     assert pred == test_case.expected
-
-
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -212,9 +192,9 @@ test_case_premature_3_varlen = TestCase(
         test_case_premature_3_varlen,
     ],
 )
-def test_AudioMessageChunker(test_case: TestCase):
+def test_OverlapArrayChunker(test_case: TestCase):
 
-    ab = OverlappingArrayChunker(
+    ab = OverlapArrayChunker(
         test_case.chunk_size,
         test_case.step_size,
         minimum_chunk_size=test_case.minimum_chunk_size,
