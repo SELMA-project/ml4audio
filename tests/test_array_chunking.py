@@ -5,12 +5,8 @@ import numpy as np
 import pytest
 from beartype import beartype
 
-from ml4audio.audio_utils.audio_message_chunker import (
-    AudioMessageChunker,
-    AudioMessageChunk,
-    _DONT_EMIT_PREMATURE_CHUNKS,
-    DONT_EMIT_PREMATURE_CHUNKS,
-)
+from ml4audio.audio_utils.audio_message_chunking import AudioMessageChunk, \
+    _DONT_EMIT_PREMATURE_CHUNKS, DONT_EMIT_PREMATURE_CHUNKS, OverlappingArrayChunker
 
 
 @beartype
@@ -37,7 +33,7 @@ def build_test_chunks(input_data: Iterable[TestSequence]) -> list[AudioMessageCh
             AudioMessageChunk(
                 message_id=f"test-message",
                 frame_idx=k,
-                audio_array=np.array(chunk, dtype=np.int16),
+                array=np.array(chunk, dtype=np.int16),
                 end_of_signal=k == frame_idx[-1],
             )
             for k, chunk in zip(frame_idx, test_chunks)
@@ -218,7 +214,7 @@ test_case_premature_3_varlen = TestCase(
 )
 def test_AudioMessageChunker(test_case: TestCase):
 
-    ab = AudioMessageChunker(
+    ab = OverlappingArrayChunker(
         test_case.chunk_size,
         test_case.step_size,
         minimum_chunk_size=test_case.minimum_chunk_size,
@@ -226,7 +222,7 @@ def test_AudioMessageChunker(test_case: TestCase):
     )
     ab.reset()
     messages = [x for m in test_case.input_chunks for x in ab.handle_datum(m)]
-    arrays = [m.audio_array for m in messages]
+    arrays = [m.array for m in messages]
     pred = [str(i) for i in np.concatenate(arrays).tolist()]
     expected = [str(i) for i in test_case.expected]
     assert pred == expected
