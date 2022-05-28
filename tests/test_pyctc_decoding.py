@@ -1,7 +1,6 @@
 import os
 import shutil
 
-import icdiff
 import numpy as np
 import pytest
 import torch
@@ -16,12 +15,12 @@ from misc_utils.buildable import BuildableList
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
 from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
-from ml4audio.text_processing.metrics_calculation import calc_cer
 from ml4audio.text_processing.word_based_text_corpus import (
     WordBasedLMCorpus,
     RglobRawCorpus,
 )
-from conftest import get_test_vocab, TEST_RESOURCES
+from conftest import get_test_vocab, TEST_RESOURCES, load_hfwav2vec2_base_tokenizer
+from conftest import assert_transcript_cer
 
 TARGET_SAMPLE_RATE = 16000
 
@@ -95,18 +94,39 @@ def test_PyCTCKenLMDecoder(
     )
     decoder.build()
     transcript = decoder.decode(torch.from_numpy(logits.squeeze()))[0]
-
+    ref = librispeech_ref
     hyp = transcript.text
-    cd = icdiff.ConsoleDiff(cols=120)
-    diff_line = "\n".join(
-        cd.make_table(
-            [librispeech_ref],
-            [hyp],
-            "ref",
-            "hyp",
-        )
-    )
-    print(diff_line)
+    assert_transcript_cer(hyp, ref, max_cer)
 
-    cer = calc_cer([(hyp, librispeech_ref)])
-    assert cer < max_cer
+
+@pytest.mark.parametrize(
+    "decoder",
+    [
+        (
+            PyCTCKenLMDecoder(
+                tokenizer=load_hfwav2vec2_base_tokenizer(),
+                lm_weight=1.0,
+                beta=0.5,
+                lm_data=KenLMForPyCTCDecodeFromArpa(
+                    name="test",
+                    cache_base=cache_base,
+                    arpa_file=f"{TEST_RESOURCES}/lm.arpa",
+                    transcript_normalizer=tn,
+                ),
+            )
+        ),
+    ],
+)
+def test_decoders(
+    decoder,
+    librispeech_logtis_file,
+    librispeech_ref,
+):
+    max_cer = 0.007
+
+    logits = np.load(librispeech_logtis_file, allow_pickle=True)
+    decoder.build()
+    transcript = decoder.decode(torch.from_numpy(logits.squeeze()))[0]
+    ref = librispeech_ref
+    hyp = transcript.text
+    assert_transcript_cer(hyp, ref, max_cer)

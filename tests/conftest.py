@@ -1,6 +1,7 @@
 # sys.path.append(os.path.dirname(__file__))  # TODO: WTF! this is a hack!
 from warnings import filterwarnings
 
+import icdiff
 from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
 from transformers import Wav2Vec2CTCTokenizer
 
@@ -10,6 +11,7 @@ from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer impor
     HFWav2Vec2LogitsInferencer,
 )
 from ml4audio.audio_utils.audio_io import read_audio_chunks_from_file
+from ml4audio.text_processing.metrics_calculation import calc_cer
 
 filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
 
@@ -79,6 +81,9 @@ def vocab():
 
 @pytest.fixture
 def hfwav2vec2_base_tokenizer():
+    return load_hfwav2vec2_base_tokenizer()
+
+def load_hfwav2vec2_base_tokenizer():
     tokenizer = Wav2Vec2CTCTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
     return tokenizer
 
@@ -165,3 +170,18 @@ def librispeech_audio_chunks(librispeech_audio_file) -> list[NumpyInt16Dim1]:
         )
     )
     return audio_chunks
+
+
+def assert_transcript_cer(hyp, ref, max_cer):
+    cd = icdiff.ConsoleDiff(cols=120)
+    diff_line = "\n".join(
+        cd.make_table(
+            [ref],
+            [hyp],
+            "ref",
+            "hyp",
+        )
+    )
+    print(diff_line)
+    cer = calc_cer([(hyp, ref)])
+    assert cer < max_cer
