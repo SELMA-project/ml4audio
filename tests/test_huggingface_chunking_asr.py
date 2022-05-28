@@ -1,12 +1,14 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from itertools import islice
 from math import floor, ceil
 from time import time
-from typing import Iterable
+from typing import Iterable, Optional
 
 import numpy as np
 import pytest
 import torch
 from beartype import beartype
+from numpy.testing import assert_allclose
 
 from conftest import get_test_cache_base, TEST_RESOURCES, get_test_vocab
 from misc_utils.beartypes import NumpyFloat1DArray, TorchTensor2D, NumpyFloat2DArray
@@ -14,7 +16,11 @@ from misc_utils.prefix_suffix import BASE_PATHES
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
 )
-from ml4audio.text_processing.ctc_decoding import BaseCTCDecoder
+from ml4audio.text_processing.ctc_decoding import (
+    BaseCTCDecoder,
+    AlignedBeams,
+    LogitAlignedTranscript,
+)
 from ml4audio.text_processing.lm_model_for_pyctcdecode import (
     KenLMForPyCTCDecodeFromArpa,
 )
@@ -36,7 +42,7 @@ from ml4audio.text_processing.asr_text_normalization import (
 )
 from ml4audio.text_processing.pretty_diff import smithwaterman_aligned_icdiff
 
-from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder
+from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
 
 cache_base = get_test_cache_base()
 BASE_PATHES["asr_inference"] = cache_base
@@ -86,49 +92,65 @@ def hf_chunking_preprocessing(
     yield from chunks_g
 
 
-# @dataclass
-# class StreamingDecoder:
-#
-#     decoder: PyCTCKenLMDecoder
-#     _buffer: NumpyFloat2DArray
-#     _start_end: tuple[int, int] = (0, 0)
-#
-#     def reset(self):
-#         self._buffer = np.zeros((0, 0), dtype=np.float)
-#
-#     @beartype
-#     def decode(self, logits: NumpyFloat2DArray, start_end: tuple[int, int]):
-#         """
-#         based on: https://github.com/huggingface/transformers/blob/215e0681e4c3f6ade6e219d022a5e640b42fcb76/src/transformers/pipelines/automatic_speech_recognition.py#L337
-#         """
-#         a_start, a_end = start_end
-#         last_end = 0
-#         # logits: TorchTensor2D
-#         audio_slice_len = a_end - a_start
-#         logit_window_len = logits.shape[0]
-#         audio_to_logits_ratio = audio_slice_len / logit_window_len
-#         if last_end > 0:
-#             logits_overlap = (last_end - a_start) / audio_to_logits_ratio
-#         else:
-#             logits_overlap = 0.0
-#
-#         right_part = logits[floor(logits_overlap / 2) :]
-#
-#         if len(self._buffer) > 0:
-#             left_part = self._buffer[: -ceil(logits_overlap / 2)]
-#             self._buffer = np.concatenate(
-#                 [left_part, right_part]
-#             )
-#         else:
-#             self._buffer = right_part
-#
-#         last_end = a_end
-#         return _greedy_decode(tokenizer, self._buffer)
+@dataclass
+class StreamingDecoder(PyCTCKenLMDecoder):
+
+    _buffer: NumpyFloat2DArray = field(init=False)
+    _last_end: int = field(init=False, default=0)
+    _lm_states: Optional[list["kenlm.State"]] = field(init=False, default=None)
+
+    def reset(self):
+        self._buffer = None
+        self._last_end = 0
+        self._lm_states = None
+
+    @beartype
+    def calc_left_right(
+        self, logits: NumpyFloat2DArray, start_end: tuple[int, int]
+    ) -> tuple[Optional[NumpyFloat2DArray], NumpyFloat2DArray]:
+        """
+        based on: https://github.com/huggingface/transformers/blob/215e0681e4c3f6ade6e219d022a5e640b42fcb76/src/transformers/pipelines/automatic_speech_recognition.py#L337
+        """
+        a_start, a_end = start_end
+        if self._last_end > 0:
+            audio_slice_len = a_end - a_start
+            logit_window_len = logits.shape[0]
+            audio_to_logits_ratio = audio_slice_len / logit_window_len
+            logits_overlap = (self._last_end - a_start) / audio_to_logits_ratio
+            right_part = logits[floor(logits_overlap / 2) :]
+            left_part = self._buffer[: -ceil(logits_overlap / 2)]
+
+        else:
+            right_part = logits
+            left_part = None
+
+        self._buffer = right_part
+        self._last_end = a_end
+
+        return left_part, right_part
+
+    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
+        beams = [
+            OutputBeamDc(*b)
+            for b in self._pyctc_decoder.decode_beams(
+                ctc_matrix.numpy(),
+                beam_width=self.beam_size,
+                lm_start_state=self._lm_states,
+            )
+        ]
+        self._lm_states = [b.last_lm_state for b in beams]
+
+        return [
+            LogitAlignedTranscript.create_from_token_spans(
+                b.text_frames, b.logit_score, b.lm_score
+            )
+            for b in islice(beams, self.num_best)
+        ]
 
 
 @beartype
 def _hf_postprocess(
-    model_outputs: Iterable[tuple[TorchTensor2D, tuple[int, int]]], tokenizer
+    model_outputs: Iterable[tuple[TorchTensor2D, tuple[int, int]]], decoder
 ):
     """
     based on: https://github.com/huggingface/transformers/blob/215e0681e4c3f6ade6e219d022a5e640b42fcb76/src/transformers/pipelines/automatic_speech_recognition.py#L337
@@ -152,7 +174,7 @@ def _hf_postprocess(
 
         buffer.append(logits[floor(logits_overlap / 2) :].numpy())
         last_end = a_end
-    return decode_with_lm(tokenizer, buffer)
+    return buffer, decode_with_lm(decoder, buffer)
 
 
 @beartype
@@ -165,25 +187,7 @@ def _greedy_decode(tokenizer, buffer: list[NumpyFloat2DArray]):
     return text
 
 
-def decode_with_lm(tokenizer, buffer):
-    tn = TranscriptNormalizer(
-        casing=Casing.upper, text_normalizer="en", vocab=get_test_vocab()
-    )
-
-    arpa = KenLMForPyCTCDecodeFromArpa(
-        name="test",
-        cache_base=cache_base,
-        arpa_file=f"{TEST_RESOURCES}/lm.arpa",
-        transcript_normalizer=tn,
-    )
-    decoder = PyCTCKenLMDecoder(
-        tokenizer=tokenizer,
-        lm_weight=1.0,
-        beta=0.5,
-        lm_data=arpa,
-    )
-    decoder.build()
-
+def decode_with_lm(decoder, buffer):
     logits = np.concatenate(buffer, axis=0)
     transcript = decoder.decode(torch.from_numpy(logits.squeeze()))[0]
 
@@ -245,21 +249,51 @@ def test_HF_chunking_asr(
             )
             for ac in audio_chunks_g
         ]
-    hyp = _hf_postprocess(forward_oupt, tokenizer)
-    inference_duration = time() - start_time
+    decoder = _prepare_decoder(tokenizer)
+    left_right = [decoder.calc_left_right(l.numpy(), s_e) for l, s_e in forward_oupt]
+    print(f"{[(l.shape if l is not None else 0,r.shape) for l,r in left_right ]=}")
+    parts = [l for l, r in left_right] + [left_right[-1][1]]
 
-    ref = normalize_filter_text(
-        librispeech_raw_ref,
-        vocab,
-        text_normalizer="en",
-        casing=Casing.upper,
-    )
-    diff_line = smithwaterman_aligned_icdiff(ref, hyp)
-    print(f"{window_dur=},{step_dur=}")
+    buffer, hyp = _hf_postprocess(forward_oupt, decoder)
+    logits = np.concatenate(buffer, axis=0)
 
-    print(diff_line)
-    cer = calc_cer([(hyp, ref)])
-    print(
-        f"CER: {cer},start-up took: {startup_time}, inference took: {inference_duration} seconds"
+    assert_allclose(np.concatenate([x for x in parts if x is not None]), logits)
+
+    # hyp=[decoder.decode(logits_chunk)[0].text for logits_chunk in parts]
+    # inference_duration = time() - start_time
+    #
+    # ref = normalize_filter_text(
+    #     librispeech_raw_ref,
+    #     vocab,
+    #     text_normalizer="en",
+    #     casing=Casing.upper,
+    # )
+    # diff_line = smithwaterman_aligned_icdiff(ref, hyp)
+    # print(f"{window_dur=},{step_dur=}")
+    #
+    # print(diff_line)
+    # cer = calc_cer([(hyp, ref)])
+    # print(
+    #     f"CER: {cer},start-up took: {startup_time}, inference took: {inference_duration} seconds"
+    # )
+    # assert max_CER > cer
+
+
+def _prepare_decoder(tokenizer):
+    tn = TranscriptNormalizer(
+        casing=Casing.upper, text_normalizer="en", vocab=get_test_vocab()
     )
-    assert max_CER > cer
+    arpa = KenLMForPyCTCDecodeFromArpa(
+        name="test",
+        cache_base=cache_base,
+        arpa_file=f"{TEST_RESOURCES}/lm.arpa",
+        transcript_normalizer=tn,
+    )
+    decoder = StreamingDecoder(
+        tokenizer=tokenizer,
+        lm_weight=1.0,
+        beta=0.5,
+        lm_data=arpa,
+    )
+    decoder.build()
+    return decoder
