@@ -4,25 +4,26 @@ from typing import Optional, Union, Annotated
 
 from beartype import beartype
 from beartype.vale import Is
-from pyctcdecode.decoder import (
-    WordFrames,
-    BeamSearchDecoderCTC,
-    build_ctcdecoder,
-    LMState,
-)
 
-from misc_utils.buildable import Buildable
-from ml4audio.text_processing.ctc_decoding import BaseCTCDecoder, AlignedBeams, \
-    LogitAlignedTranscript
-from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode
 from data_io.readwrite_files import read_lines
 from misc_utils.beartypes import NeList, TorchTensor2D
+from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
     _UNDEFINED,
 )
-import kenlm
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
+from ml4audio.text_processing.ctc_decoding import (
+    BaseCTCDecoder,
+    AlignedBeams,
+    LogitAlignedTranscript,
+)
+from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode
+from pyctcdecode.decoder import (
+    WordFrames,
+    BeamSearchDecoderCTC,
+    build_ctcdecoder,
+    LMState, )
 
 LmModelFile = Annotated[
     str, Is[lambda s: any(s.endswith(suffix) for suffix in [".bin", ".arpa"])]
@@ -56,11 +57,12 @@ class OutputBeamDc:
 
 
 @dataclass
-class PyCTCKenLMDecoder(BaseCTCDecoder,Buildable):
+class PyCTCKenLMDecoder(BaseCTCDecoder, Buildable):
     """
     here is huggingface's decode method: https://github.com/huggingface/transformers/blob/f275e593bfeb41b31ac8a124a9314cbd6088bfd1/src/transformers/models/wav2vec2_with_lm/processing_wav2vec2_with_lm.py#L346
     # TODO: directly use pyctcdecode's batched-decoding method -> is it faster?
     """
+
     lm_weight: Union[_UNDEFINED, float] = UNDEFINED
     beta: Union[_UNDEFINED, float] = UNDEFINED
     # cannot do this with beartype NeList[str] for vocab, cause it might be a CachedList
@@ -96,14 +98,12 @@ class PyCTCKenLMDecoder(BaseCTCDecoder,Buildable):
     def decode(
         self,
         ctc_matrix: TorchTensor2D,
-        state: Optional[Union["kenlm.State", list["kenlm.State"]]] = None,
     ) -> AlignedBeams:
         beams = [
             OutputBeamDc(*b)
             for b in self._pyctc_decoder.decode_beams(
                 ctc_matrix.numpy(),
                 beam_width=self.beam_size,
-                lm_start_state=state,
             )
         ]
 
