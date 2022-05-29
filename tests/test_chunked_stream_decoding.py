@@ -5,8 +5,13 @@ import kenlm
 import numpy as np
 import pytest
 
-from conftest import get_test_vocab, TEST_RESOURCES, load_hfwav2vec2_base_tokenizer, \
-    overlapping_messages_from_array, assert_transcript_cer
+from conftest import (
+    get_test_vocab,
+    TEST_RESOURCES,
+    load_hfwav2vec2_base_tokenizer,
+    overlapping_messages_from_array,
+    assert_transcript_cer,
+)
 from data_io.readwrite_files import read_lines
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.asr_inference.logits_cutter import LogitsCutter
@@ -77,7 +82,6 @@ def test_chunked_streaming_beam_search_decoder(
     librispeech_ref,
 ):
 
-
     logits = np.load(librispeech_logtis_file, allow_pickle=True).squeeze()
     logits_chunks: list[MessageChunk] = list(
         overlapping_messages_from_array(logits, step_size=100, chunk_size=200)
@@ -87,6 +91,7 @@ def test_chunked_streaming_beam_search_decoder(
     ]
 
     lc = LogitsCutter()
+    lc.reset()
 
     left_right = [lc.calc_left_right(l, s_e) for l, s_e in chunk_spans]
     print(f"{[(l.shape if l is not None else 0,r.shape) for l,r in left_right ]=}")
@@ -108,11 +113,11 @@ def test_chunked_streaming_beam_search_decoder(
     )
     print(f"{beams_g.send(None)=}")
 
-    frame_idx=0
+    frame_idx = 0
     for logit_chunk in parts:
         for logits_col in logit_chunk:
             incr_beams: list[IncrBeam] = beams_g.send((frame_idx, logits_col))
-            frame_idx+=1
+            frame_idx += 1
         print(f"{frame_idx=}, {incr_beams[0].text=}")
 
     ref = librispeech_ref

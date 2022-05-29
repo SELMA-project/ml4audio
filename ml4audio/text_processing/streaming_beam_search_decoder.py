@@ -1,9 +1,11 @@
 from __future__ import division
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional
 
 import numpy as np  # type: ignore
+from beartype import beartype
+from numpy.typing import NDArray
 
 from pyctcdecode import BeamSearchDecoderCTC
 from pyctcdecode.alphabet import BPE_TOKEN
@@ -19,7 +21,7 @@ from pyctcdecode.decoder import (
     _normalize_whitespace,
     Frames,
 )
-from pyctcdecode.language_model import HotwordScorer
+from pyctcdecode.language_model import HotwordScorer, AbstractLanguageModel
 
 
 @dataclass
@@ -37,6 +39,20 @@ class IncrBeam:
             assert len(self.text.split(" ")) == len(
                 self.text_frames
             ), f"{self.text=}, {self.text_frames=}"
+
+
+@dataclass
+class DecodeParams:
+    beam_width: int
+    beam_prune_logp: float
+    token_min_logp: float
+    prune_history: bool
+    hotword_scorer: HotwordScorer
+    lm_start_state: LMState
+    cached_lm_scores: Dict[str, Tuple[float, float, LMState]]
+    cached_p_lm_scores: Dict[str, float]
+    language_model: AbstractLanguageModel
+    force_next_break: bool
 
 
 class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
@@ -66,133 +82,26 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
         # bpe we can also have trailing word boundaries ▁⁇▁ so we may need to remember breaks
         force_next_break = False
 
+        params = DecodeParams(
+            beam_width=beam_width,
+            beam_prune_logp=beam_prune_logp,
+            token_min_logp=token_min_logp,
+            prune_history=prune_history,
+            hotword_scorer=hotword_scorer,
+            lm_start_state=lm_start_state,
+            cached_lm_scores=cached_lm_scores,
+            cached_p_lm_scores=cached_p_lm_scores,
+            language_model=language_model,
+            force_next_break=force_next_break,
+        )
+
         assert logits is None, f"we don't need this argument!"
         while True:
             inputt = yield [IncrBeam(*beam) for beam in beams]
             if inputt is None:
                 break
             frame_idx, logit_col = inputt
-            max_idx = logit_col.argmax()
-            idx_list = set(np.where(logit_col >= token_min_logp)[0]) | {max_idx}
-            new_beams: List[Beam] = []
-            for idx_char in idx_list:
-                p_char = logit_col[idx_char]
-                char = self._idx2vocab[idx_char]
-                for (
-                    text,
-                    next_word,
-                    word_part,
-                    last_char,
-                    text_frames,
-                    part_frames,
-                    logit_score,
-                ) in beams:
-                    # if only blank token or same token
-                    if char == "" or last_char == char:
-                        if char == "":
-                            new_end_frame = part_frames[0]
-                        else:
-                            new_end_frame = frame_idx + 1
-                        new_part_frames = (
-                            part_frames
-                            if char == ""
-                            else (part_frames[0], new_end_frame)
-                        )
-                        new_beams.append(
-                            (
-                                text,
-                                next_word,
-                                word_part,
-                                char,
-                                text_frames,
-                                new_part_frames,
-                                logit_score + p_char,
-                            )
-                        )
-                    # if bpe and leading space char
-                    elif self._is_bpe and (char[:1] == BPE_TOKEN or force_next_break):
-                        force_next_break = False
-                        # some tokens are bounded on both sides like ▁⁇▁
-                        clean_char = char
-                        if char[:1] == BPE_TOKEN:
-                            clean_char = clean_char[1:]
-                        if char[-1:] == BPE_TOKEN:
-                            clean_char = clean_char[:-1]
-                            force_next_break = True
-                        new_frame_list = (
-                            text_frames
-                            if word_part == ""
-                            else text_frames + [part_frames]
-                        )
-                        new_beams.append(
-                            (
-                                text,
-                                word_part,
-                                clean_char,
-                                char,
-                                new_frame_list,
-                                (frame_idx, frame_idx + 1),
-                                logit_score + p_char,
-                            )
-                        )
-                    # if not bpe and space char
-                    elif not self._is_bpe and char == " ":
-                        new_frame_list = (
-                            text_frames
-                            if word_part == ""
-                            else text_frames + [part_frames]
-                        )
-                        new_beams.append(
-                            (
-                                text,
-                                word_part,
-                                "",
-                                char,
-                                new_frame_list,
-                                NULL_FRAMES,
-                                logit_score + p_char,
-                            )
-                        )
-                    # general update of continuing token without space
-                    else:
-                        new_part_frames = (
-                            (frame_idx, frame_idx + 1)
-                            if part_frames[0] < 0
-                            else (part_frames[0], frame_idx + 1)
-                        )
-                        new_beams.append(
-                            (
-                                text,
-                                next_word,
-                                word_part + char,
-                                char,
-                                text_frames,
-                                new_part_frames,
-                                logit_score + p_char,
-                            )
-                        )
-
-            # lm scoring and beam pruning
-            new_beams = _merge_beams(new_beams)
-            scored_beams = self._get_lm_beams(
-                new_beams,
-                hotword_scorer,
-                cached_lm_scores,
-                cached_p_lm_scores,
-            )
-            # remove beam outliers
-            max_score = max([b[-1] for b in scored_beams])
-            scored_beams = [
-                b for b in scored_beams if b[-1] >= max_score + beam_prune_logp
-            ]
-            # beam pruning by taking highest N prefixes and then filtering down
-            trimmed_beams = _sort_and_trim_beams(scored_beams, beam_width)
-            # prune history and remove lm score from beams
-            if prune_history:
-                lm_order = 1 if language_model is None else language_model.order
-                beams = _prune_history(trimmed_beams, lm_order=lm_order)
-            else:
-                beams = [b[:-1] for b in trimmed_beams]
+            beams = self._decode_step(beams, frame_idx, logit_col, params)
 
         # final lm scoring and sorting
         new_beams = []
@@ -225,3 +134,131 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
             for text, _, _, _, text_frames, _, logit_score, lm_score in trimmed_beams
         ]
         yield output_beams
+
+    @beartype
+    def _decode_step(
+        self,
+        beams: list[Beam],
+        frame_idx: int,
+        logit_col: NDArray,
+        params: DecodeParams,
+    ) -> list[Beam]:
+        max_idx = logit_col.argmax()
+        idx_list = set(np.where(logit_col >= params.token_min_logp)[0]) | {max_idx}
+        new_beams: List[Beam] = []
+        for idx_char in idx_list:
+            p_char = logit_col[idx_char]
+            char = self._idx2vocab[idx_char]
+            for (
+                text,
+                next_word,
+                word_part,
+                last_char,
+                text_frames,
+                part_frames,
+                logit_score,
+            ) in beams:
+                # if only blank token or same token
+                if char == "" or last_char == char:
+                    if char == "":
+                        new_end_frame = part_frames[0]
+                    else:
+                        new_end_frame = frame_idx + 1
+                    new_part_frames = (
+                        part_frames if char == "" else (part_frames[0], new_end_frame)
+                    )
+                    new_beams.append(
+                        (
+                            text,
+                            next_word,
+                            word_part,
+                            char,
+                            text_frames,
+                            new_part_frames,
+                            logit_score + p_char,
+                        )
+                    )
+                # if bpe and leading space char
+                elif self._is_bpe and (
+                    char[:1] == BPE_TOKEN or params.force_next_break
+                ):
+                    params.force_next_break = False
+                    # some tokens are bounded on both sides like ▁⁇▁
+                    clean_char = char
+                    if char[:1] == BPE_TOKEN:
+                        clean_char = clean_char[1:]
+                    if char[-1:] == BPE_TOKEN:
+                        clean_char = clean_char[:-1]
+                        params.force_next_break = True
+                    new_frame_list = (
+                        text_frames if word_part == "" else text_frames + [part_frames]
+                    )
+                    new_beams.append(
+                        (
+                            text,
+                            word_part,
+                            clean_char,
+                            char,
+                            new_frame_list,
+                            (frame_idx, frame_idx + 1),
+                            logit_score + p_char,
+                        )
+                    )
+                # if not bpe and space char
+                elif not self._is_bpe and char == " ":
+                    new_frame_list = (
+                        text_frames if word_part == "" else text_frames + [part_frames]
+                    )
+                    new_beams.append(
+                        (
+                            text,
+                            word_part,
+                            "",
+                            char,
+                            new_frame_list,
+                            NULL_FRAMES,
+                            logit_score + p_char,
+                        )
+                    )
+                # general update of continuing token without space
+                else:
+                    new_part_frames = (
+                        (frame_idx, frame_idx + 1)
+                        if part_frames[0] < 0
+                        else (part_frames[0], frame_idx + 1)
+                    )
+                    new_beams.append(
+                        (
+                            text,
+                            next_word,
+                            word_part + char,
+                            char,
+                            text_frames,
+                            new_part_frames,
+                            logit_score + p_char,
+                        )
+                    )
+        # lm scoring and beam pruning
+        new_beams = _merge_beams(new_beams)
+        scored_beams = self._get_lm_beams(
+            new_beams,
+            params.hotword_scorer,
+            params.cached_lm_scores,
+            params.cached_p_lm_scores,
+        )
+        # remove beam outliers
+        max_score = max([b[-1] for b in scored_beams])
+        scored_beams = [
+            b for b in scored_beams if b[-1] >= max_score + params.beam_prune_logp
+        ]
+        # beam pruning by taking highest N prefixes and then filtering down
+        trimmed_beams = _sort_and_trim_beams(scored_beams, params.beam_width)
+        # prune history and remove lm score from beams
+        if params.prune_history:
+            lm_order = (
+                1 if params.language_model is None else params.language_model.order
+            )
+            beams = _prune_history(trimmed_beams, lm_order=lm_order)
+        else:
+            beams = [b[:-1] for b in trimmed_beams]
+        return beams
