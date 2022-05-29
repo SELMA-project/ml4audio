@@ -7,6 +7,28 @@ from beartype import beartype
 from misc_utils.beartypes import NumpyFloat2DArray
 
 
+@beartype
+def calc_left_right_parts(
+    logits_chunk: NumpyFloat2DArray,
+    start_end: tuple[int, int],
+    last_right_part: Optional[NumpyFloat2DArray] = None,
+    last_end: int = 0,
+) -> tuple[Optional[NumpyFloat2DArray], NumpyFloat2DArray]:
+    a_start, a_end = start_end
+    if last_end > 0:
+        audio_slice_len = a_end - a_start
+        logit_window_len = logits_chunk.shape[0]
+        audio_to_logits_ratio = audio_slice_len / logit_window_len
+        logits_overlap = (last_end - a_start) / audio_to_logits_ratio
+        right_part = logits_chunk[floor(logits_overlap / 2) :]
+        left_part = last_right_part[: -ceil(logits_overlap / 2)]
+
+    else:
+        right_part = logits_chunk
+        left_part = None
+    return left_part, right_part
+
+
 @dataclass
 class LogitsCutter:
     """
@@ -29,20 +51,14 @@ class LogitsCutter:
         """
         based on: https://github.com/huggingface/transformers/blob/215e0681e4c3f6ade6e219d022a5e640b42fcb76/src/transformers/pipelines/automatic_speech_recognition.py#L337
         """
-        a_start, a_end = start_end
-        if self._last_end > 0:
-            audio_slice_len = a_end - a_start
-            logit_window_len = logits_chunk.shape[0]
-            audio_to_logits_ratio = audio_slice_len / logit_window_len
-            logits_overlap = (self._last_end - a_start) / audio_to_logits_ratio
-            right_part = logits_chunk[floor(logits_overlap / 2) :]
-            left_part = self._buffer[: -ceil(logits_overlap / 2)]
+        last_right_part = self._buffer
+        last_end = self._last_end
 
-        else:
-            right_part = logits_chunk
-            left_part = None
+        left_part, right_part = calc_left_right_parts(
+            logits_chunk, start_end, last_right_part, last_end
+        )
 
         self._buffer = right_part
-        self._last_end = a_end
+        self._last_end = start_end[1]
 
         return left_part, right_part
