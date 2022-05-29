@@ -19,6 +19,7 @@ from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
 from ml4audio.text_processing.streaming_beam_search_decoder import (
     StreamingBeamSearchDecoderCTC,
+    IncrBeam,
 )
 from ml4audio.text_processing.word_based_text_corpus import (
     WordBasedLMCorpus,
@@ -210,8 +211,12 @@ def test_streaming_beam_search_decoder(
     )
     print(f"{beams_g.send(None)=}")
     for frame_idx, logits_col in enumerate(logits.squeeze()):
-        incr_beams = beams_g.send((frame_idx, logits_col))
+        incr_beams: list[IncrBeam] = beams_g.send((frame_idx, logits_col))
         # print(f"{incr_beams[0][0]=}")
+
+    ref = librispeech_ref
+    hyp = incr_beams[0].text
+    assert_transcript_cer(hyp, ref, max_cer)
 
     incr_beams = next(beams_g)
     beams = [OutputBeamDc(*b) for b in incr_beams]

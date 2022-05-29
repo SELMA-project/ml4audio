@@ -1,6 +1,7 @@
 from __future__ import division
 
-from typing import List, Dict, Tuple
+from dataclasses import dataclass
+from typing import List, Dict, Tuple, Optional
 
 import numpy as np  # type: ignore
 
@@ -16,8 +17,26 @@ from pyctcdecode.decoder import (
     _sort_and_trim_beams,
     _prune_history,
     _normalize_whitespace,
+    Frames,
 )
 from pyctcdecode.language_model import HotwordScorer
+
+
+@dataclass
+class IncrBeam:
+    text: str
+    next_word: str
+    word_part: str
+    last_char: Optional[str]
+    text_frames: list[Frames]
+    part_frames: Frames
+    logit_score: float
+
+    def __post_init__(self):
+        if len(self.text) > 0:
+            assert len(self.text.split(" ")) == len(
+                self.text_frames
+            ), f"{self.text=}, {self.text_frames=}"
 
 
 class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
@@ -49,7 +68,7 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
 
         assert logits is None, f"we don't need this argument!"
         while True:
-            inputt = yield beams
+            inputt = yield [IncrBeam(*beam) for beam in beams]
             if inputt is None:
                 break
             frame_idx, logit_col = inputt
@@ -75,7 +94,9 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
                         else:
                             new_end_frame = frame_idx + 1
                         new_part_frames = (
-                            part_frames if char == "" else (part_frames[0], new_end_frame)
+                            part_frames
+                            if char == ""
+                            else (part_frames[0], new_end_frame)
                         )
                         new_beams.append(
                             (
@@ -99,7 +120,9 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
                             clean_char = clean_char[:-1]
                             force_next_break = True
                         new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
+                            text_frames
+                            if word_part == ""
+                            else text_frames + [part_frames]
                         )
                         new_beams.append(
                             (
@@ -115,7 +138,9 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
                     # if not bpe and space char
                     elif not self._is_bpe and char == " ":
                         new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
+                            text_frames
+                            if word_part == ""
+                            else text_frames + [part_frames]
                         )
                         new_beams.append(
                             (
@@ -157,7 +182,9 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
             )
             # remove beam outliers
             max_score = max([b[-1] for b in scored_beams])
-            scored_beams = [b for b in scored_beams if b[-1] >= max_score + beam_prune_logp]
+            scored_beams = [
+                b for b in scored_beams if b[-1] >= max_score + beam_prune_logp
+            ]
             # beam pruning by taking highest N prefixes and then filtering down
             trimmed_beams = _sort_and_trim_beams(scored_beams, beam_width)
             # prune history and remove lm score from beams
@@ -171,7 +198,9 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
         new_beams = []
         for text, _, word_part, _, frame_list, frames, logit_score in beams:
             new_token_times = frame_list if word_part == "" else frame_list + [frames]
-            new_beams.append((text, word_part, "", None, new_token_times, (-1, -1), logit_score))
+            new_beams.append(
+                (text, word_part, "", None, new_token_times, (-1, -1), logit_score)
+            )
         new_beams = _merge_beams(new_beams)
         scored_beams = self._get_lm_beams(
             new_beams,
