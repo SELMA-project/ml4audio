@@ -33,7 +33,7 @@ from pyctcdecode.constants import (
     DEFAULT_PRUNE_BEAMS,
     DEFAULT_HOTWORD_WEIGHT,
 )
-from pyctcdecode.decoder import EMPTY_START_BEAM
+from pyctcdecode.decoder import EMPTY_START_BEAM, Beam
 from pyctcdecode.language_model import HotwordScorer
 
 TARGET_SAMPLE_RATE = 16000
@@ -96,8 +96,8 @@ def test_chunked_streaming_beam_search_decoder(
 
     left_right = [lc.calc_left_right(l, s_e) for l, s_e in chunk_spans]
     print(f"{[(l.shape if l is not None else 0,r.shape) for l,r in left_right ]=}")
-    parts = [l for l, r in left_right] + [left_right[-1][1]]
-    parts = [x for x in parts if x is not None]
+    # parts = [l for l, r in left_right] + [left_right[-1][1]]
+    # parts = [x for x in parts if x is not None]
 
     max_cer = 0.007
 
@@ -118,13 +118,30 @@ def test_chunked_streaming_beam_search_decoder(
     )
 
     frame_idx = 0
-    for logit_chunk in parts:
-        for logits_col in logit_chunk:
-            beams = decoder.incr_decode_step(beams, frame_idx, logits_col, params)
-            frame_idx += 1
+    for left_part, right_part in left_right:
 
-        incr_beams = [IncrBeam(*beam) for beam in beams]
-        print(f"{frame_idx=}, {incr_beams[0].text=}")
+        right_beams: list[Beam] = beams
+        for k, logits_col in enumerate(right_part):
+            right_beams = decoder.incr_decode_step(
+                right_beams, frame_idx + k, logits_col, params
+            )
+        incr_beams = [IncrBeam(*beam) for beam in right_beams]
+        print(f"non-final: {frame_idx+k=}, {incr_beams[0].text=}")
+
+        if left_part is not None:
+            for logits_col in left_part:
+                beams = decoder.incr_decode_step(beams, frame_idx, logits_col, params)
+                frame_idx += 1
+
+            incr_beams = [IncrBeam(*beam) for beam in beams]
+            print(f"{frame_idx=}, {incr_beams[0].text=}")
+
+    for logits_col in right_part:
+        beams = decoder.incr_decode_step(beams, frame_idx, logits_col, params)
+        frame_idx += 1
+
+    incr_beams = [IncrBeam(*beam) for beam in beams]
+    print(f"{frame_idx=}, {incr_beams[0].text=}")
 
     ref = librispeech_ref
     hyp = incr_beams[0].text
