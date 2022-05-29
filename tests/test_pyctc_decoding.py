@@ -1,16 +1,18 @@
 import os
 import shutil
 
+import kenlm
 import numpy as np
 import pytest
 import torch
 
+from data_io.readwrite_files import read_lines
 from ml4audio.text_processing.lm_model_for_pyctcdecode import (
     KenLMForPyCTCDecodeFromArpa,
     KenLMForPyCTCDecodeFromArpaCorpus,
     KenLMForPyCTCDecode,
 )
-from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder
+from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
 from misc_utils.buildable import BuildableList
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
@@ -21,6 +23,16 @@ from ml4audio.text_processing.word_based_text_corpus import (
 )
 from conftest import get_test_vocab, TEST_RESOURCES, load_hfwav2vec2_base_tokenizer
 from conftest import assert_transcript_cer
+from pyctcdecode import BeamSearchDecoderCTC, Alphabet, LanguageModel
+from pyctcdecode.constants import (
+    DEFAULT_BEAM_WIDTH,
+    DEFAULT_PRUNE_LOGP,
+    DEFAULT_MIN_TOKEN_LOGP,
+    DEFAULT_PRUNE_BEAMS,
+    DEFAULT_HOTWORD_WEIGHT,
+)
+from pyctcdecode.decoder import OutputBeam
+from pyctcdecode.language_model import HotwordScorer
 
 TARGET_SAMPLE_RATE = 16000
 
@@ -99,25 +111,36 @@ def test_PyCTCKenLMDecoder(
     assert_transcript_cer(hyp, ref, max_cer)
 
 
+lm_data: KenLMForPyCTCDecodeFromArpa = KenLMForPyCTCDecodeFromArpa(
+    name="test",
+    cache_base=cache_base,
+    arpa_file=f"{TEST_RESOURCES}/lm.arpa",
+    transcript_normalizer=tn,
+).build()
+unigrams = list(read_lines(lm_data.unigrams_filepath))
+
+
 @pytest.mark.parametrize(
     "decoder",
     [
         (
-            PyCTCKenLMDecoder(
-                tokenizer=load_hfwav2vec2_base_tokenizer(),
-                lm_weight=1.0,
-                beta=0.5,
-                lm_data=KenLMForPyCTCDecodeFromArpa(
-                    name="test",
-                    cache_base=cache_base,
-                    arpa_file=f"{TEST_RESOURCES}/lm.arpa",
-                    transcript_normalizer=tn,
+            BeamSearchDecoderCTC(
+                Alphabet.build_alphabet(
+                    list(load_hfwav2vec2_base_tokenizer().get_vocab().keys())
+                ),
+                language_model=LanguageModel(
+                    kenlm_model=kenlm.Model(lm_data.arpa_filepath),
+                    unigrams=unigrams,
+                    alpha=1.0,
+                    beta=0.5,
+                    # unk_score_offset=unk_score_offset,
+                    # score_boundary=lm_score_boundary,
                 ),
             )
         ),
     ],
 )
-def test_decoders(
+def test_beams_search_decoders(
     decoder,
     librispeech_logtis_file,
     librispeech_ref,
@@ -125,8 +148,19 @@ def test_decoders(
     max_cer = 0.007
 
     logits = np.load(librispeech_logtis_file, allow_pickle=True)
-    decoder.build()
-    transcript = decoder.decode(torch.from_numpy(logits.squeeze()))[0]
+    beams = decoder._decode_logits(
+        logits=logits.squeeze(),
+        beam_width=DEFAULT_BEAM_WIDTH,
+        beam_prune_logp=DEFAULT_PRUNE_LOGP,
+        token_min_logp=DEFAULT_MIN_TOKEN_LOGP,
+        prune_history=DEFAULT_PRUNE_BEAMS,
+        hotword_scorer=HotwordScorer.build_scorer(
+            hotwords=None, weight=DEFAULT_HOTWORD_WEIGHT
+        ),
+        lm_start_state=None,
+    )
+    beams = [OutputBeamDc(*b) for b in beams]
+
     ref = librispeech_ref
-    hyp = transcript.text
+    hyp = beams[0].text
     assert_transcript_cer(hyp, ref, max_cer)
