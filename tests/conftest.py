@@ -4,6 +4,7 @@ from warnings import filterwarnings
 import icdiff
 from beartype import beartype
 from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
+from numpy.typing import NDArray
 from transformers import Wav2Vec2CTCTokenizer
 
 from misc_utils.beartypes import NumpyInt16Dim1, NeStr, NumpyFloat1DArray
@@ -17,7 +18,7 @@ from ml4audio.audio_utils.audio_io import (
     break_array_into_chunks,
 )
 from ml4audio.audio_utils.overlap_array_chunker import OverlapArrayChunker, \
-    audio_messages_from_chunks
+    audio_messages_from_chunks, messages_from_chunks
 from ml4audio.text_processing.metrics_calculation import calc_cer
 
 filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
@@ -211,6 +212,25 @@ def overlapping_audio_messages_from_audio_array(
     chunks_g = (
         am
         for ch in audio_messages_from_chunks("dummy-id", small_chunks)
+        for am in chunker.handle_datum(ch)
+    )
+    yield from chunks_g
+
+
+@beartype
+def overlapping_messages_from_array(
+    audio_array: NDArray, step_size: int, chunk_size: int
+):
+    chunker = OverlapArrayChunker(
+        chunk_size=chunk_size,
+        min_step_size=step_size,
+    )
+    chunker.reset()
+
+    small_chunks = break_array_into_chunks(audio_array, chunk_size=100)
+    chunks_g = (
+        am
+        for ch in messages_from_chunks("dummy-id", small_chunks)
         for am in chunker.handle_datum(ch)
     )
     yield from chunks_g

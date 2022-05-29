@@ -1,34 +1,11 @@
 import numpy as np
-from beartype import beartype
 from numpy.testing import assert_allclose
-from numpy.typing import NDArray
 
 from ml4audio.asr_inference.logits_cutter import LogitsCutter
-from ml4audio.audio_utils.audio_io import break_array_into_chunks
 from ml4audio.audio_utils.overlap_array_chunker import (
-    OverlapArrayChunker,
-    messages_from_chunks,
     MessageChunk,
 )
-
-
-@beartype
-def overlapping_messages_from_array(
-    audio_array: NDArray, step_size: int, chunk_size: int
-):
-    chunker = OverlapArrayChunker(
-        chunk_size=chunk_size,
-        min_step_size=step_size,
-    )
-    chunker.reset()
-
-    small_chunks = break_array_into_chunks(audio_array, chunk_size=100)
-    chunks_g = (
-        am
-        for ch in messages_from_chunks("dummy-id", small_chunks)
-        for am in chunker.handle_datum(ch)
-    )
-    yield from chunks_g
+from conftest import overlapping_messages_from_array
 
 
 def test_logits_cutter(
