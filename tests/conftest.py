@@ -192,6 +192,7 @@ def assert_transcript_cer(hyp, ref, max_cer):
     )
     print(diff_line)
     cer = calc_cer([(hyp, ref)])
+    print(f"{cer=}")
     assert cer < max_cer
 
 

@@ -17,6 +17,9 @@ from misc_utils.buildable import BuildableList
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
 from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
+from ml4audio.text_processing.streaming_beam_search_decoder import (
+    StreamingBeamSearchDecoderCTC,
+)
 from ml4audio.text_processing.word_based_text_corpus import (
     WordBasedLMCorpus,
     RglobRawCorpus,
@@ -160,6 +163,58 @@ def test_beams_search_decoders(
         lm_start_state=None,
     )
     beams = [OutputBeamDc(*b) for b in beams]
+
+    ref = librispeech_ref
+    hyp = beams[0].text
+    assert_transcript_cer(hyp, ref, max_cer)
+
+
+@pytest.mark.parametrize(
+    "decoder",
+    [
+        (
+            StreamingBeamSearchDecoderCTC(
+                Alphabet.build_alphabet(
+                    list(load_hfwav2vec2_base_tokenizer().get_vocab().keys())
+                ),
+                language_model=LanguageModel(
+                    kenlm_model=kenlm.Model(lm_data.arpa_filepath),
+                    unigrams=unigrams,
+                    alpha=1.0,
+                    beta=0.5,
+                    # unk_score_offset=unk_score_offset,
+                    # score_boundary=lm_score_boundary,
+                ),
+            )
+        ),
+    ],
+)
+def test_streaming_beam_search_decoder(
+    decoder,
+    librispeech_logtis_file,
+    librispeech_ref,
+):
+    max_cer = 0.007
+
+    logits = np.load(librispeech_logtis_file, allow_pickle=True)
+    beams_g = decoder._decode_logits(
+        logits=None,
+        beam_width=DEFAULT_BEAM_WIDTH,
+        beam_prune_logp=DEFAULT_PRUNE_LOGP,
+        token_min_logp=DEFAULT_MIN_TOKEN_LOGP,
+        prune_history=DEFAULT_PRUNE_BEAMS,
+        hotword_scorer=HotwordScorer.build_scorer(
+            hotwords=None, weight=DEFAULT_HOTWORD_WEIGHT
+        ),
+        lm_start_state=None,
+    )
+    print(f"{beams_g.send(None)=}")
+    for frame_idx, logits_col in enumerate(logits.squeeze()):
+        incr_beams = beams_g.send((frame_idx, logits_col))
+        # print(f"{incr_beams[0][0]=}")
+
+    incr_beams = next(beams_g)
+    beams = [OutputBeamDc(*b) for b in incr_beams]
 
     ref = librispeech_ref
     hyp = beams[0].text
