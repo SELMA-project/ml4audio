@@ -124,9 +124,8 @@ def test_chunked_streaming_beam_search_decoder(
     hyp = incr_beams[0].text
     assert_transcript_cer(hyp, ref, max_cer)
 
-    incr_beams = next(beams_g)
-    beams = [OutputBeamDc(*b) for b in incr_beams]
+    out_beams = next(beams_g)
 
     ref = librispeech_ref
-    hyp = beams[0].text
+    hyp = out_beams[0].text
     assert_transcript_cer(hyp, ref, max_cer)
