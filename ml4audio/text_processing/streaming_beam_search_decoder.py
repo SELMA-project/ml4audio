@@ -6,14 +6,21 @@ import numpy as np  # type: ignore
 
 from pyctcdecode import BeamSearchDecoderCTC
 from pyctcdecode.alphabet import BPE_TOKEN
-from pyctcdecode.decoder import LMState, OutputBeam, EMPTY_START_BEAM, Beam, \
-    NULL_FRAMES, _merge_beams, _sort_and_trim_beams, _prune_history, \
-    _normalize_whitespace
+from pyctcdecode.decoder import (
+    LMState,
+    OutputBeam,
+    EMPTY_START_BEAM,
+    Beam,
+    NULL_FRAMES,
+    _merge_beams,
+    _sort_and_trim_beams,
+    _prune_history,
+    _normalize_whitespace,
+)
 from pyctcdecode.language_model import HotwordScorer
 
 
 class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
-
     def _decode_logits(
         self,
         logits: np.ndarray,  # type: ignore [type-arg]
@@ -39,7 +46,13 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
         beams = [EMPTY_START_BEAM]
         # bpe we can also have trailing word boundaries ▁⁇▁ so we may need to remember breaks
         force_next_break = False
-        for frame_idx, logit_col in enumerate(logits):
+
+        assert logits is None, f"we don't need this argument!"
+        while True:
+            inputt = yield beams
+            if inputt is None:
+                break
+            frame_idx, logit_col = inputt
             max_idx = logit_col.argmax()
             idx_list = set(np.where(logit_col >= token_min_logp)[0]) | {max_idx}
             new_beams: List[Beam] = []
@@ -182,5 +195,4 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
             )
             for text, _, _, _, text_frames, _, logit_score, lm_score in trimmed_beams
         ]
-        return output_beams
-
+        yield output_beams
