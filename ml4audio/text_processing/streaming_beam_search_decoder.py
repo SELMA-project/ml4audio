@@ -9,6 +9,7 @@ from beartype import beartype
 from numpy.typing import NDArray
 
 from data_io.readwrite_files import read_lines
+from misc_utils.beartypes import NumpyFloat2DArray
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
 from ml4audio.asr_inference.logits_cutter import LogitsCutter
@@ -347,19 +348,10 @@ class ChunkedPyctcDecoder(Buildable):
 
         frame_idx = ch.frame_idx
         if left_part is not None:
-            for logits_col in left_part:
-                self.beams = self._pyctc_decoder.incr_decode_step(
-                    self.beams, frame_idx, logits_col, self.params
-                )
-                frame_idx += 1
+            self.beams = self._decode_array(self.beams, frame_idx, left_part)
+            frame_idx = ch.frame_idx + len(left_part)
 
-            assert frame_idx == ch.frame_idx + len(left_part)
-
-        right_beams: list[Beam] = self.beams
-        for k, logits_col in enumerate(right_part):
-            right_beams = self._pyctc_decoder.incr_decode_step(
-                right_beams, frame_idx + k, logits_col, self.params
-            )
+        right_beams = self._decode_array(self.beams, frame_idx, right_part)
 
         if ch.end_of_signal:
             self.beams = right_beams
@@ -367,3 +359,13 @@ class ChunkedPyctcDecoder(Buildable):
         incr_beams = [IncrBeam(*beam) for beam in self.beams]
         incr_right_beams = [IncrBeam(*beam) for beam in right_beams]
         return incr_beams, incr_right_beams
+
+    @beartype
+    def _decode_array(
+        self, beams: list[Beam], frame_idx: int, array: NumpyFloat2DArray
+    ) -> list[Beam]:
+        for k, logits_col in enumerate(array):
+            beams = self._pyctc_decoder.incr_decode_step(
+                beams, frame_idx + k, logits_col, self.params
+            )
+        return beams

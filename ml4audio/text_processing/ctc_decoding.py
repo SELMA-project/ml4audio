@@ -151,36 +151,8 @@ class BaseCTCDecoder:
     tokenizer: PreTrainedTokenizer
 
     @abstractmethod
-    def decode(
-        self, ctc_matrix: TorchTensor2D, state: Optional[Any] = None
-    ) -> AlignedBeams:
+    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
         raise NotImplementedError
-
-
-@dataclass
-class LMCTCDecoder(BaseCTCDecoder):
-    """Abstract base-class for ctc-decoders."""
-
-    lm_weight: Union[_UNDEFINED, float] = UNDEFINED
-    beta: Union[_UNDEFINED, float] = UNDEFINED
-    # cannot do this with beartype NeList[str] for vocab, cause it might be a CachedList
-    vocab: Union[_UNDEFINED, list[str]] = UNDEFINED
-    silence_idx: Optional[int] = None
-
-    num_best: int = 1  # number of beams to return
-    beam_size: int = 100
-
-    def _build_self(self) -> None:
-        self.vocab_size = len(self.vocab)
-        assert self.vocab_size > 0
-        char2idx = {char: idx for idx, char in enumerate(self.vocab)}
-
-        self.blank_idx = char2idx.get("<pad>", char2idx.get("<s>"))
-        self.silence_idx = calc_silence_index(char2idx)
-
-    @property
-    def silence_str(self) -> str:
-        return self.vocab[self.silence_idx]
 
 
 NoneType = type(None)
@@ -198,9 +170,7 @@ class GreedyDecoder(BaseCTCDecoder):
     """
 
     @beartype
-    def decode(
-        self, ctc_matrix: TorchTensor2D, state: Optional[Any] = None
-    ) -> AlignedBeams:
+    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
 
         greedy_path = torch.argmax(ctc_matrix, dim=-1).squeeze()
         out: Wav2Vec2CTCTokenizerOutput = self.tokenizer.decode(  # noqa
