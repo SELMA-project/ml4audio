@@ -98,14 +98,14 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
             if inputt is None:
                 break
             frame_idx, logit_col = inputt
-            beams = self._decode_step(beams, frame_idx, logit_col, params)
+            beams = self.incr_decode_step(beams, frame_idx, logit_col, params)
 
         # final lm scoring and sorting
-        output_beams = self._final_scoring_and_sorting(beams, params)
+        output_beams = self.final_scoring_and_sorting(beams, params)
         yield output_beams
 
     @beartype
-    def _decode_step(
+    def incr_decode_step(
         self,
         beams: list[Beam],
         frame_idx: int,
@@ -233,7 +233,7 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
         return beams
 
     @beartype
-    def _final_scoring_and_sorting(
+    def final_scoring_and_sorting(
         self, beams: list[Beam], params: DecodeParams
     ) -> list[OutputBeamDc]:
         new_beams = []

@@ -20,10 +20,10 @@ from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 from ml4audio.text_processing.lm_model_for_pyctcdecode import (
     KenLMForPyCTCDecodeFromArpa,
 )
-from ml4audio.text_processing.pyctc_decoder import OutputBeamDc
 from ml4audio.text_processing.streaming_beam_search_decoder import (
     StreamingBeamSearchDecoderCTC,
     IncrBeam,
+    DecodeParams,
 )
 from pyctcdecode import Alphabet, LanguageModel
 from pyctcdecode.constants import (
@@ -33,6 +33,7 @@ from pyctcdecode.constants import (
     DEFAULT_PRUNE_BEAMS,
     DEFAULT_HOTWORD_WEIGHT,
 )
+from pyctcdecode.decoder import EMPTY_START_BEAM
 from pyctcdecode.language_model import HotwordScorer
 
 TARGET_SAMPLE_RATE = 16000
@@ -100,8 +101,11 @@ def test_chunked_streaming_beam_search_decoder(
 
     max_cer = 0.007
 
-    beams_g = decoder._decode_logits(
-        logits=None,
+    language_model = decoder.model_container[decoder._model_key]
+    # start with single beam to expand on
+    beams = [EMPTY_START_BEAM]
+    # bpe we can also have trailing word boundaries ▁⁇▁ so we may need to remember breaks
+    params = DecodeParams(
         beam_width=DEFAULT_BEAM_WIDTH,
         beam_prune_logp=DEFAULT_PRUNE_LOGP,
         token_min_logp=DEFAULT_MIN_TOKEN_LOGP,
@@ -110,21 +114,23 @@ def test_chunked_streaming_beam_search_decoder(
             hotwords=None, weight=DEFAULT_HOTWORD_WEIGHT
         ),
         lm_start_state=None,
+        language_model=language_model,
     )
-    print(f"{beams_g.send(None)=}")
 
     frame_idx = 0
     for logit_chunk in parts:
         for logits_col in logit_chunk:
-            incr_beams: list[IncrBeam] = beams_g.send((frame_idx, logits_col))
+            beams = decoder.incr_decode_step(beams, frame_idx, logits_col, params)
             frame_idx += 1
+
+        incr_beams = [IncrBeam(*beam) for beam in beams]
         print(f"{frame_idx=}, {incr_beams[0].text=}")
 
     ref = librispeech_ref
     hyp = incr_beams[0].text
     assert_transcript_cer(hyp, ref, max_cer)
 
-    out_beams = next(beams_g)
+    out_beams = decoder.final_scoring_and_sorting(beams, params)
 
     ref = librispeech_ref
     hyp = out_beams[0].text
