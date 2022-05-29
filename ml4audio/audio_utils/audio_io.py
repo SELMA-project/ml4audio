@@ -7,6 +7,7 @@ from typing import Optional, Union, Iterator, Any
 
 import numpy as np
 from beartype import beartype
+from numpy.typing import NDArray
 
 from ml4audio.audio_utils.audio_data_models import FileLikeAudioDatum
 from ml4audio.audio_utils.torchaudio_utils import load_resample_with_torch
@@ -163,8 +164,8 @@ def load_resample_with_nemo(
 
 @beartype
 def break_array_into_chunks(
-    array: Numpy1DArray, chunk_size: int
-) -> Iterator[Numpy1DArray]:
+    array: NDArray, chunk_size: int
+) -> Iterator[NDArray]:
     """
     non-overlapping chunks
     """

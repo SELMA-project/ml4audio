@@ -9,6 +9,7 @@ from typing import (
 
 import numpy as np
 from beartype import beartype
+from numpy.typing import NDArray
 
 from misc_utils.beartypes import Numpy1DArray, NumpyInt16Dim1
 from misc_utils.dataclass_utils import UNDEFINED
@@ -26,7 +27,7 @@ class MessageChunk:
 
     message_id: str  # same for all chunks of same message
     frame_idx: int  # points to very first frame of this chunk
-    array: Numpy1DArray
+    array: NDArray
     end_of_signal: bool = False
 
 
@@ -68,7 +69,7 @@ def audio_messages_from_file(
 
 @beartype
 def messages_from_chunks(
-    signal_id: str, chunks: Iterable[Numpy1DArray]
+    signal_id: str, chunks: Iterable[NDArray]
 ) -> Iterator[MessageChunk]:
     frame_idx = 0
     dtype = None
@@ -81,7 +82,9 @@ def messages_from_chunks(
     len_of_dummy_chunk = (
         0  # TODO does empty dummy-chunk really not break anything downstream?
     )
-    dummy_chunk_just_to_transport_eos = np.zeros(len_of_dummy_chunk, dtype=dtype)
+    shape = [x for x in chunk.shape]
+    shape[0] = 0
+    dummy_chunk_just_to_transport_eos = np.zeros(shape, dtype=dtype)
     yield MessageChunk(
         message_id=signal_id,
         frame_idx=frame_idx,
@@ -101,7 +104,7 @@ def audio_messages_from_chunks(
 @dataclass
 class OverlapArrayChunker:
     """
-
+    call it "SegChunker" ? in the end its sequences that are being chunked!
     formerly called AudioMessageChunker
     TODO: why is this not buildable? where build_self essentially calls reset
     does chunking
@@ -115,8 +118,7 @@ class OverlapArrayChunker:
 
     chunk_size: int
     min_step_size: int  # if step_size==chunk_size it produced non-overlapping segments
-    dtype: ClassVar[str] = "int16"  # did not find proper type-hint
-    _buffer: Numpy1DArray = field(init=False, repr=False)
+    _buffer: Optional[Numpy1DArray] = field(init=False, repr=False, default=None)
     minimum_chunk_size: Union[
         int, _DONT_EMIT_PREMATURE_CHUNKS
     ] = DONT_EMIT_PREMATURE_CHUNKS
@@ -126,22 +128,26 @@ class OverlapArrayChunker:
     last_buffer_size: int = field(init=False, repr=False)
 
     def reset(self) -> None:
-        self._buffer = np.zeros(0, dtype=self.dtype)
+        self._buffer = None
         self.frame_counter = None
         self.last_buffer_size = 0
 
+    @property
+    def _buffer_size(self) -> int:
+        return self._buffer.shape[0] if self._buffer is not None else 0
+
     def __can_yield_full_grown_chunk(self):
         if self.is_very_start:
-            return self._buffer.shape[0] >= self.chunk_size
+            return self._buffer_size >= self.chunk_size
         else:
-            return self._buffer.shape[0] >= self.chunk_size + self.min_step_size
+            return self._buffer_size >= self.chunk_size + self.min_step_size
 
     def __premature_chunk_long_enough_to_yield_again(self):
         """
         if premature-chunk grew bigger by step-size compared to last time it was yielded
         """
         return (
-            self._buffer.shape[0] >= self.last_buffer_size + self.min_step_size
+            self._buffer_size >= self.last_buffer_size + self.min_step_size
         )  # alter!!
 
     def _calc_step_size(self, buffer_len: int) -> int:
@@ -160,12 +166,16 @@ class OverlapArrayChunker:
     def handle_datum(self, datum: MessageChunk) -> Iterator[MessageChunk]:
         current_message_id = datum.message_id
         if not self.is_very_start:
-            if self.frame_counter + self._buffer.shape[0] != datum.frame_idx:
+            if self.frame_counter + self._buffer_size != datum.frame_idx:
                 assert (
                     False
-                ), f"frame-counter inconsistency: {self.frame_counter + self._buffer.shape[0]=} != {datum.frame_idx=}"
+                ), f"frame-counter inconsistency: {self.frame_counter + self._buffer_size=} != {datum.frame_idx=}"
 
-        self._buffer = np.concatenate([self._buffer, datum.array])
+        self._buffer = (
+            np.concatenate([self._buffer, datum.array], axis=0)
+            if self._buffer is not None
+            else datum.array
+        )
 
         yielded_final = False
         if self.__can_yield_full_grown_chunk():
@@ -193,7 +203,7 @@ class OverlapArrayChunker:
                 else:
                     eos = False
 
-                yield AudioMessageChunk(
+                yield MessageChunk(
                     message_id=current_message_id,
                     array=full_grown_chunk,
                     frame_idx=self.frame_counter,
@@ -202,20 +212,20 @@ class OverlapArrayChunker:
 
         elif (
             self.minimum_chunk_size is not DONT_EMIT_PREMATURE_CHUNKS
-            and self._buffer.shape[0] >= self.minimum_chunk_size
+            and self._buffer_size >= self.minimum_chunk_size
             and self.is_very_start
             and self.__premature_chunk_long_enough_to_yield_again()
         ):
-            self.last_buffer_size = self._buffer.shape[0]
+            self.last_buffer_size = self._buffer_size
             premature_chunk = self._buffer
-            yield AudioMessageChunk(
+            yield MessageChunk(
                 message_id=current_message_id,
                 array=premature_chunk,
                 frame_idx=0,
                 end_of_signal=datum.end_of_signal,  # can happen for short audio-signals!
             )
 
-        got_final_chunk = not yielded_final and self._buffer.shape[0] > 0
+        got_final_chunk = not yielded_final and self._buffer_size > 0
         if datum.end_of_signal and got_final_chunk:
             yield self._do_flush(current_message_id)
 
@@ -223,15 +233,15 @@ class OverlapArrayChunker:
             self.reset()
 
     @beartype
-    def _do_flush(self, message_id: str) -> AudioMessageChunk:
+    def _do_flush(self, message_id: str) -> MessageChunk:
         assert (
-            self._buffer.shape[0] <= self.chunk_size + self.min_step_size
-        ), f"cannot happen that len of buffer: {self._buffer.shape[0]} > {self.chunk_size=}"
-        last_step_size = max(0, len(self._buffer) - self.chunk_size)
+            self._buffer_size <= self.chunk_size + self.min_step_size
+        ), f"cannot happen that len of buffer: {self._buffer_size} > {self.chunk_size=}"
+        last_step_size = max(0, self._buffer_size - self.chunk_size)
         flushed_chunk = self._buffer[-self.chunk_size :]
         last_frame_count = self.frame_counter if self.frame_counter is not None else 0
         frame_idx = last_frame_count + last_step_size
-        return AudioMessageChunk(
+        return MessageChunk(
             message_id=message_id,
             array=flushed_chunk,
             frame_idx=frame_idx,
