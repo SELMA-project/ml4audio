@@ -54,9 +54,9 @@ def test_chunked_streaming_beam_search_decoder(
     ).build()
 
     for ch in logits_chunks:
-        final_beams, nonfinal_beams = decoder.decode(ch)
-        print(f"{final_beams[0].text=}")
-        print(f"{nonfinal_beams[0].text=}")
+        final, nonfinal = decoder.decode(ch)
+        print(f"{final[0].text=}")
+        print(f"{nonfinal[0].text=}")
     ref = librispeech_ref
-    hyp = final_beams[0].text
+    hyp = final[0].text
     assert_transcript_cer(hyp, ref, max_cer)

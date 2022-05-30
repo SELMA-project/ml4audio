@@ -1,6 +1,7 @@
 from __future__ import division
 
 from dataclasses import dataclass, field
+from itertools import islice
 from typing import List, Dict, Tuple, Optional, Union, Any
 
 import kenlm
@@ -14,6 +15,7 @@ from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
 from ml4audio.asr_inference.logits_cutter import LogitsCutter
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
+from ml4audio.text_processing.ctc_decoding import LogitAlignedTranscript
 from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode
 from ml4audio.text_processing.pyctc_decoder import OutputBeamDc
 from pyctcdecode import BeamSearchDecoderCTC, Alphabet, LanguageModel
@@ -32,9 +34,9 @@ from pyctcdecode.decoder import (
     NULL_FRAMES,
     _merge_beams,
     _sort_and_trim_beams,
-    _prune_history,
     _normalize_whitespace,
     Frames,
+    LMBeam,
 )
 from pyctcdecode.language_model import HotwordScorer, AbstractLanguageModel
 
@@ -48,6 +50,7 @@ class IncrBeam:
     text_frames: list[Frames]
     part_frames: Frames
     logit_score: float
+    lm_score: float
 
     def __post_init__(self):
         if len(self.text) > 0:
@@ -78,6 +81,53 @@ class DecodeParams:
             self.cached_lm_scores = {"": (0.0, 0.0, self.lm_start_state)}
 
 
+def _prune_history(beams: List[LMBeam], lm_order: int) -> List[LMBeam]:
+    """
+    same as : pyctcdecode/decoder.py#147 ;  only change: return LMBeam instead of Beam
+    (expects lm-score sorted beams)
+
+    Filter out beams that are the same over max_ngram history.
+
+    Since n-gram language models have a finite history when scoring a new token, we can use that
+    fact to prune beams that only differ early on (more than n tokens in the past) and keep only the
+    higher scoring ones. Note that this helps speed up the decoding process but comes at the cost of
+    some amount of beam diversity. If more than the top beam is used in the output it should
+    potentially be disabled.
+    """
+    # let's keep at least 1 word of history
+    min_n_history = max(1, lm_order - 1)
+    seen_hashes = set()
+    filtered_beams = []
+    # for each beam after this, check if we need to add it
+    for (
+        text,
+        next_word,
+        word_part,
+        last_char,
+        text_frames,
+        part_frames,
+        logit_score,
+        lm_score,
+    ) in beams:
+        # hash based on history that can still affect lm scoring going forward
+        hash_idx = (tuple(text.split()[-min_n_history:]), word_part, last_char)
+        if hash_idx not in seen_hashes:
+            filtered_beams.append(
+                (
+                    text,
+                    next_word,
+                    word_part,
+                    last_char,
+                    text_frames,
+                    part_frames,
+                    logit_score,
+                    lm_score,
+                )
+            )
+            seen_hashes.add(hash_idx)
+    return filtered_beams
+
+
 class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
     def _decode_logits(
         self,
@@ -89,7 +139,9 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
         hotword_scorer: HotwordScorer,
         lm_start_state: LMState = None,
     ):
-        """Perform beam search decoding."""
+        """
+        TODO: remove this!
+        Perform beam search decoding."""
         # local dictionaries to cache scores during decoding
         # we can pass in an input start state to keep the decoder stateful and working on realtime
         language_model = BeamSearchDecoderCTC.model_container[self._model_key]
@@ -121,11 +173,11 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
     @beartype
     def incr_decode_step(
         self,
-        beams: list[Beam],
+        beams: list[LMBeam],
         frame_idx: int,
         logit_col: NDArray,
         params: DecodeParams,
-    ) -> list[Beam]:
+    ) -> list[LMBeam]:
         max_idx = logit_col.argmax()
         idx_list = set(np.where(logit_col >= params.token_min_logp)[0]) | {max_idx}
         new_beams: List[Beam] = []
@@ -140,6 +192,7 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
                 text_frames,
                 part_frames,
                 logit_score,
+                _lm_score,
             ) in beams:
                 # if only blank token or same token
                 if char == "" or last_char == char:
@@ -243,13 +296,16 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
             )
             beams = _prune_history(trimmed_beams, lm_order=lm_order)
         else:
-            beams = [b[:-1] for b in trimmed_beams]
+            beams = [b for b in trimmed_beams]
         return beams
 
     @beartype
     def final_scoring_and_sorting(
         self, beams: list[Beam], params: DecodeParams
     ) -> list[OutputBeamDc]:
+        """
+        hopefully this is not needed! for true streaming-mode, should not be a need to do some final-stuff
+        """
         new_beams = []
         for text, _, word_part, _, frame_list, frames, logit_score in beams:
             new_token_times = frame_list if word_part == "" else frame_list + [frames]
@@ -326,7 +382,8 @@ class ChunkedPyctcDecoder(Buildable):
             self._pyctc_decoder._model_key
         ]
         # start with single beam to expand on
-        self.beams = [EMPTY_START_BEAM]
+        EMPTY_START_LMBEAM: LMBeam = ("", "", "", None, [], NULL_FRAMES, 0.0, -1.0)
+        self.beams = [EMPTY_START_LMBEAM]
         # bpe we can also have trailing word boundaries ▁⁇▁ so we may need to remember breaks
         self.params = DecodeParams(
             beam_width=DEFAULT_BEAM_WIDTH,
@@ -342,7 +399,13 @@ class ChunkedPyctcDecoder(Buildable):
         return self
 
     @beartype
-    def decode(self, ch: MessageChunk) -> tuple[list[IncrBeam], list[IncrBeam]]:
+    def decode(
+        self, ch: MessageChunk
+    ) -> tuple[list[LogitAlignedTranscript], list[LogitAlignedTranscript]]:
+        """
+        # TODO: cut away the "past"
+        # currently text can grow infinitely, LM just has limited "context" -> one could limit the keys of params.cached_lm_scores
+        """
         s_e = (ch.frame_idx, ch.frame_idx + len(ch.array))
         left_part, right_part = self.lc.calc_left_right(ch.array, s_e)
 
@@ -356,14 +419,29 @@ class ChunkedPyctcDecoder(Buildable):
         if ch.end_of_signal:
             self.beams = right_beams
 
-        incr_beams = [IncrBeam(*beam) for beam in self.beams]
-        incr_right_beams = [IncrBeam(*beam) for beam in right_beams]
-        return incr_beams, incr_right_beams
+        final_beams = [IncrBeam(*beam) for beam in self.beams]
+        nonfinal_beams = [IncrBeam(*beam) for beam in right_beams]
+
+        final_transcripts = [
+            LogitAlignedTranscript.create_from_token_spans(
+                list(zip(b.text.split(), b.text_frames)), b.logit_score, b.lm_score
+            )
+            for b in islice(final_beams, self.num_best)
+        ]
+
+        nonfinal_transcripts = [
+            LogitAlignedTranscript.create_from_token_spans(
+                list(zip(b.text.split(), b.text_frames)), b.logit_score, b.lm_score
+            )
+            for b in islice(nonfinal_beams, self.num_best)
+        ]
+
+        return final_transcripts, nonfinal_transcripts
 
     @beartype
     def _decode_array(
-        self, beams: list[Beam], frame_idx: int, array: NumpyFloat2DArray
-    ) -> list[Beam]:
+        self, beams: list[LMBeam], frame_idx: int, array: NumpyFloat2DArray
+    ) -> list[LMBeam]:
         for k, logits_col in enumerate(array):
             beams = self._pyctc_decoder.incr_decode_step(
                 beams, frame_idx + k, logits_col, self.params
