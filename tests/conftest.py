@@ -17,8 +17,11 @@ from ml4audio.audio_utils.audio_io import (
     convert_to_16bit_array,
     break_array_into_chunks,
 )
-from ml4audio.audio_utils.overlap_array_chunker import OverlapArrayChunker, \
-    audio_messages_from_chunks, messages_from_chunks
+from ml4audio.audio_utils.overlap_array_chunker import (
+    OverlapArrayChunker,
+    audio_messages_from_chunks,
+    messages_from_chunks,
+)
 from ml4audio.text_processing.metrics_calculation import calc_cer
 
 filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)

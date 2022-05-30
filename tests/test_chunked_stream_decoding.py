@@ -7,7 +7,8 @@ from conftest import (
     get_test_vocab,
     TEST_RESOURCES,
     overlapping_messages_from_array,
-    assert_transcript_cer, load_hfwav2vec2_base_tokenizer,
+    assert_transcript_cer,
+    load_hfwav2vec2_base_tokenizer,
 )
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
@@ -44,7 +45,7 @@ def test_chunked_streaming_beam_search_decoder(
         lm_weight=1.0,
         beta=0.5,
         beam_size=100,
-        vocab=list(load_hfwav2vec2_base_tokenizer().get_vocab().keys()),
+        tokenizer_name_or_path="facebook/wav2vec2-base-960h",
         lm_data=KenLMForPyCTCDecodeFromArpa(
             name="test",
             cache_base=cache_base,
@@ -54,9 +55,9 @@ def test_chunked_streaming_beam_search_decoder(
     ).build()
 
     for ch in logits_chunks:
-        final, nonfinal = decoder.decode(ch)
-        print(f"{final[0].text=}")
+        nonfinal = decoder.decode(ch)
+        # print(f"{final[0].text=}")
         print(f"{nonfinal[0].text=}")
     ref = librispeech_ref
-    hyp = final[0].text
+    hyp = nonfinal[0].text
     assert_transcript_cer(hyp, ref, max_cer)

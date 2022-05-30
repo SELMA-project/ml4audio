@@ -163,9 +163,7 @@ def load_resample_with_nemo(
 
 
 @beartype
-def break_array_into_chunks(
-    array: NDArray, chunk_size: int
-) -> Iterator[NDArray]:
+def break_array_into_chunks(array: NDArray, chunk_size: int) -> Iterator[NDArray]:
     """
     non-overlapping chunks
     """

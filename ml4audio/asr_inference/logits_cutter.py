@@ -1,10 +1,11 @@
 from dataclasses import field, dataclass
 from math import floor, ceil
-from typing import Optional
+from typing import Optional, Any
 
 from beartype import beartype
 
 from misc_utils.beartypes import NumpyFloat2DArray
+from misc_utils.buildable import Buildable
 
 
 @beartype
@@ -30,7 +31,7 @@ def calc_left_right_parts(
 
 
 @dataclass
-class LogitsCutter:
+class LogitsCutter(Buildable):
     """
     consider having some iterable of somehow overlapping chunks of logits
     this LogitsCutter takes a logits_chunk cuts away the overlaps (left & right) and
@@ -43,6 +44,10 @@ class LogitsCutter:
     def reset(self):
         self._buffer = None
         self._last_end = 0
+
+    def _build_self(self) -> Any:
+        self.reset()
+        return self
 
     @beartype
     def calc_left_right(

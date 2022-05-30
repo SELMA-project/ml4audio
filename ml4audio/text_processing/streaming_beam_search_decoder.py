@@ -15,7 +15,11 @@ from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
 from ml4audio.asr_inference.logits_cutter import LogitsCutter
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
-from ml4audio.text_processing.ctc_decoding import LogitAlignedTranscript
+from ml4audio.text_processing.ctc_decoding import (
+    LogitAlignedTranscript,
+    BaseCTCDecoder,
+    HFCTCDecoder,
+)
 from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode
 from ml4audio.text_processing.pyctc_decoder import OutputBeamDc
 from pyctcdecode import BeamSearchDecoderCTC, Alphabet, LanguageModel
@@ -343,7 +347,7 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
 
 
 @dataclass
-class ChunkedPyctcDecoder(Buildable):
+class ChunkedPyctcDecoder(HFCTCDecoder):
 
     lm_weight: Union[_UNDEFINED, float] = UNDEFINED
     beta: Union[_UNDEFINED, float] = UNDEFINED
@@ -353,7 +357,6 @@ class ChunkedPyctcDecoder(Buildable):
     lm_data: Union[
         KenLMForPyCTCDecode, _UNDEFINED
     ] = UNDEFINED  # TODO: rename lm_data to lm_model
-    vocab: Union[_UNDEFINED, list[str]] = UNDEFINED
     num_best: int = 1  # number of beams to return
     beam_size: int = 100
 
@@ -362,6 +365,8 @@ class ChunkedPyctcDecoder(Buildable):
     )
 
     def _build_self(self) -> Any:
+        super()._build_self()
+
         self.lc = LogitsCutter()
         self.lc.reset()
         unigrams = list(read_lines(self.lm_data.unigrams_filepath))
@@ -399,9 +404,7 @@ class ChunkedPyctcDecoder(Buildable):
         return self
 
     @beartype
-    def decode(
-        self, ch: MessageChunk
-    ) -> tuple[list[LogitAlignedTranscript], list[LogitAlignedTranscript]]:
+    def decode(self, ch: MessageChunk) -> list[LogitAlignedTranscript]:
         """
         # TODO: cut away the "past"
         # currently text can grow infinitely, LM just has limited "context" -> one could limit the keys of params.cached_lm_scores
@@ -436,7 +439,7 @@ class ChunkedPyctcDecoder(Buildable):
             for b in islice(nonfinal_beams, self.num_best)
         ]
 
-        return final_transcripts, nonfinal_transcripts
+        return nonfinal_transcripts
 
     @beartype
     def _decode_array(

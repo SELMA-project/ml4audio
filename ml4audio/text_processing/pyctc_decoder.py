@@ -1,29 +1,31 @@
 import itertools
 from dataclasses import dataclass, field
-from typing import Optional, Union, Annotated
+from typing import Optional, Union, Annotated, Any
 
 from beartype import beartype
 from beartype.vale import Is
 
 from data_io.readwrite_files import read_lines
 from misc_utils.beartypes import NeList, TorchTensor2D
-from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
     _UNDEFINED,
 )
+from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 from ml4audio.text_processing.ctc_decoding import (
     BaseCTCDecoder,
     AlignedBeams,
     LogitAlignedTranscript,
+    HFCTCDecoder,
 )
 from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode
 from pyctcdecode.decoder import (
     WordFrames,
     BeamSearchDecoderCTC,
     build_ctcdecoder,
-    LMState, )
+    LMState,
+)
 
 LmModelFile = Annotated[
     str, Is[lambda s: any(s.endswith(suffix) for suffix in [".bin", ".arpa"])]
@@ -57,10 +59,9 @@ class OutputBeamDc:
 
 
 @dataclass
-class PyCTCKenLMDecoder(BaseCTCDecoder, Buildable):
+class PyCTCKenLMDecoder(HFCTCDecoder):
     """
     here is huggingface's decode method: https://github.com/huggingface/transformers/blob/f275e593bfeb41b31ac8a124a9314cbd6088bfd1/src/transformers/models/wav2vec2_with_lm/processing_wav2vec2_with_lm.py#L346
-    # TODO: directly use pyctcdecode's batched-decoding method -> is it faster?
     """
 
     lm_weight: Union[_UNDEFINED, float] = UNDEFINED
@@ -79,13 +80,13 @@ class PyCTCKenLMDecoder(BaseCTCDecoder, Buildable):
         init=False, repr=False, default=None
     )
 
-    def _build_self(self) -> None:
-
+    def _build_self(self) -> Any:
+        super()._build_self()
         # TODO: use binary-kenlm model instead of arpa
         unigrams = list(read_lines(self.lm_data.unigrams_filepath))
 
         self._pyctc_decoder = build_ctcdecoder(
-            labels=list(self.tokenizer.get_vocab().keys()),
+            labels=self.vocab,
             kenlm_model_path=self.lm_data.arpa_filepath,
             unigrams=unigrams,
             alpha=self.lm_weight,  # tuned on a val set
@@ -97,12 +98,12 @@ class PyCTCKenLMDecoder(BaseCTCDecoder, Buildable):
     @beartype
     def decode(
         self,
-        ctc_matrix: TorchTensor2D,
+        chunk: MessageChunk,
     ) -> AlignedBeams:
         beams = [
             OutputBeamDc(*b)
             for b in self._pyctc_decoder.decode_beams(
-                ctc_matrix.numpy(),
+                chunk.array,
                 beam_width=self.beam_size,
             )
         ]

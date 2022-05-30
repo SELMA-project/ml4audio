@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from transformers import Wav2Vec2CTCTokenizer
 
+from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 from ml4audio.text_processing.ctc_decoding import GreedyDecoder
 from ml4audio.text_processing.metrics_calculation import calc_cer
 
@@ -15,8 +16,12 @@ def test_GreedyDecoder(
     librispeech_ref,
 ):
     logits = np.load(librispeech_logtis_file, allow_pickle=True)
-    decoder = GreedyDecoder(tokenizer=hfwav2vec2_base_tokenizer)
-    transcript = decoder.decode(torch.from_numpy(logits.squeeze()))[0]
+    decoder = GreedyDecoder(
+        tokenizer_name_or_path="facebook/wav2vec2-base-960h"
+    ).build()
+    transcript = decoder.decode(
+        MessageChunk(message_id="foo", frame_idx=0, array=logits.squeeze())
+    )[0]
     hyp = transcript.text
 
     cd = icdiff.ConsoleDiff(cols=120)

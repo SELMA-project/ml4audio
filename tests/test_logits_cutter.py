@@ -21,6 +21,7 @@ def test_logits_cutter(
     ]
 
     lc = LogitsCutter()
+    lc.reset()
 
     left_right = [lc.calc_left_right(l, s_e) for l, s_e in chunk_spans]
     print(f"{[(l.shape if l is not None else 0,r.shape) for l,r in left_right ]=}")

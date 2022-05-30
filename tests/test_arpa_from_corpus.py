@@ -49,8 +49,10 @@ def test_arpa_from_corpus(vocab):
         )
 
         arpa_builder.build()
-        some_lines=list(read_lines(arpa_builder.arpa_filepath,limit=20))
+        some_lines = list(read_lines(arpa_builder.arpa_filepath, limit=20))
         # fmt: off
         expected_lines=['', '\\data\\', 'ngram 1=669', 'ngram 2=2', 'ngram 3=0', 'ngram 4=0', 'ngram 5=0', '', '\\1-grams:', '-3.1839507\t<unk>\t0', '0\t<s>\t-0.03075325', '-1.26055\t</s>\t0', '-1.8272647\tA\t0', '-2.8700492\tMYTH\t0', '-1.8468318\tIS\t0', '-3.0925605\tFANCIFUL\t0', '-3.0925605\tEXPLANATION\t0', '-1.4614682\tOF\t-0.07636787', '-2.8700492\tGIVEN\t0', '-3.0925605\tPHENOMENON\t0']
         # fmt: on
-        assert expected_lines==some_lines  # TODO: not sure how to check arpa-file for validity
+        assert (
+            expected_lines == some_lines
+        )  # TODO: not sure how to check arpa-file for validity

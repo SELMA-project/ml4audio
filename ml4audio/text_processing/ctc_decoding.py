@@ -1,18 +1,17 @@
 import itertools
 from abc import abstractmethod
-from dataclasses import dataclass, field
-from typing import Optional, Union, Any
+from dataclasses import dataclass
+from typing import Optional, Any
 
 import torch
 from beartype import beartype
-from transformers import Wav2Vec2CTCTokenizer, PreTrainedTokenizer
+from transformers import Wav2Vec2CTCTokenizer
 from transformers.models.wav2vec2.tokenization_wav2vec2 import (
     Wav2Vec2CTCTokenizerOutput,
 )
 
-from misc_utils.beartypes import TorchTensor3D, TorchTensor2D
 from misc_utils.buildable import Buildable
-from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
+from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 
 SeqVocIdx = tuple[int, int]
 
@@ -148,10 +147,28 @@ BatchOfAlignedBeams = list[AlignedBeams]
 
 @dataclass
 class BaseCTCDecoder:
-    tokenizer: PreTrainedTokenizer
+    @abstractmethod
+    def decode(self, chunk: MessageChunk) -> AlignedBeams:
+        raise NotImplementedError
+
+
+@dataclass
+class HFCTCDecoder(BaseCTCDecoder, Buildable):
+
+    tokenizer_name_or_path: str
+
+    def _build_self(self) -> Any:
+        self._tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
+            self.tokenizer_name_or_path
+        )
+        return self
+
+    @property
+    def vocab(self):
+        return list(self._tokenizer.get_vocab().keys())
 
     @abstractmethod
-    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
+    def decode(self, chunk: MessageChunk) -> AlignedBeams:
         raise NotImplementedError
 
 
@@ -159,7 +176,7 @@ NoneType = type(None)
 
 
 @dataclass
-class GreedyDecoder(BaseCTCDecoder):
+class GreedyDecoder(HFCTCDecoder):
     """
     huggingface does not have a "proper" greedy decoder, but does argmax somewhere in the asr-pipeline
     see: https://github.com/huggingface/transformers/blob/7999ec125fc31428ed6879bf01bb013483daf704/src/transformers/pipelines/automatic_speech_recognition.py#L323
@@ -170,10 +187,10 @@ class GreedyDecoder(BaseCTCDecoder):
     """
 
     @beartype
-    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
+    def decode(self, chunk: MessageChunk) -> AlignedBeams:
 
-        greedy_path = torch.argmax(ctc_matrix, dim=-1).squeeze()
-        out: Wav2Vec2CTCTokenizerOutput = self.tokenizer.decode(  # noqa
+        greedy_path = torch.argmax(torch.from_numpy(chunk.array), dim=-1).squeeze()
+        out: Wav2Vec2CTCTokenizerOutput = self._tokenizer.decode(  # noqa
             token_ids=greedy_path, output_char_offsets=True
         )
         char_offsets: list[dict] = out.char_offsets

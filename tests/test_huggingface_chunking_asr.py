@@ -11,13 +11,13 @@ from beartype import beartype
 from numpy.testing import assert_allclose
 
 from conftest import get_test_cache_base, TEST_RESOURCES, get_test_vocab
-from misc_utils.beartypes import NumpyFloat1DArray, TorchTensor2D, NumpyFloat2DArray
+from misc_utils.beartypes import TorchTensor2D, NumpyFloat2DArray
 from misc_utils.prefix_suffix import BASE_PATHES
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
 )
+from ml4audio.audio_utils.overlap_array_chunker import AudioMessageChunk
 from ml4audio.text_processing.ctc_decoding import (
-    BaseCTCDecoder,
     AlignedBeams,
     LogitAlignedTranscript,
 )
@@ -27,13 +27,6 @@ from ml4audio.text_processing.lm_model_for_pyctcdecode import (
 from ml4audio.text_processing.metrics_calculation import calc_cer
 from ml4audio.audio_utils.audio_io import (
     load_resample_with_nemo,
-    break_array_into_chunks,
-    convert_to_16bit_array,
-)
-from ml4audio.audio_utils.audio_message_chunking import (
-    AudioMessageChunker,
-    audio_messages_from_chunks,
-    AudioMessageChunk,
 )
 from ml4audio.text_processing.asr_text_normalization import (
     normalize_filter_text,
@@ -43,6 +36,7 @@ from ml4audio.text_processing.asr_text_normalization import (
 from ml4audio.text_processing.pretty_diff import smithwaterman_aligned_icdiff
 
 from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
+from conftest import overlapping_audio_messages_from_audio_array
 
 cache_base = get_test_cache_base()
 BASE_PATHES["asr_inference"] = cache_base
@@ -69,27 +63,6 @@ def hf_original_chunking_method(audio: NumpyFloat1DArray, chunk_len: int, step: 
                 "chunk": chunk,
             }
 """
-
-
-@beartype
-def hf_chunking_preprocessing(
-    audio_array: NumpyFloat1DArray, sr: int, step_dur: float, chunk_dur: float
-):
-
-    chunker = AudioMessageChunker(
-        chunk_size=int(chunk_dur * sr),
-        min_step_size=int(step_dur * sr),
-    )
-    chunker.reset()
-
-    audio_array = convert_to_16bit_array(audio_array)
-    small_chunks = break_array_into_chunks(audio_array, int(sr * 0.1))
-    chunks_g = (
-        am
-        for ch in audio_messages_from_chunks("dummy-id", small_chunks)
-        for am in chunker.handle_datum(ch)
-    )
-    yield from chunks_g
 
 
 @dataclass
@@ -129,11 +102,12 @@ class StreamingDecoder(PyCTCKenLMDecoder):
 
         return left_part, right_part
 
-    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
+    @beartype
+    def decode(self, ctc_matrix: NumpyFloat2DArray) -> AlignedBeams:
         beams = [
             OutputBeamDc(*b)
             for b in self._pyctc_decoder.decode_beams(
-                ctc_matrix.numpy(),
+                ctc_matrix,
                 beam_width=self.beam_size,
                 lm_start_state=self._lm_states,
             )
@@ -201,6 +175,7 @@ def _hf_forward(inferencer: HFWav2Vec2LogitsInferencer, ac: AudioMessageChunk):
     return logits, start_end
 
 
+@pytest.mark.skip("FIXME")
 @pytest.mark.parametrize(
     "step_dur,window_dur,max_CER",
     [
@@ -233,7 +208,7 @@ def test_HF_chunking_asr(
         else torch.no_grad
     )
 
-    audio_chunks_g = hf_chunking_preprocessing(
+    audio_chunks_g = overlapping_audio_messages_from_audio_array(
         audio_array=audio_array,
         sr=expected_sample_rate,
         chunk_dur=window_dur,
@@ -249,34 +224,39 @@ def test_HF_chunking_asr(
             )
             for ac in audio_chunks_g
         ]
-    decoder = _prepare_decoder(tokenizer)
-    left_right = [decoder.calc_left_right(l.numpy(), s_e) for l, s_e in forward_oupt]
+    decoder, stream_decoder = _prepare_decoder(tokenizer)
+    left_right = [
+        stream_decoder.calc_left_right(l.numpy(), s_e) for l, s_e in forward_oupt
+    ]
     print(f"{[(l.shape if l is not None else 0,r.shape) for l,r in left_right ]=}")
     parts = [l for l, r in left_right] + [left_right[-1][1]]
+    parts = [x for x in parts if x is not None]
 
     buffer, hyp = _hf_postprocess(forward_oupt, decoder)
     logits = np.concatenate(buffer, axis=0)
 
-    assert_allclose(np.concatenate([x for x in parts if x is not None]), logits)
+    assert_allclose(np.concatenate(parts), logits)
 
-    # hyp=[decoder.decode(logits_chunk)[0].text for logits_chunk in parts]
-    # inference_duration = time() - start_time
-    #
-    # ref = normalize_filter_text(
-    #     librispeech_raw_ref,
-    #     vocab,
-    #     text_normalizer="en",
-    #     casing=Casing.upper,
-    # )
-    # diff_line = smithwaterman_aligned_icdiff(ref, hyp)
-    # print(f"{window_dur=},{step_dur=}")
-    #
-    # print(diff_line)
-    # cer = calc_cer([(hyp, ref)])
-    # print(
-    #     f"CER: {cer},start-up took: {startup_time}, inference took: {inference_duration} seconds"
-    # )
-    # assert max_CER > cer
+    hyp = "".join(
+        [stream_decoder.decode(logits_chunk)[0].text for logits_chunk in parts]
+    )
+    inference_duration = time() - start_time
+
+    ref = normalize_filter_text(
+        librispeech_raw_ref,
+        vocab,
+        text_normalizer="en",
+        casing=Casing.upper,
+    )
+    diff_line = smithwaterman_aligned_icdiff(ref, hyp)
+    print(f"{window_dur=},{step_dur=}")
+
+    print(diff_line)
+    cer = calc_cer([(hyp, ref)])
+    print(
+        f"CER: {cer},start-up took: {startup_time}, inference took: {inference_duration} seconds"
+    )
+    assert max_CER > cer
 
 
 def _prepare_decoder(tokenizer):
@@ -289,11 +269,18 @@ def _prepare_decoder(tokenizer):
         arpa_file=f"{TEST_RESOURCES}/lm.arpa",
         transcript_normalizer=tn,
     )
-    decoder = StreamingDecoder(
+    decoder = PyCTCKenLMDecoder(
         tokenizer=tokenizer,
         lm_weight=1.0,
         beta=0.5,
         lm_data=arpa,
     )
     decoder.build()
-    return decoder
+    stream_decoder = StreamingDecoder(
+        tokenizer=tokenizer,
+        lm_weight=1.0,
+        beta=0.5,
+        lm_data=arpa,
+    )
+    stream_decoder.build()
+    return decoder, stream_decoder
