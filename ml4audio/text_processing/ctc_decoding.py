@@ -10,6 +10,7 @@ from transformers.models.wav2vec2.tokenization_wav2vec2 import (
     Wav2Vec2CTCTokenizerOutput,
 )
 
+from misc_utils.beartypes import NumpyFloat2DArray
 from misc_utils.buildable import Buildable
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 
@@ -150,6 +151,12 @@ class BaseCTCDecoder:
     @abstractmethod
     def decode(self, chunk: MessageChunk) -> AlignedBeams:
         raise NotImplementedError
+
+    @beartype
+    def decode_logits(self, logits: NumpyFloat2DArray) -> AlignedBeams:
+        return self.decode(
+            MessageChunk(message_id="foo", frame_idx=0, array=logits.squeeze())
+        )
 
 
 @dataclass

@@ -11,13 +11,11 @@ from numpy.typing import NDArray
 
 from data_io.readwrite_files import read_lines
 from misc_utils.beartypes import NumpyFloat2DArray
-from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
 from ml4audio.asr_inference.logits_cutter import LogitsCutter
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 from ml4audio.text_processing.ctc_decoding import (
     LogitAlignedTranscript,
-    BaseCTCDecoder,
     HFCTCDecoder,
 )
 from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode

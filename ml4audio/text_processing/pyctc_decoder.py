@@ -7,6 +7,7 @@ from beartype.vale import Is
 
 from data_io.readwrite_files import read_lines
 from misc_utils.beartypes import NeList, TorchTensor2D
+from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
     _UNDEFINED,
@@ -117,10 +118,14 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
 
 
 @dataclass
-class PyCTCBinKenLMDecoder(BaseCTCDecoder):
+class PyCTCBinKenLMDecoder(BaseCTCDecoder, Buildable):
     """
     TODO: refactor!
     """
+
+    lm_weight: Union[_UNDEFINED, float] = UNDEFINED
+    beta: Union[_UNDEFINED, float] = UNDEFINED
+    vocab: NeList[str] = UNDEFINED
 
     kenlm_binary_file: Union[
         str, _UNDEFINED
@@ -129,13 +134,15 @@ class PyCTCBinKenLMDecoder(BaseCTCDecoder):
         str, _UNDEFINED
     ] = UNDEFINED  # TODO: rename lm_data to lm_model
 
+    num_best: int = 1  # number of beams to return
+    beam_size: int = 100
+
     _pyctc_decoder: Optional[BeamSearchDecoderCTC] = field(
         init=False, repr=False, default=None
     )
     # lm_data: Optional[Any] = field(init=False, repr=False, default=None)
 
     def _build_self(self) -> None:
-        super()._build_self()
 
         unigrams = list(read_lines(self.unigrams_file))
 
@@ -150,11 +157,11 @@ class PyCTCBinKenLMDecoder(BaseCTCDecoder):
         )
 
     @beartype
-    def decode(self, ctc_matrix: TorchTensor2D) -> AlignedBeams:
+    def decode(self, chunk: MessageChunk) -> AlignedBeams:
         beams = [
             OutputBeamDc(*b)
             for b in self._pyctc_decoder.decode_beams(
-                ctc_matrix.numpy(),
+                chunk.array,
                 beam_width=self.beam_size,
             )
         ]

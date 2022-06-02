@@ -105,7 +105,7 @@ def load_nemo_model(nemo_model="model.nemo"):
 if __name__ == "__main__":
     """
         #TODO: why is that necessary?
-    export PYTHONPATH=${PYTHONPATH}:/nm-raid/audio/work/thimmelsba/iais_code/NeMo
+    export PYTHONPATH=${PYTHONPATH}:{BASE_PATH}/iais_code/NeMo
     """
     uvicorn.run(
         "punctcap_fastapi_server:app",

@@ -62,7 +62,7 @@ def benchmark_lang_clf(mdl: LangClf, input_output: List[Tuple[str, str]]):
 if __name__ == "__main__":
 
     # val_manifest=f"{os.environ['BASE_PATH']}/data/lang_clf_data/train_manifest.jsonl"
-    # model_file="/nm-raid/nishome/thimmelsba/iais_code/SLYTHERIN/end2end-asr/nemo_experiments/SpeakerNet/2021-07-22_12-01-52/checkpoints/SpeakerNet--val_loss=8.97-epoch=0-last.ckpt"
+    # model_file="{BASE_PATH}/.../end2end-asr/nemo_experiments/SpeakerNet/2021-07-22_12-01-52/checkpoints/SpeakerNet--val_loss=8.97-epoch=0-last.ckpt"
     # "{os.environ['BASE_PATH']}/results/TRAINING/LANG_CLF/debug/SpeakerNet/2021-07-23_10-14-04/checkpoints/SpeakerNet--val_loss=6.84-epoch=1-last.ckpt"
 
     data = get_data()

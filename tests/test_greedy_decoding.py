@@ -1,7 +1,5 @@
 import icdiff
 import numpy as np
-import torch
-from transformers import Wav2Vec2CTCTokenizer
 
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 from ml4audio.text_processing.ctc_decoding import GreedyDecoder

@@ -9,7 +9,7 @@ default_query = (
 )
 
 if __name__ == "__main__":
-    file = "/nm-raid/audio/work/thimmelsba/data/cache/PROCESSED_DATA/NEMO_MODELS/NemoTrainedPunctuationCapitalizationModel-deu-1421ee5c9e895d0334f3d3c8a93d21eda0de2c61/nemo_exp_dir/model.nemo"
+    file = "{BASE_PATH}/data/cache/PROCESSED_DATA/NEMO_MODELS/NemoTrainedPunctuationCapitalizationModel-deu-1421ee5c9e895d0334f3d3c8a93d21eda0de2c61/nemo_exp_dir/model.nemo"
     f = open(file, "rb")
     port = 8000
     files = {"file": (f.name, f, "multipart/form-data")}

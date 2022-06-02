@@ -1,2 +1,3 @@
 beartype
 misc_utils@git+https://github.com/dertilo/misc-utils@main#egg=misc_utils
+hydra-core==1.1.0 # see nemo

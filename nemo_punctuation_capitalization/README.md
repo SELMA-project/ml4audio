@@ -33,3 +33,55 @@ original='Hanke-Verlag, Weingarten 1986. Nienbergen ist ein Ortsteil des Flecken
   1. bake model into docker-image
   2. service-docker-image without models that expects model upload (via post-request)?
 * should the service itself detect languages and pull language-specific models from somewhere?
+
+# evaluate_punctuation_capitalization
+```commandline
+CODE_DIR=some-where
+export PYTHONPATH=${PYTHONPATH}:$CODE_DIR/end2end-asr-benchmarking:$CODE_DIR/nemo-punctuation-capitalization:$CODE_DIR/NeMo:$CODE_DIR/metadata-converter/src
+
+python evaluate_punctuation_capitalization.py
+predicting: 614it [00:06, 99.03it/s]                                                                                                 | 0/3 [00:00<?, ?batch/s]
+cer=0.03203761707236361
+
+```
+* evaluation on test_ard_2018 does look rather bad!
+```commandline
+ref: griff genommen letztes Jahr, und diese Maßnahme ist jetzt weitgehend abgeschl 
+hyp: griff genommen. Letztes Jahr und diese Maßnahme ist jetzt weitgehend abgeschl
+
+ref: usfront bleibt nämlich noch. Im November zweitausendsechzehn loderten hier di 
+hyp: usfront bleibt nämlich noch im November. Zweitausendsechzehn loderten hier di 
+```
+* nemo training repots
+```commandline
+Epoch 0: 100%|██████████| 10224/10224 [12:21<00:00, 13.80it/s, loss=0.216, lr=1.69e-8]
+Testing: 100%|██████████| 19/19 [00:03<00:00,  5.91it/s][NeMo I 2022-03-23 11:26:11 punctuation_capitalization_model:345] Punctuation report: 
+    label                                                precision    recall       f1           support   
+    O (label_id: 0)                                         97.58      98.25      97.91     137652
+    , (label_id: 1)                                         80.60      69.13      74.42       9206
+    . (label_id: 2)                                         83.62      86.61      85.09      10737
+    ? (label_id: 3)                                          0.00       0.00       0.00         18
+    -------------------
+    micro avg                                               95.74      95.74      95.74     157613
+    macro avg                                               65.45      63.50      64.36     157613
+    weighted avg                                            95.63      95.74      95.66     157613
+    
+[NeMo I 2022-03-23 11:26:11 punctuation_capitalization_model:346] Capitalization report: 
+    label                                                precision    recall       f1           support   
+    O (label_id: 0)                                         98.16      97.94      98.05      92938
+    U (label_id: 1)                                         97.05      97.36      97.21      64675
+    -------------------
+    micro avg                                               97.70      97.70      97.70     157613
+    macro avg                                               97.61      97.65      97.63     157613
+    weighted avg                                            97.71      97.70      97.71     157613
+    
+--------------------------------------------------------------------------------
+DATALOADER:0 TEST RESULTS
+{'test_capit_f1': 97.6293716430664,
+ 'test_capit_precision': 97.60688781738281,
+ 'test_capit_recall': 97.6522216796875,
+ 'test_loss': 0.21772517263889313,
+ 'test_punct_f1': 64.35594940185547,
+ 'test_punct_precision': 65.44877624511719,
+ 'test_punct_recall': 63.49645233154297}
+```

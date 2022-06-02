@@ -62,8 +62,8 @@ DATA_DIR={self.data.data_dir}
 BASE_PATH=${{PWD}}
 
 # model configuration
-MODEL_CONFIG_YAML=$BASE_PATH/punctcap_training/conf/punctuation_capitalization_config.yaml
-export PYTHONPATH=${{PYTHONPATH}}:$BASE_PATH/iais_code/NeMo
+# MODEL_CONFIG_YAML=$BASE_PATH/punctcap_training/conf/punctuation_capitalization_config.yaml
+# export PYTHONPATH=${{PYTHONPATH}}:$BASE_PATH/iais_code/NeMo
 
 python nemo_punctuation_capitalization/punctcap_training/punctuation_capitalization_train_evaluate.py \
     +do_testing=true \
@@ -110,7 +110,7 @@ def train_punctcap(lang_code="deu"):
         max_seq_len=30,
     )
     trained_model = NemoTrainedPunctuationCapitalizationModel(
-        data=processed_data
+        data=processed_data, clean_on_fail=False
     ).build()
     # ret=subprocess.run(cmd, capture_output=True, shell=True)
     # print(ret.stdout.decode())

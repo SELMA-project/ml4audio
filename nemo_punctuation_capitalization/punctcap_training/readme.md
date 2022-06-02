@@ -4,14 +4,14 @@
 * condensed tutorial
 ```shell
 # getting data
-DATA_DIR=/nm-raid/audio/work/thimmelsba/data/cache/PROCESSED_DATA/TATOEBA/ProcessedPunctuationData-deu-25f198f90b3ae66e11e5c001e2ff24df9e77dba5/data
+DATA_DIR={BASE_PATH}/data/cache/PROCESSED_DATA/TATOEBA/ProcessedPunctuationData-deu-25f198f90b3ae66e11e5c001e2ff24df9e77dba5/data
 BASE_PATH=${PWD}
 
 python $NEMO_ROOT/examples/nlp/token_classification/data/get_tatoeba_data.py --data_dir $DATA_DIR --num_sample 10000 --clean_dir
     
 # model configuration
 MODEL_CONFIG_YAML=$BASE_PATH/punctuation/conf/punctuation_capitalization_config.yaml
-export PYTHONPATH=${PYTHONPATH}:/nm-raid/audio/work/thimmelsba/iais_code/NeMo
+export PYTHONPATH=${PYTHONPATH}:{BASE_PATH}/iais_code/NeMo
 
 python punctuation/punctuation_capitalization_train_evaluate.py \
     +do_testing=true \
