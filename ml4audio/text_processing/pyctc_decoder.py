@@ -85,7 +85,10 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
         super()._build_self()
         # TODO: use binary-kenlm model instead of arpa
         unigrams = list(read_lines(self.lm_data.unigrams_filepath))
+        if len(unigrams) < 10_000:
+            print(f"{self.lm_data.name} only got {len(unigrams)} unigrams")
 
+        print(f"{len(unigrams)=}")
         self._pyctc_decoder = build_ctcdecoder(
             labels=self.vocab,
             kenlm_model_path=self.lm_data.arpa_filepath,

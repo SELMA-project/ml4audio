@@ -1,3 +1,4 @@
+import itertools
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,7 +45,8 @@ class NemoPerturbatedAudioData(CachedData, AudioData):
     raw_data: Union[_UNDEFINED, AudioData] = UNDEFINED
     perturbations: Optional[list[ProbaPerturbationDC]] = None
     perturbation_name: Union[_UNDEFINED, str] = UNDEFINED
-    augmentor: AudioAugmentor = field(init=False, repr=False)
+    augmentor: Optional[AudioAugmentor] = field(init=False, repr=False)
+    limit: Optional[int] = None
 
     cache_base: PrefixSuffix = field(
         default_factory=lambda: BASE_PATHES["processed_data"]
@@ -56,15 +58,15 @@ class NemoPerturbatedAudioData(CachedData, AudioData):
 
     def _build_cache(self) -> None:
         os.makedirs(self.prefix_cache_dir(f"wavs"), exist_ok=False)
-        proba_perts = [(pb.proba, pb) for pb in self.perturbations]
+        if self.perturbations is not None and len(self.perturbations) > 0:
+            proba_perts = [(pb.proba, pb) for pb in self.perturbations]
+            self.augmentor = AudioAugmentor(perturbations=proba_perts)
+        else:
+            self.augmentor = None
 
-        self.augmentor = (
-            AudioAugmentor(perturbations=proba_perts)
-            if self.perturbations is not None and len(self.perturbations) > 0
-            else None
-        )
         for id_array in tqdm(
-            self.raw_data, desc=f"augmenting/perturbating {self.raw_data.name}"
+            itertools.islice(self.raw_data, self.limit),
+            desc=f"augmenting/perturbating {self.raw_data.name}",
         ):
             self.process(id_array)
 

@@ -98,6 +98,7 @@ def audio_messages_from_chunks(
     signal_id: str, chunks: Iterable[NumpyInt16Dim1]
 ) -> Iterator[AudioMessageChunk]:
     for m in messages_from_chunks(signal_id, chunks):
+        # TODO convert_to_16bit_array
         yield AudioMessageChunk(**asdict(m))
 
 

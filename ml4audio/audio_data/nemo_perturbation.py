@@ -66,7 +66,7 @@ class SoxPerturbations(ProbaPerturbationDC):
         )  # rought estimate -> wtf! where does this estimate come from?
 
     def perturb(self, data: AudioSegment):
-        norm_samples = normalize_audio_array(data)
+        norm_samples = normalize_audio_array(data.samples)
         with NamedTemporaryFile(
             suffix=".wav", delete=True
         ) as orig_f, NamedTemporaryFile(

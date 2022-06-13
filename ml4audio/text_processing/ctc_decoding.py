@@ -198,9 +198,21 @@ class GreedyDecoder(HFCTCDecoder):
 
         greedy_path = torch.argmax(torch.from_numpy(chunk.array), dim=-1).squeeze()
         out: Wav2Vec2CTCTokenizerOutput = self._tokenizer.decode(  # noqa
-            token_ids=greedy_path, output_char_offsets=True
+            token_ids=greedy_path,
+            output_char_offsets=True,
+            skip_special_tokens=False # for ctc (see huggingface/transformers)
         )
         char_offsets: list[dict] = out.char_offsets
+        vocab_space = [" "] + self.vocab
+        vocab_space = [
+            c for c in vocab_space if c not in ["<pad>", "<s>", "</s>", "<unk>", "|"]
+        ]
+        bad_letters = [d["char"] for d in char_offsets if d["char"] not in vocab_space]
+
+        if any((len(bad_letters) > 0 for bad_letters in bad_letters)):
+            print(f"got bad letters: {bad_letters=}")
+        char_offsets = list(filter(lambda d: d["char"] in vocab_space, char_offsets))
+
         return [
             LogitAlignedTranscript(
                 text="".join([d["char"] for d in char_offsets]),

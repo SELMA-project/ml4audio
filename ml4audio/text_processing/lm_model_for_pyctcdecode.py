@@ -49,6 +49,9 @@ def build_unigrams_from_arpa(
             for l in transcript_normalizer.apply(raw).split(" ")
         }
     )
+
+    if len(unigrams) < 10_000:
+        print(f"only got {len(unigrams)} unigrams!")
     assert all(" " not in s for s in unigrams)
     return unigrams
 
