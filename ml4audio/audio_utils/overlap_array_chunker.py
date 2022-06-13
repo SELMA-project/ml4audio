@@ -83,7 +83,7 @@ def messages_from_chunks(
         0  # TODO does empty dummy-chunk really not break anything downstream?
     )
     shape = [x for x in chunk.shape]
-    shape[0] = 0
+    shape[0] = len_of_dummy_chunk
     dummy_chunk_just_to_transport_eos = np.zeros(shape, dtype=dtype)
     yield MessageChunk(
         message_id=signal_id,
@@ -97,9 +97,15 @@ def messages_from_chunks(
 def audio_messages_from_chunks(
     signal_id: str, chunks: Iterable[NumpyInt16Dim1]
 ) -> Iterator[AudioMessageChunk]:
-    for m in messages_from_chunks(signal_id, chunks):
-        # TODO convert_to_16bit_array
-        yield AudioMessageChunk(**asdict(m))
+    for chunk_idx, m in enumerate(messages_from_chunks(signal_id, chunks)):
+        array = m.array.astype(np.int16)
+        yield AudioMessageChunk(
+            message_id=m.message_id,
+            frame_idx=m.frame_idx,
+            array=array,
+            chunk_idx=chunk_idx,
+            end_of_signal=m.end_of_signal,
+        )
 
 
 @dataclass
