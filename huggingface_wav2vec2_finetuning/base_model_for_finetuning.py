@@ -6,9 +6,12 @@ from typing import Union, Optional, Any
 
 import torch.nn
 from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC, Wav2Vec2CTCTokenizer
+from transformers.models.wav2vec2.feature_extraction_wav2vec2 import (
+    Wav2Vec2FeatureExtractor,
+)
 
 from data_io.readwrite_files import read_json
-from huggingface_wav2vec2_finetuning.data_collator import DataCollatorCTCWithPadding
+from huggingface_wav2vec2_finetuning.ctc_data_collator import DataCollatorCTCWithPadding
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import (
     _UNDEFINED,
@@ -28,6 +31,11 @@ class ModelIdentity:
 
     name: Union[_UNDEFINED, PrefixSuffix, str] = UNDEFINED
     model_name_or_path: Union[_UNDEFINED, PrefixSuffix, str] = UNDEFINED
+
+    def __post_init__(self):
+        if self.model_name_or_path is UNDEFINED:
+            assert isinstance(self.name, str)
+            self.model_name_or_path = self.name
 
 
 def copy_jsons_into_checkpoint_dir(one_dir_above: str, dirr: str):
@@ -121,7 +129,7 @@ class BaseModelForFinetuning(CachedData):
             )
         else:
             # from huggingface hub or elsewhere
-            self.model_dir = self.model_to_finetune.model_name_or_path
+            self.model_dir = str(self.model_to_finetune.model_name_or_path)
             assert isinstance(
                 self.model_dir, str
             ), f"not found on filesystem so should be huggingface-model"
@@ -141,6 +149,9 @@ class BaseModelForFinetuning(CachedData):
         assert isinstance(self.model_dir, str)
         self.processor = Wav2Vec2Processor.from_pretrained(self.model_dir)
         self.processor.feature_extractor.do_normalize = self.do_normalize_audio
+        assert isinstance(
+            self.processor.current_processor, Wav2Vec2FeatureExtractor
+        ), f"{type(self.processor.current_processor)=}"
 
         if self.new_vocab is not None:
             self._transcript_normalizer = TranscriptNormalizer(

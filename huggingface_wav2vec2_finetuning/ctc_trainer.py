@@ -11,7 +11,7 @@ from transformers.trainer_pt_utils import (
     DistributedLengthGroupedSampler,
 )
 
-from huggingface_wav2vec2_finetuning.data_collator import DataCollatorCTCWithPadding
+from huggingface_wav2vec2_finetuning.ctc_data_collator import DataCollatorCTCWithPadding
 
 
 def dummpy_step(**kwargs):
@@ -142,7 +142,7 @@ class CTCTrainer(Trainer):
         Subclass and override this method if you want to inject some custom behavior.
         """
 
-        assert isinstance(self.data_collator, DataCollatorCTCWithPadding)
+        assert isinstance(self.data_collator, DataCollatorCTCWithPadding), f"{type(self.data_collator)=}"
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
 

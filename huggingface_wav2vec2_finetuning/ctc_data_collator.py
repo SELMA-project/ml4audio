@@ -4,7 +4,11 @@ from pprint import pprint
 from typing import Union, Optional, List, Dict, Any
 
 import torch
-from transformers import Wav2Vec2Processor
+from beartype import beartype
+from transformers import Wav2Vec2Processor, BatchFeature
+from transformers.models.wav2vec2.modeling_wav2vec2 import Wav2Vec2FeatureExtractor
+
+from misc_utils.beartypes import NeList
 
 
 @dataclass
@@ -43,7 +47,8 @@ class DataCollatorCTCWithPadding:
     pad_to_multiple_of_labels: Optional[int] = None
     some_batch: Optional[Any] = None
 
-    def _process_pad(self, features):
+    @beartype
+    def _process_pad(self, features: NeList) -> BatchFeature:
         # split inputs and labels since they have to be of different lenghts and need
         # different padding methods
         input_features = [
@@ -51,21 +56,21 @@ class DataCollatorCTCWithPadding:
         ]
         label_features = [{"input_ids": feature["labels"]} for feature in features]
 
-        batch = self.processor.pad(
+        batch = self.processor.feature_extractor.pad(
             input_features,
             padding=self.padding,
             max_length=self.max_length,
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors="pt",
         )
-        with self.processor.as_target_processor():
-            labels_batch = self.processor.pad(
-                label_features,
-                padding=self.padding,
-                max_length=self.max_length_labels,
-                pad_to_multiple_of=self.pad_to_multiple_of_labels,
-                return_tensors="pt",
-            )
+        # with self.processor.as_target_processor(): # tilo does not like this implicit processor switching
+        labels_batch = self.processor.tokenizer.pad(  # explicitly use tokenizier here
+            label_features,
+            padding=self.padding,
+            max_length=self.max_length_labels,
+            pad_to_multiple_of=self.pad_to_multiple_of_labels,
+            return_tensors="pt",
+        )
 
         # replace padding with -100 to ignore loss correctly
         labels = labels_batch["input_ids"].masked_fill(
@@ -74,9 +79,10 @@ class DataCollatorCTCWithPadding:
         batch["labels"] = labels
         return batch
 
+    @beartype
     def __call__(
-        self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
-    ) -> Dict[str, torch.Tensor]:
+        self, features: NeList[dict[str, Union[list[int], torch.Tensor]]]
+    ) -> BatchFeature:
         """
         TODO(tilo): why did I want a try-except here?
         """
