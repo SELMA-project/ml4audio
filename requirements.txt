@@ -1,7 +1,9 @@
 misc-utils@git+https://github.com/dertilo/misc-utils@main#egg=misc-utils
 Cython
-numba
+numba==0.53.1 # somehow this version cannot be bumped
 # torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
 # torchaudio -> # install gpu version
 # datasets
 # speechbrain
+transformers==4.18.0 # TODO: try to bump version
+jiwer

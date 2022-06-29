@@ -4,6 +4,7 @@ from typing import Optional, Iterator, Union
 
 import math
 import torch
+from beartype import beartype
 
 from huggingface_wav2vec2_finetuning.data_loading_commons import IterableDatasetBase
 from misc_utils.buildable import Buildable
@@ -39,6 +40,7 @@ class IterableASRCorporaDataset(IterableDatasetBase, Buildable):
     def __len__(self):
         return self.limit
 
+    @beartype
     def _generate_array_texts(self) -> Iterator[ArrayText]:
         iter_start, iter_end = calc_this_workers_start_end(0, self.limit)
         g = (

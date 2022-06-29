@@ -201,7 +201,7 @@ class BaseModelForFinetuning(CachedData):
             hidden_dropout=self.hidden_dropout,
             feat_proj_dropout=self.feat_proj_dropout,
             mask_time_prob=self.mask_time_prob,
-            gradient_checkpointing=self.gradient_checkpointing,
+            # gradient_checkpointing=self.gradient_checkpointing, # transformers==4.18 does not know this?
             layerdrop=self.layerdrop,
             ctc_loss_reduction="mean",
             pad_token_id=self.processor.tokenizer.pad_token_id,

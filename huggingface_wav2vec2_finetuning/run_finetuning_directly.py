@@ -15,6 +15,7 @@ from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.audio_data.mls_corpora import MLSIterableDataset, MLSTarGzTranscripts
 from ml4audio.audio_data.targz_asr_dataset import TarGzArrayText
 from ml4audio.audio_utils.audio_data_models import AudioTextData
+from ml4audio.text_processing.asr_text_normalization import Casing
 
 
 @beartype
@@ -34,6 +35,7 @@ def create_finetuner(
         text_normalizer="de",
         new_vocab=None,
         do_normalize_audio=do_normalize_audio,
+        casing=Casing.upper # use lower for "bigger" models
     )
     finetune_task = HFWav2vec2Finetuner(
         finetune_model=fm,
@@ -49,10 +51,10 @@ def create_finetuner(
         train_args=TrainArgs(
             run_name=run_name_for_wandb,
             overwrite_output_dir=True,
-            max_steps=1_00,
+            max_steps=200,
             num_train_epochs=1,
             # per_device_train_batch_size=6,
-            per_device_train_batch_size=2,
+            per_device_train_batch_size=1,
             per_device_eval_batch_size=1,
             learning_rate=1.0e-05,
             warmup_steps=500,
@@ -92,7 +94,7 @@ if __name__ == "__main__":
     experiments = (
         finetune_task
         for model_to_finetune in [
-            ModelIdentity("jonatasgrosman/wav2vec2-large-xlsr-53-german"),
+            ModelIdentity("facebook/wav2vec2-base-960h"), # facebooks base model wants upper-cased vocab
         ]
         for eval_corpus in [
             TarGzArrayText(
