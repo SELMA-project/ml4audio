@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 
 import sys
 import transformers
@@ -6,7 +7,7 @@ from beartype import beartype
 from transformers import set_seed, Wav2Vec2Processor
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
-from misc_utils.beartypes import NumpyFloat1DArray
+from misc_utils.beartypes import NumpyFloat1DArray, TorchTensor1D, NeStr
 
 SILENCE_SYMBOL = "|"
 
@@ -64,32 +65,38 @@ def get_len(datum):
     return len_after_resampling
 
 
+@dataclass
+class HfASRSample:
+    input_values: TorchTensor1D
+    sampling_rate: int
+    labels: list[int]
+
+
 @beartype
-def feature_extraction_tokenization_of_train_sample(
+def apply_asr_processor(
     audio: NumpyFloat1DArray,
-    text: str,
+    text: str,  # NeStr here?
     pro: Wav2Vec2Processor,
-) -> dict:
+) -> HfASRSample:
     """
     applies Wav2Vec2Processor
     :param audio: -> feature_extraction
     :param text: -> tokenization
-    :param pro: Wav2Vec2Processor
     :return:
     """
-    pro.current_processor = pro.feature_extractor
-    input_values = pro(raw_speech=audio, sampling_rate=TARGET_SAMPLE_RATE).input_values
+    input_values = pro.feature_extractor(
+        raw_speech=audio, sampling_rate=TARGET_SAMPLE_RATE
+    ).input_values
     assert len(input_values) == 1
     input_values = input_values[0].squeeze()  # TODO: transformers Version: 4.11.3
 
-    assert text is not None
     is_just_noise = len(text) == 0
     if is_just_noise:
         text = SILENCE_SYMBOL  # TODO: how to handle noise/silence, with space or | ?
-    pro.current_processor = pro.tokenizer
-    labels = pro(text=text).input_ids
-    return {
-        "sampling_rate": TARGET_SAMPLE_RATE,
-        "input_values": input_values,
-        "labels": labels,
-    }
+
+    labels = pro.tokenizer(text=text).input_ids
+    return HfASRSample(
+        input_values=input_values,
+        sampling_rate=TARGET_SAMPLE_RATE,
+        labels=labels,
+    )

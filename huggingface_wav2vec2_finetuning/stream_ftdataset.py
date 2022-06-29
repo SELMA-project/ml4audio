@@ -14,9 +14,13 @@ from misc_utils.utils import buffer_shuffle
 from ml4audio.audio_utils.audio_data_models import AudioTextData, ArrayText
 
 
-def calc_this_workers_start_end(start, end):
+@beartype
+def calc_this_workers_start_end(start: int, end: int) -> tuple[int, int]:
     """
     see: https://github.com/pytorch/pytorch/blob/f2582a59d0835323ebf143726ea79ba52e7cceff/torch/utils/data/dataset.py#L128
+
+    TODO: actually this is a stupid idea! would be better if kth-worker would "not-skip" every k-th sample
+        thereby no need to eath large portions of the entire input-iterable! which can be very expensive!
     """
     worker_info = torch.utils.data.get_worker_info()
     if worker_info is None:  # single-process data loading, return the full iterator
@@ -32,8 +36,12 @@ def calc_this_workers_start_end(start, end):
 
 
 @dataclass
-class IterableASRCorporaDataset(IterableDatasetBase, Buildable):
-    corpus: Union[_UNDEFINED, AudioTextData] = UNDEFINED
+class StartEndIterableDataset(IterableDatasetBase, Buildable):
+    """
+    multiple data-loaders reading from corpus need to start-end at different "points" in the iterable
+    """
+
+    array_texts: Union[_UNDEFINED, AudioTextData] = UNDEFINED
     limit: Optional[int] = None
     shufflebuffer_size: Optional[int] = None
 
@@ -46,7 +54,7 @@ class IterableASRCorporaDataset(IterableDatasetBase, Buildable):
         g = (
             (a, t)
             # for corpus in self.corpus
-            for a, t in self.corpus
+            for a, t in self.array_texts
         )
         array_text_g = itertools.islice(g, iter_start, iter_end)
         if self.shufflebuffer_size is not None:

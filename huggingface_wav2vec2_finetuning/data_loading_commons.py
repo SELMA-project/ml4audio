@@ -10,7 +10,8 @@ from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
 )
 from misc_utils.beartypes import NumpyFloat1DArray
 from huggingface_wav2vec2_finetuning.hf_finetune_utils import (
-    feature_extraction_tokenization_of_train_sample,
+    apply_asr_processor,
+    HfASRSample,
 )
 
 
@@ -21,7 +22,7 @@ from misc_utils.utils import just_try, TimedIterable
 
 import logging
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 from ml4audio.audio_data.nemo_perturbation import (
     ProbaPerturbationDC,
@@ -85,7 +86,8 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
             self._failsafe_feature_extraction(array_texts),
         )
         for k, datum in enumerate(g):
-            yield datum
+            datum: HfASRSample
+            yield asdict(datum)
             if k > 0 and k % 1000 == 0 or k == 10:
                 consumer_stats = {
                     "data_consuming_speed": array_texts.speed,
@@ -100,7 +102,7 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
                 sys.stderr.flush()
 
     @beartype
-    def process_array_text(self, array: NumpyFloat1DArray, text: str) -> dict:
+    def process_array_text(self, array: NumpyFloat1DArray, text: str) -> HfASRSample:
         sr = self.finetune_model.processor.feature_extractor.sampling_rate
         assert sr == 16000
         array = apply_nemo_perturbations_with_retry(
@@ -108,7 +110,5 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
         )
         text = self.finetune_model._transcript_normalizer.apply(text)
         assert text is not None
-        datum = feature_extraction_tokenization_of_train_sample(
-            array, text, self.finetune_model.processor
-        )
+        datum = apply_asr_processor(array, text, self.finetune_model.processor)
         return datum

@@ -10,7 +10,7 @@ from huggingface_wav2vec2_finetuning.huggingface_wav2vec2_finetuner import (
     TrainArgs,
     HFWav2vec2Finetuner,
 )
-from huggingface_wav2vec2_finetuning.stream_ftdataset import IterableASRCorporaDataset
+from huggingface_wav2vec2_finetuning.stream_ftdataset import StartEndIterableDataset
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.audio_data.mls_corpora import MLSIterableDataset, MLSTarGzTranscripts
 from ml4audio.audio_data.targz_asr_dataset import TarGzArrayText
@@ -39,19 +39,19 @@ def create_finetuner(
     )
     finetune_task = HFWav2vec2Finetuner(
         finetune_model=fm,
-        train_dataset=IterableASRCorporaDataset(
-            corpus=train_corpus,
+        train_dataset=StartEndIterableDataset(
+            array_texts=train_corpus,
             finetune_model=fm,
             perturbations=augmentations,
             limit=100_000,
         ),
-        eval_dataset=IterableASRCorporaDataset(
-            corpus=eval_corpus, finetune_model=fm, limit=100
+        eval_dataset=StartEndIterableDataset(
+            array_texts=eval_corpus, finetune_model=fm, limit=100
         ),
         train_args=TrainArgs(
             run_name=run_name_for_wandb,
             overwrite_output_dir=True,
-            max_steps=200,
+            max_steps=100,
             num_train_epochs=1,
             # per_device_train_batch_size=6,
             per_device_train_batch_size=1,
