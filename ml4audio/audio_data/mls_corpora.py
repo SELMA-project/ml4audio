@@ -5,6 +5,7 @@ from pathlib import Path
 from beartype import beartype
 
 from data_io.readwrite_files import read_lines
+from misc_utils.beartypes import NeStr
 from ml4audio.audio_data.targz_asr_dataset import TarGzASRCorpus, TarGzTranscripts
 
 
@@ -16,7 +17,7 @@ class MLSTarGzTranscripts(TarGzTranscripts):
     @beartype
     def build_id_transcripts(
         self, split_name: str, transcript_files: list[str]
-    ) -> list[tuple[str, str]]:
+    ) -> list[tuple[str, NeStr]]: # NeStr too strict?
         t_file = next(
             filter(
                 lambda s: s.endswith(f"{split_name}/transcripts.txt"), transcript_files
@@ -24,7 +25,7 @@ class MLSTarGzTranscripts(TarGzTranscripts):
         )
 
         @beartype
-        def parse_line(l: str) -> tuple[str, str]:
+        def parse_line(l: str) -> tuple[str, NeStr]:
             eid, transcript = l.split("\t")
             return eid, transcript
 

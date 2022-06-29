@@ -126,7 +126,7 @@ class TarGzTranscripts(CachedData):
 @dataclass
 class TranscribedAudio:
     audio_datum: FileLikeAudioDatum
-    text: str
+    text: NeStr  # am I too strict here? no, cause even if audio contains just noise, at least a space " " should be there jiwer has this:  raise ValueError("one or more groundtruths are empty strings")
 
 
 @dataclass
@@ -199,8 +199,10 @@ class TarGzASRCorpus(TranscribedAudioCorpus, Buildable):
 
 
 @dataclass
-class TarGzArrayText(AudioTextData):
+class TarGzArrayText(AudioTextData, Buildable):
     """
+    # TODO: how was this working without being buildable?
+    rename to  ArrayTextFromTarGzASRCorpus ??
     actually the read-speed is less interesting, bottle neck comes after, when loading/resampling the audio
     """
 
