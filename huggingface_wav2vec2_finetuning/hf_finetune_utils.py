@@ -67,7 +67,7 @@ def get_len(datum):
 
 @dataclass
 class HfASRSample:
-    input_values: TorchTensor1D
+    input_values: NumpyFloat1DArray
     sampling_rate: int
     labels: list[int]
 
@@ -82,14 +82,12 @@ def apply_asr_processor(
     applies Wav2Vec2Processor
     :param audio: -> feature_extraction
     :param text: -> tokenization
-    :return:
     """
     input_values = pro.feature_extractor(
         raw_speech=audio, sampling_rate=TARGET_SAMPLE_RATE
     ).input_values
     assert len(input_values) == 1
-    input_values = input_values[0].squeeze()  # TODO: transformers Version: 4.11.3
-
+    input_values = input_values[0].squeeze()
     is_just_noise = len(text) == 0
     if is_just_noise:
         text = SILENCE_SYMBOL  # TODO: how to handle noise/silence, with space or | ?

@@ -10,7 +10,7 @@ from huggingface_wav2vec2_finetuning.huggingface_wav2vec2_finetuner import (
     TrainArgs,
     HFWav2vec2Finetuner,
 )
-from huggingface_wav2vec2_finetuning.stream_ftdataset import StartEndIterableDataset
+from huggingface_wav2vec2_finetuning.stream_ftdataset import IterableSlicingDataset
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.audio_data.mls_corpora import MLSIterableDataset, MLSTarGzTranscripts
 from ml4audio.audio_data.targz_asr_dataset import TarGzArrayText
@@ -30,28 +30,33 @@ def create_finetuner(
         # TranscodePerturbationDC(0.5),
         # SoxPerturbations(proba=0.75),
     ]
+    # fmt: off
+    new_vocab = ["<pad>", "<s>", "</s>","<unk>", "|", "'", "-", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "ä", "ö", "ü","ß"]
+    # fmt: on
+
     fm = BaseModelForFinetuning(
         model_to_finetune=model_to_finetune,
         text_normalizer="de",
-        new_vocab=None,
+        new_vocab=new_vocab,
         do_normalize_audio=do_normalize_audio,
-        casing=Casing.upper # use lower for "bigger" models
+        # casing=Casing.upper # use lower for "bigger" models
+        casing=Casing.lower,  # use lower for "bigger" models
     )
     finetune_task = HFWav2vec2Finetuner(
         finetune_model=fm,
-        train_dataset=StartEndIterableDataset(
+        train_dataset=IterableSlicingDataset(
             array_texts=train_corpus,
             finetune_model=fm,
             perturbations=augmentations,
             limit=100_000,
         ),
-        eval_dataset=StartEndIterableDataset(
+        eval_dataset=IterableSlicingDataset(
             array_texts=eval_corpus, finetune_model=fm, limit=100
         ),
         train_args=TrainArgs(
             run_name=run_name_for_wandb,
             overwrite_output_dir=True,
-            max_steps=100,
+            max_steps=10,
             num_train_epochs=1,
             # per_device_train_batch_size=6,
             per_device_train_batch_size=1,
@@ -94,7 +99,9 @@ if __name__ == "__main__":
     experiments = (
         finetune_task
         for model_to_finetune in [
-            ModelIdentity("facebook/wav2vec2-base-960h"), # facebooks base model wants upper-cased vocab
+            ModelIdentity(
+                "facebook/wav2vec2-base-960h"
+            ),  # facebooks base model wants upper-cased vocab
         ]
         for eval_corpus in [
             TarGzArrayText(

@@ -20,7 +20,7 @@ def calc_this_workers_start_end(start: int, end: int) -> tuple[int, int]:
     see: https://github.com/pytorch/pytorch/blob/f2582a59d0835323ebf143726ea79ba52e7cceff/torch/utils/data/dataset.py#L128
 
     TODO: actually this is a stupid idea! would be better if kth-worker would "not-skip" every k-th sample
-        thereby no need to eath large portions of the entire input-iterable! which can be very expensive!
+        thereby no need to eat large portions of the entire input-iterable! which can be very expensive!
     """
     worker_info = torch.utils.data.get_worker_info()
     if worker_info is None:  # single-process data loading, return the full iterator
@@ -36,7 +36,7 @@ def calc_this_workers_start_end(start: int, end: int) -> tuple[int, int]:
 
 
 @dataclass
-class StartEndIterableDataset(IterableDatasetBase, Buildable):
+class IterableSlicingDataset(IterableDatasetBase, Buildable):
     """
     multiple data-loaders reading from corpus need to start-end at different "points" in the iterable
     """

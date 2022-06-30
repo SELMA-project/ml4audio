@@ -170,20 +170,30 @@ class BaseModelForFinetuning(CachedData):
             state_dict = original_model.state_dict()
 
             print(f"overwriting tokenizer with new vocab:{new_encoder}")
-            vocab_json = "new_vocab.json"
+            vocab_json = self.prefix_cache_dir("new_vocab.json")
             with open(vocab_json, "w") as f:
                 json.dump(new_encoder, f)
 
+            """
+            WTF! found this in huggingface code:
+                    if self.do_lower_case:
+                        text = text.upper()
+            """
+            # see. https://github.com/huggingface/transformers/issues/15333
+
+            do_upper_case = self.casing is Casing.upper
             self.processor.tokenizer = Wav2Vec2CTCTokenizer(
-                vocab_json,
+                # see: https://github.com/huggingface/transformers/blob/692e61e91a0b83f5b847902ed619b7c74c0a5dda/examples/research_projects/wav2vec2/run_common_voice.py#L358
+                vocab_file=vocab_json,
                 pad_token="<pad>",
                 bos_token="<s>",
                 eos_token="</s>",
                 unk_token="<unk>",
                 word_delimiter_token="|",
+                do_lower_case=do_upper_case,  # yes its crazy, that lower-case means upper() in huggingface-world!
             )
             # remove head, cause vocab changed
-            raise NotImplementedError("TODO: still not working!")
+            # see: https://discuss.huggingface.co/t/wav2vec2forctc-from-pretrained-for-already-trained-models/5716
             state_dict.pop("lm_head.weight")
             state_dict.pop("lm_head.bias")
         else:
@@ -192,8 +202,9 @@ class BaseModelForFinetuning(CachedData):
                 casing=self.casing, text_normalizer=self.text_normalizer, vocab=vocab
             )
             state_dict = None
+
         self.model = Wav2Vec2ForCTC.from_pretrained(
-            self.model_to_finetune.model_name_or_path,
+            pretrained_model_name_or_path=self.model_to_finetune.model_name_or_path,
             state_dict=state_dict,
             cache_dir=str(BASE_PATHES["transformers_cache_dir"]),
             activation_dropout=self.activation_dropout,
@@ -206,6 +217,7 @@ class BaseModelForFinetuning(CachedData):
             ctc_loss_reduction="mean",
             pad_token_id=self.processor.tokenizer.pad_token_id,
             vocab_size=len(self.processor.tokenizer),
+            ignore_mismatched_sizes=True,
         )
         if self.freeze_feature_extractor:
             self.model.freeze_feature_extractor()

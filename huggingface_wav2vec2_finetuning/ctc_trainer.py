@@ -142,7 +142,9 @@ class CTCTrainer(Trainer):
         Subclass and override this method if you want to inject some custom behavior.
         """
 
-        assert isinstance(self.data_collator, DataCollatorCTCWithPadding), f"{type(self.data_collator)=}"
+        assert isinstance(
+            self.data_collator, DataCollatorCTCWithPadding
+        ), f"{type(self.data_collator)=}"
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
 

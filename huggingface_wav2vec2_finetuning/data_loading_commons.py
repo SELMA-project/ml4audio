@@ -60,6 +60,7 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
     def _failsafe_feature_extraction(self, at_g: Iterable[ArrayText]):
         for array, text in at_g:
             datum = just_try(lambda: self.process_array_text(array, text), verbose=True)
+            # datum = self.process_array_text(array, text)
             if datum is not None:
                 yield datum
             else:
