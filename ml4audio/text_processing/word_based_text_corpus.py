@@ -46,12 +46,16 @@ class RglobRawCorpus(CachedData):
             counter[0] += 1  # TODO this is ugly!
             return l
 
+        files=self._get_files()
+        print(f"{self.name} found {len(files)} files: {files=}")
         lines_g = (
             count_lines(self.get_raw_text_fun(line))
-            for file in self._get_files()
+            for file in files
             for line in read_lines(file)
         )
-        write_lines(self.corpus_filepath, lines_g)
+        write_lines(
+            self.corpus_filepath, tqdm(lines_g, f"{self.name} is writing lines")
+        )
         assert counter[0] > 0, f"{self.name} got zero lines!"
 
     def _get_files(self) -> NeList[str]:
@@ -113,7 +117,7 @@ class WordBasedLMCorpus(CachedData):
                     lambda x: x is not None,
                     map(partial(self.process_line, counter=counter), lines_g),
                 ),
-                desc="writing processed text_file",
+                desc=f"{self.name} is writing processed text_file",
             ),
         )
         wordcounts: dict[str, int] = {

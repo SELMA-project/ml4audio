@@ -207,6 +207,7 @@ class TarGzArrayText(AudioTextData, Buildable):
     """
 
     corpus: Union[_UNDEFINED, TarGzASRCorpus] = UNDEFINED
+    sample_rate:int = 16_000
     limit: Optional[int] = None
 
     @property

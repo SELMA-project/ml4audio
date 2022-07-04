@@ -26,7 +26,12 @@ from misc_utils.beartypes import (
 from misc_utils.buildable import Buildable
 from misc_utils.cached_data import CachedData
 from misc_utils.cached_data_specific import CachedList
-from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED, CLASS_REF_NO_INSTANTIATE
+from misc_utils.dataclass_utils import (
+    _UNDEFINED,
+    UNDEFINED,
+    CLASS_REF_NO_INSTANTIATE,
+    decode_dataclass,
+)
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM
 
@@ -112,7 +117,7 @@ class FinetunedCheckpoint(HfCheckpoint):
     finetune_master: Union[_UNDEFINED, dict] = UNDEFINED
 
     @staticmethod
-    def from_cache_dir(finetune_master_cache_dir) -> list["FinetunedCheckpoint"]:
+    def from_cache_dir(finetune_master_cache_dir:str) -> list["FinetunedCheckpoint"]:
         s = read_file(f"{finetune_master_cache_dir}/dataclass.json")
         finetune_master: dict = json.loads(
             s.replace("_target_", CLASS_REF_NO_INSTANTIATE)
@@ -121,8 +126,10 @@ class FinetunedCheckpoint(HfCheckpoint):
         def get_finetune_task_cache_dir(fm):
             # TODO: this is very hacky!
             prefix_suffix = fm["finetune_client"]["task"]["cache_dir"]
-            dirr = f"{prefix_suffix['prefix']}/{prefix_suffix['suffix']}"
-            return f"{dirr}/output_dir"
+            prefix_suffix["_target_"] = prefix_suffix.pop("_python_dataclass_")
+            ps: PrefixSuffix = decode_dataclass(prefix_suffix)
+            # dirr = f"{prefix_suffix['prefix']}/{prefix_suffix['suffix']}"
+            return f"{ps}/output_dir"
 
         task_cache_dir = get_finetune_task_cache_dir(finetune_master)
         dcs = [str(p.parent) for p in Path(task_cache_dir).rglob("pytorch_model.bin")]

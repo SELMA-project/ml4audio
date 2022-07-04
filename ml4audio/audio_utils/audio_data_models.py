@@ -20,6 +20,7 @@ ArrayText = tuple[NumpyFloat1DArray, NeStr]
 
 
 IdArray = tuple[NeStr, NumpyFloat1DArray]
+IdArrayText = tuple[NeStr, NumpyFloat1DArray,NeStr]
 IdInt16Array = tuple[NeStr, NumpyInt16Dim1]
 
 IdText = tuple[NeStr, NeStr]
@@ -82,22 +83,14 @@ class StandAloneAlignmentSpanAnnotation(AlignmentSpanAnnotation):
     id_seq_a: str
     id_seq_b: str
 
-
-@dataclass
-class SequenceAlignment:
-    id_seq_a: str
-    id_seq_b: str
-    alignments: list[AlignmentSpan]
-
-
-@dataclass
-class AlignmentCorpus(Iterable[SequenceAlignment], FillUndefined):
-    id_corpus_a: Union[_UNDEFINED, NeStr] = UNDEFINED
-    id_corpus_b: Union[_UNDEFINED, NeStr] = UNDEFINED
-
-    @abstractmethod
-    def __iter__(self) -> Iterator[SequenceAlignment]:
-        raise NotImplementedError
+# TODO: remove SequenceAlignment
+# @dataclass
+# class SequenceAlignment:
+#     id_seq_a: str
+#     id_seq_b: str
+#     alignments: list[AlignmentSpan]
+#
+#
 
 
 @dataclass
@@ -180,6 +173,23 @@ class AudioTextData(Iterable[ArrayText]):
 
     @abstractmethod
     def __iter__(self) -> Iterator[ArrayText]:
+        raise NotImplementedError
+
+@dataclass
+class IdAudioTextData(Iterable[IdArrayText]):
+    """
+    naming: Auteda == Audio Text Data
+    """
+
+    sample_rate: int
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[IdArrayText]:
         raise NotImplementedError
 
 
