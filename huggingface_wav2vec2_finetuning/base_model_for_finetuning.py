@@ -69,20 +69,21 @@ class DataArgs:
     the command line.
     """
 
-    max_train_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
-            "value if set."
-        },
-    )
-    max_eval_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "For debugging purposes or quicker training, truncate the number of validation examples to this "
-            "value if set."
-        },
-    )
+    # tilo: don't need these
+    # max_train_samples: Optional[int] = field(
+    #     default=None,
+    #     metadata={
+    #         "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
+    #         "value if set."
+    #     },
+    # )
+    # max_eval_samples: Optional[int] = field(
+    #     default=None,
+    #     metadata={
+    #         "help": "For debugging purposes or quicker training, truncate the number of validation examples to this "
+    #         "value if set."
+    #     },
+    # )
     eval_metrics: list[str] = list_field(
         default=["wer"],
         metadata={

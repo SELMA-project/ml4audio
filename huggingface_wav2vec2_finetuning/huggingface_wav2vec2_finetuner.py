@@ -22,7 +22,6 @@ from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
     ModelArgs,
     DataArgs,
 )
-import bitsandbytes as bnb
 
 from huggingface_wav2vec2_finetuning.ctc_data_collator import DataCollatorCTCWithPadding
 from huggingface_wav2vec2_finetuning.ctc_trainer import CTCTrainer
@@ -36,6 +35,7 @@ from misc_utils.dataclass_utils import (
     _UNDEFINED,
     CLASS_REF_NO_INSTANTIATE,
     serialize_dataclass,
+    to_dict,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from misc_utils.hpc_computing_args import ClusterArgs
@@ -133,25 +133,23 @@ def _prepare_models(
     # the training and evaluation datasets
     # We need to make sure that only first rank saves vocabulary
     # make sure all processes wait until vocab is created
-    tokenizer_name_or_path = model_args.tokenizer_name_or_path
     tokenizer_kwargs = {}
-    if tokenizer_name_or_path is None:
-        # save vocab in training output dir
+    if model_args.new_vocab is not None:
         tokenizer_name_or_path = training_args.output_dir
 
         vocab_file = os.path.join(tokenizer_name_or_path, "vocab.json")
 
-        with training_args.main_process_first():
-            if training_args.overwrite_output_dir and os.path.isfile(vocab_file):
-                os.remove(vocab_file)
+        # with training_args.main_process_first():
+        #     if training_args.overwrite_output_dir and os.path.isfile(vocab_file):
+        #         os.remove(vocab_file)
 
         with training_args.main_process_first(desc="new vocab"):
-            if not os.path.isfile(vocab_file):
-                os.makedirs(tokenizer_name_or_path, exist_ok=True)
-                vocab_dict = {k: v for k, v in enumerate(model_args.new_vocab)}
-                # save vocab dict to be loaded into tokenizer
-                with open(vocab_file, "w") as file:
-                    json.dump(vocab_dict, file)
+            # if not os.path.isfile(vocab_file):
+            os.makedirs(tokenizer_name_or_path, exist_ok=True)
+            vocab_dict = {k: v for k, v in enumerate(model_args.new_vocab)}
+            # save vocab dict to be loaded into tokenizer
+            with open(vocab_file, "w") as file:
+                json.dump(vocab_dict, file)
 
         # if tokenizer has just been created
         # it is defined by `tokenizer_class` if present in config else by `model_type`
@@ -164,6 +162,8 @@ def _prepare_models(
             "pad_token": pad_token,
             "word_delimiter_token": word_delimiter_token,
         }
+    else:
+        tokenizer_name_or_path = model_args.model_name_or_path
 
     # 5. Now we can instantiate the feature extractor, tokenizer and model
     # Note for distributed training, the .from_pretrained methods guarantee that only
@@ -252,14 +252,14 @@ class HFWav2vec2Finetuner(CachedData):
 
     BASE_PATH: str = "some-where"
     model_args: Union[_UNDEFINED, ModelArgs] = UNDEFINED
-    data_args: Union[_UNDEFINED, DataArgs] = UNDEFINED
+    data_args: Union[_UNDEFINED, DataArgs] = field(default_factory=lambda: DataArgs())
     train_dataset: Optional[IterableDatasetBase] = None
     eval_dataset: Optional[torch.utils.data.Dataset] = None
 
     train_args: Union[_UNDEFINED, TrainArgs] = UNDEFINED
     overwrite_old_cache: bool = False
 
-    hf_train_args: TrainingArguments = field(init=False, repr=False)
+    hf_train_args: TrainingArguments = field(init=False, repr=False, default=UNDEFINED)
 
     cache_base: PrefixSuffix = field(
         default_factory=lambda: BASE_PATHES["finetune_training"]
@@ -306,7 +306,7 @@ class HFWav2vec2Finetuner(CachedData):
     def _train_and_evaluate(self):
         parser = HfArgumentParser((TrainingArguments))
         self.hf_train_args = parser.parse_dict(
-            asdict(self) | {"output_dir": self.output_dir}
+            asdict(self.train_args) | {"output_dir": self.output_dir}
         )[0]
         print(f"local-rank: {self.hf_train_args.local_rank}")
         # last_checkpoint = detecting_last_checkpoint(self.hf_train_args, logger)
@@ -365,6 +365,8 @@ class HFWav2vec2Finetuner(CachedData):
                 "weight_decay": 0.0,
             },
         ]
+        import bitsandbytes as bnb
+
         optimizer = bnb.optim.Adam8bit(
             params=optimizer_grouped_parameters,
             lr=training_args.learning_rate,
