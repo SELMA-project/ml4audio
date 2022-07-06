@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import shutil
+import warnings
+from abc import abstractmethod
 
 import sys
 import traceback
@@ -11,12 +13,18 @@ from dataclasses import asdict, dataclass, field
 from typing import Union, Optional, Any
 
 import wandb
+from datasets import load_metric
+from transformers.trainer_pt_utils import get_parameter_names
 
 from data_io.readwrite_files import read_json
 
 from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
-    BaseModelForFinetuning,
+    ModelArgs,
+    DataArgs,
 )
+import bitsandbytes as bnb
+
+from huggingface_wav2vec2_finetuning.ctc_data_collator import DataCollatorCTCWithPadding
 from huggingface_wav2vec2_finetuning.ctc_trainer import CTCTrainer
 from huggingface_wav2vec2_finetuning.data_loading_commons import IterableDatasetBase
 from huggingface_wav2vec2_finetuning.hf_finetune_utils import setup_logging
@@ -43,9 +51,15 @@ from transformers import (
     is_apex_available,
     Wav2Vec2CTCTokenizer,
     HfArgumentParser,
+    AutoConfig,
+    AutoTokenizer,
+    AutoFeatureExtractor,
+    AutoModelForCTC,
+    AutoProcessor,
 )
 from transformers.trainer_utils import is_main_process
 
+from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
 
 torch.set_num_threads(4)
 
@@ -65,6 +79,9 @@ if "WANDB_API_KEY" not in os.environ:
 @dataclass
 class TrainArgs(Buildable):
     """
+    based on DataTrainingArguments
+    is used to created hf's TrainingArguments
+    field names must match with hf's TrainingArguments!
     Buildable cause some arguments could be shape-shifting Buildables!
     """
 
@@ -91,6 +108,142 @@ class TrainArgs(Buildable):
     ignore_data_skip: bool = True
 
 
+def _prepare_models(
+    data_args: DataArgs,
+    model_args: ModelArgs,
+    training_args: TrainingArguments,
+):
+
+    # save special tokens for tokenizer
+    word_delimiter_token = data_args.word_delimiter_token
+    unk_token = data_args.unk_token
+    pad_token = data_args.pad_token
+
+    # 3. Next, let's load the config as we might need it to create
+    # the tokenizer
+    # load config
+    config = AutoConfig.from_pretrained(
+        model_args.model_name_or_path,
+        cache_dir=model_args.cache_dir,
+        use_auth_token=data_args.use_auth_token,
+    )
+
+    # 4. Next, if no tokenizer file is defined,
+    # we create the vocabulary of the model by extracting all unique characters from
+    # the training and evaluation datasets
+    # We need to make sure that only first rank saves vocabulary
+    # make sure all processes wait until vocab is created
+    tokenizer_name_or_path = model_args.tokenizer_name_or_path
+    tokenizer_kwargs = {}
+    if tokenizer_name_or_path is None:
+        # save vocab in training output dir
+        tokenizer_name_or_path = training_args.output_dir
+
+        vocab_file = os.path.join(tokenizer_name_or_path, "vocab.json")
+
+        with training_args.main_process_first():
+            if training_args.overwrite_output_dir and os.path.isfile(vocab_file):
+                os.remove(vocab_file)
+
+        with training_args.main_process_first(desc="new vocab"):
+            if not os.path.isfile(vocab_file):
+                os.makedirs(tokenizer_name_or_path, exist_ok=True)
+                vocab_dict = {k: v for k, v in enumerate(model_args.new_vocab)}
+                # save vocab dict to be loaded into tokenizer
+                with open(vocab_file, "w") as file:
+                    json.dump(vocab_dict, file)
+
+        # if tokenizer has just been created
+        # it is defined by `tokenizer_class` if present in config else by `model_type`
+        tokenizer_kwargs = {
+            "config": config if config.tokenizer_class is not None else None,
+            "tokenizer_type": config.model_type
+            if config.tokenizer_class is None
+            else None,
+            "unk_token": unk_token,
+            "pad_token": pad_token,
+            "word_delimiter_token": word_delimiter_token,
+        }
+
+    # 5. Now we can instantiate the feature extractor, tokenizer and model
+    # Note for distributed training, the .from_pretrained methods guarantee that only
+    # one local process can concurrently download model & vocab.
+
+    # load feature_extractor and tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_name_or_path,
+        use_auth_token=data_args.use_auth_token,
+        **tokenizer_kwargs,
+    )
+    feature_extractor = AutoFeatureExtractor.from_pretrained(
+        model_args.model_name_or_path,
+        cache_dir=model_args.cache_dir,
+        use_auth_token=data_args.use_auth_token,
+    )
+
+    # adapt config
+    config.update(
+        {
+            "feat_proj_dropout": model_args.feat_proj_dropout,
+            "attention_dropout": model_args.attention_dropout,
+            "hidden_dropout": model_args.hidden_dropout,
+            "final_dropout": model_args.final_dropout,
+            "mask_time_prob": model_args.mask_time_prob,
+            "mask_time_length": model_args.mask_time_length,
+            "mask_feature_prob": model_args.mask_feature_prob,
+            "mask_feature_length": model_args.mask_feature_length,
+            "gradient_checkpointing": training_args.gradient_checkpointing,
+            "layerdrop": model_args.layerdrop,
+            "ctc_loss_reduction": model_args.ctc_loss_reduction,
+            "pad_token_id": tokenizer.pad_token_id,
+            "vocab_size": len(tokenizer),
+            "activation_dropout": model_args.activation_dropout,
+        }
+    )
+
+    # create model
+    model = AutoModelForCTC.from_pretrained(
+        model_args.model_name_or_path,
+        cache_dir=model_args.cache_dir,
+        config=config,
+        use_auth_token=data_args.use_auth_token,
+    )
+
+    # freeze encoder
+    if model_args.freeze_feature_encoder:
+        model.freeze_feature_encoder()
+
+    # Now save everything to be able to create a single processor later
+    if is_main_process(training_args.local_rank):
+        # save feature extractor, tokenizer and config
+        feature_extractor.save_pretrained(training_args.output_dir)
+        tokenizer.save_pretrained(training_args.output_dir)
+        config.save_pretrained(training_args.output_dir)
+
+    try:
+        processor = AutoProcessor.from_pretrained(training_args.output_dir)
+    except (OSError, KeyError):
+        warnings.warn(
+            "Loading a processor from a feature extractor config that does not"
+            " include a `processor_class` attribute is deprecated and will be removed in v5. Please add the following "
+            " attribute to your `preprocessor_config.json` file to suppress this warning: "
+            " `'processor_class': 'Wav2Vec2Processor'`",
+            FutureWarning,
+        )
+        processor = Wav2Vec2Processor.from_pretrained(training_args.output_dir)
+
+    tokenizer: Wav2Vec2CTCTokenizer
+    vocab = list(tokenizer.get_vocab().keys())
+
+    transcript_normalizer = TranscriptNormalizer(
+        casing=model_args.casing,
+        text_normalizer=model_args.text_normalizer,
+        vocab=vocab,
+    )
+
+    return model, processor, transcript_normalizer
+
+
 @dataclass
 class HFWav2vec2Finetuner(CachedData):
     """
@@ -98,7 +251,8 @@ class HFWav2vec2Finetuner(CachedData):
     """
 
     BASE_PATH: str = "some-where"
-    finetune_model: Union[_UNDEFINED, BaseModelForFinetuning] = UNDEFINED
+    model_args: Union[_UNDEFINED, ModelArgs] = UNDEFINED
+    data_args: Union[_UNDEFINED, DataArgs] = UNDEFINED
     train_dataset: Optional[IterableDatasetBase] = None
     eval_dataset: Optional[torch.utils.data.Dataset] = None
 
@@ -152,53 +306,84 @@ class HFWav2vec2Finetuner(CachedData):
     def _train_and_evaluate(self):
         parser = HfArgumentParser((TrainingArguments))
         self.hf_train_args = parser.parse_dict(
-            asdict(self.train_args) | {"output_dir": self.output_dir}
+            asdict(self) | {"output_dir": self.output_dir}
         )[0]
-        self.hf_train_args.do_train = self.train_dataset is not None
-        self.hf_train_args.do_eval = self.eval_dataset is not None
-
         print(f"local-rank: {self.hf_train_args.local_rank}")
         # last_checkpoint = detecting_last_checkpoint(self.hf_train_args, logger)
         last_checkpoint = None  # TODO: have not yet tried to continue form checkpoint
         setup_logging(self.hf_train_args, logger, logging)
 
-        wer_metric = datasets.load_metric("wer")
+        model, processor, transcript_normalizer = _prepare_models(
+            self.data_args, self.model_args, self.hf_train_args
+        )
+        tokenizer = processor.tokenizer
+        self.train_dataset.feature_extractor = processor.feature_extractor
+        self.train_dataset.tokenizer = processor.tokenizer
+        self.train_dataset.transcript_normalizer = transcript_normalizer
+        self.eval_dataset.feature_extractor = processor.feature_extractor
+        self.eval_dataset.tokenizer = processor.tokenizer
+        self.eval_dataset.transcript_normalizer = transcript_normalizer
+
+        eval_metrics = {
+            metric: load_metric(metric) for metric in self.data_args.eval_metrics
+        }
 
         def compute_metrics(pred):
             pred_logits = pred.predictions
             pred_ids = np.argmax(pred_logits, axis=-1)
 
-            pred.label_ids[
-                pred.label_ids == -100
-            ] = self.finetune_model.processor.tokenizer.pad_token_id
+            pred.label_ids[pred.label_ids == -100] = tokenizer.pad_token_id
 
-            pred_str = self.finetune_model.processor.batch_decode(pred_ids)
+            pred_str = tokenizer.batch_decode(pred_ids)
             # we do not want to group tokens when computing the metrics
-            label_str = self.finetune_model.processor.batch_decode(
-                pred.label_ids, group_tokens=False
-            )
+            label_str = tokenizer.batch_decode(pred.label_ids, group_tokens=False)
 
-            wer = wer_metric.compute(predictions=pred_str, references=label_str)
+            metrics = {
+                k: v.compute(predictions=pred_str, references=label_str)
+                for k, v in eval_metrics.items()
+            }
 
-            return {"wer": wer}
+            return metrics
+
+        training_args = self.hf_train_args
+        # Instantiate custom data collator
+        data_collator = DataCollatorCTCWithPadding(processor=processor)
+
+        decay_parameters = get_parameter_names(model, [torch.nn.LayerNorm])
+        decay_parameters = [name for name in decay_parameters if "bias" not in name]
+        optimizer_grouped_parameters = [
+            {
+                "params": [
+                    p for n, p in model.named_parameters() if n in decay_parameters
+                ],
+                "weight_decay": training_args.weight_decay,
+            },
+            {
+                "params": [
+                    p for n, p in model.named_parameters() if n not in decay_parameters
+                ],
+                "weight_decay": 0.0,
+            },
+        ]
+        optimizer = bnb.optim.Adam8bit(
+            params=optimizer_grouped_parameters,
+            lr=training_args.learning_rate,
+            betas=(training_args.adam_beta1, training_args.adam_beta2),
+            eps=training_args.adam_epsilon,
+        )
+
+        optimizers = (optimizer, None)
 
         trainer = CTCTrainer(
-            model=self.finetune_model.model,
-            data_collator=self.finetune_model.data_collator,
-            args=self.hf_train_args,
+            model=model,
+            data_collator=data_collator,
+            args=training_args,
             compute_metrics=compute_metrics,
             train_dataset=self.train_dataset,
             eval_dataset=self.eval_dataset,
-            tokenizer=self.finetune_model.processor.feature_extractor,
-            dryrun=self.train_args.is_dryrun,
+            tokenizer=processor.feature_extractor,
+            optimizers=optimizers,
         )
-        # if is_dryrun:
-        #     for _ in tqdm(
-        #         itertools.islice(trainer.get_train_dataloader(), 0, 10_000),
-        #         desc="dry-run dataloading",
-        #     ):
-        #         pass
-        # assert False
 
         if self.hf_train_args.do_eval:
             logger.info("*** Initial Evaluate ***")
@@ -209,7 +394,7 @@ class HFWav2vec2Finetuner(CachedData):
             trainer.log_metrics("initial-eval", metrics)
             trainer.save_metrics("initial-eval", metrics)
 
-        if self.hf_train_args.do_train:
+        if training_args.do_train:
             if last_checkpoint is not None:
                 checkpoint = last_checkpoint
             # TODO: outcommented cause I don't want to continue from checkpoint
@@ -218,11 +403,6 @@ class HFWav2vec2Finetuner(CachedData):
             #     checkpoint = model_args.model_name_or_path
             else:
                 checkpoint = None
-
-            if is_main_process(self.hf_train_args.local_rank):
-                self.finetune_model.processor.save_pretrained(
-                    self.hf_train_args.output_dir
-                )
 
             train_result = trainer.train(resume_from_checkpoint=checkpoint)
             trainer.save_model()
@@ -233,7 +413,7 @@ class HFWav2vec2Finetuner(CachedData):
             trainer.save_metrics("train", metrics)
             trainer.save_state()
 
-        if self.hf_train_args.do_eval:
+        if training_args.do_eval:
             logger.info("*** Evaluate ***")
             metrics = trainer.evaluate()
             max_val_samples = len(self.eval_dataset)

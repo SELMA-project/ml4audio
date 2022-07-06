@@ -4,7 +4,12 @@ from dataclasses import dataclass
 import sys
 import transformers
 from beartype import beartype
-from transformers import set_seed, Wav2Vec2Processor
+from transformers import (
+    set_seed,
+    Wav2Vec2Processor,
+    Wav2Vec2CTCTokenizer,
+    Wav2Vec2FeatureExtractor,
+)
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
 from misc_utils.beartypes import NumpyFloat1DArray, TorchTensor1D, NeStr
@@ -37,7 +42,7 @@ def detecting_last_checkpoint(training_args, logger):
 
 def setup_logging(training_args, logger, logging):
     logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
@@ -53,6 +58,7 @@ def setup_logging(training_args, logger, logging):
     if is_main_process(training_args.local_rank):
         transformers.utils.logging.set_verbosity_info()
     logger.info("Training/evaluation parameters %s", training_args)
+
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
@@ -76,14 +82,15 @@ class HfASRSample:
 def apply_asr_processor(
     audio: NumpyFloat1DArray,
     text: str,  # NeStr here?
-    pro: Wav2Vec2Processor,
+    feature_extractor: Wav2Vec2FeatureExtractor,
+    tokenizer: Wav2Vec2CTCTokenizer,
 ) -> HfASRSample:
     """
     applies Wav2Vec2Processor
     :param audio: -> feature_extraction
     :param text: -> tokenization
     """
-    input_values = pro.feature_extractor(
+    input_values = feature_extractor(
         raw_speech=audio, sampling_rate=TARGET_SAMPLE_RATE
     ).input_values
     assert len(input_values) == 1
@@ -92,7 +99,7 @@ def apply_asr_processor(
     if is_just_noise:
         text = SILENCE_SYMBOL  # TODO: how to handle noise/silence, with space or | ?
 
-    labels = pro.tokenizer(text=text).input_ids
+    labels = tokenizer(text=text).input_ids
     return HfASRSample(
         input_values=input_values,
         sampling_rate=TARGET_SAMPLE_RATE,

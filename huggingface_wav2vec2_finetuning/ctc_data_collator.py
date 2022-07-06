@@ -1,12 +1,11 @@
 import traceback
 from dataclasses import dataclass
 from pprint import pprint
-from typing import Union, Optional, List, Dict, Any
+from typing import Union, Optional, Any
 
 import torch
 from beartype import beartype
 from transformers import Wav2Vec2Processor, BatchFeature
-from transformers.models.wav2vec2.modeling_wav2vec2 import Wav2Vec2FeatureExtractor
 
 from misc_utils.beartypes import NeList
 
@@ -40,11 +39,10 @@ class DataCollatorCTCWithPadding:
     """
 
     processor: Wav2Vec2Processor
-    padding: Union[bool, str] = True
-    max_length: Optional[int] = None
-    max_length_labels: Optional[int] = None
+    padding: Union[bool, str] = "longest"
     pad_to_multiple_of: Optional[int] = None
     pad_to_multiple_of_labels: Optional[int] = None
+
     some_batch: Optional[Any] = None
 
     @beartype
@@ -59,7 +57,6 @@ class DataCollatorCTCWithPadding:
         batch = self.processor.feature_extractor.pad(
             input_features,
             padding=self.padding,
-            max_length=self.max_length,
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors="pt",
         )
@@ -67,7 +64,6 @@ class DataCollatorCTCWithPadding:
         labels_batch = self.processor.tokenizer.pad(  # explicitly use tokenizier here
             label_features,
             padding=self.padding,
-            max_length=self.max_length_labels,
             pad_to_multiple_of=self.pad_to_multiple_of_labels,
             return_tensors="pt",
         )

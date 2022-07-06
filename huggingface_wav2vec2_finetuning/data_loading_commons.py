@@ -1,51 +1,52 @@
+import logging
 import os
-import sys
 from abc import abstractmethod
+from dataclasses import dataclass, field, asdict
+from typing import Optional, Iterator, Iterable
 
+import sys
 from beartype import beartype
 from nemo.collections.asr.parts.preprocessing import AudioAugmentor
 
-from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
-    BaseModelForFinetuning,
-)
-from misc_utils.beartypes import NumpyFloat1DArray
 from huggingface_wav2vec2_finetuning.hf_finetune_utils import (
     apply_asr_processor,
     HfASRSample,
 )
-
-
-from typing import Union, Optional, Iterator, Iterable
-
-from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
+from misc_utils.beartypes import NumpyFloat1DArray
+from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.utils import just_try, TimedIterable
-
-import logging
-
-from dataclasses import dataclass, field, asdict
-
 from ml4audio.audio_data.nemo_perturbation import (
     ProbaPerturbationDC,
     apply_nemo_perturbations_with_retry,
 )
 from ml4audio.audio_utils.audio_data_models import ArrayText
+from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 
 logging.getLogger("filelock._api").setLevel(logging.ERROR)
 import torch
-from transformers import set_seed
+from transformers import set_seed, Wav2Vec2CTCTokenizer
+
+from transformers.models.wav2vec2.feature_extraction_wav2vec2 import (
+    Wav2Vec2FeatureExtractor,
+)
 
 
 @dataclass
 class IterableDatasetBase(torch.utils.data.IterableDataset):
-    """"""
 
-    # TODO: finetune_model really needed or just its processor?
-    finetune_model: Union[_UNDEFINED, BaseModelForFinetuning] = UNDEFINED
     perturbations: Optional[list[ProbaPerturbationDC]] = None
 
     augmentor: Optional[AudioAugmentor] = field(default=None, init=False, repr=False)
     worker_idx: Optional[int] = field(default=None, init=False, repr=False)
     local_rank: int = field(init=False, repr=False, default=0)
+
+    feature_extractor: Wav2Vec2FeatureExtractor = field(
+        init=False, default=UNDEFINED, repr=False
+    )
+    tokenizer: Wav2Vec2CTCTokenizer = field(init=False, default=UNDEFINED, repr=False)
+    transcript_normalizer: TranscriptNormalizer = field(
+        init=False, default=UNDEFINED, repr=False
+    )
 
     def __post_init__(self):
         self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
@@ -104,12 +105,12 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
 
     @beartype
     def process_array_text(self, array: NumpyFloat1DArray, text: str) -> HfASRSample:
-        sr = self.finetune_model.processor.feature_extractor.sampling_rate
+        sr = self.feature_extractor.sampling_rate
         assert sr == 16000
         array = apply_nemo_perturbations_with_retry(
             array, sample_rate=sr, augmentor=self.augmentor
         )
-        text = self.finetune_model._transcript_normalizer.apply(text)
+        text = self.transcript_normalizer.apply(text)
         assert text is not None
-        datum = apply_asr_processor(array, text, self.finetune_model.processor)
+        datum = apply_asr_processor(array, text, self.feature_extractor, self.tokenizer)
         return datum

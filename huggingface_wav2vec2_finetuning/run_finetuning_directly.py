@@ -3,7 +3,7 @@ import os
 from beartype import beartype
 
 from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
-    BaseModelForFinetuning,
+    ModelArgs,
     ModelIdentity,
 )
 from huggingface_wav2vec2_finetuning.huggingface_wav2vec2_finetuner import (
@@ -34,7 +34,7 @@ def create_finetuner(
     new_vocab = ["<pad>", "<s>", "</s>","<unk>", "|", "'", "-", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "ä", "ö", "ü","ß"]
     # fmt: on
 
-    fm = BaseModelForFinetuning(
+    fm = ModelArgs(
         model_to_finetune=model_to_finetune,
         text_normalizer="de",
         new_vocab=new_vocab,
@@ -43,16 +43,13 @@ def create_finetuner(
         casing=Casing.lower,  # use lower for "bigger" models
     )
     finetune_task = HFWav2vec2Finetuner(
-        finetune_model=fm,
+        model_args=fm,
         train_dataset=IterableSlicingDataset(
             array_texts=train_corpus,
-            finetune_model=fm,
             perturbations=augmentations,
             limit=100_000,
         ),
-        eval_dataset=IterableSlicingDataset(
-            array_texts=eval_corpus, finetune_model=fm, limit=100
-        ),
+        eval_dataset=IterableSlicingDataset(array_texts=eval_corpus, limit=100),
         train_args=TrainArgs(
             run_name=run_name_for_wandb,
             overwrite_output_dir=True,
@@ -95,6 +92,9 @@ if __name__ == "__main__":
         "cache_root", f"RAW_DATA"
     )  # TODO: I'm confused! when str ? when PrefixSuffix?
     BASE_PATHES["finetune_results"] = PrefixSuffix("cache_root", f"FINETUNE_RESULTS")
+    BASE_PATHES["transformers_cache_dir"] = PrefixSuffix(
+        "base_path", "huggingface_cache/transformers"
+    )
 
     experiments = (
         finetune_task
