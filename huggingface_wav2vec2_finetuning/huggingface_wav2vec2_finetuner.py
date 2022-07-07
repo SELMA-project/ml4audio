@@ -3,50 +3,19 @@ import json
 import logging
 import os
 import shutil
-import warnings
-from abc import abstractmethod
-
 import sys
 import traceback
-from contextlib import redirect_stdout
+import warnings
 from dataclasses import asdict, dataclass, field
-from typing import Union, Optional, Any
+from typing import Union, Optional
 
-import wandb
-from datasets import load_metric
-from transformers.trainer_pt_utils import get_parameter_names
-
-from data_io.readwrite_files import read_json
-
-from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
-    ModelArgs,
-    DataArgs,
-)
-
-from huggingface_wav2vec2_finetuning.ctc_data_collator import DataCollatorCTCWithPadding
-from huggingface_wav2vec2_finetuning.ctc_trainer import CTCTrainer
-from huggingface_wav2vec2_finetuning.data_loading_commons import IterableDatasetBase
-from huggingface_wav2vec2_finetuning.hf_finetune_utils import setup_logging
-from misc_utils.buildable import Buildable
-from misc_utils.cached_data import CachedData
-from misc_utils.dataclass_utils import (
-    deserialize_dataclass,
-    UNDEFINED,
-    _UNDEFINED,
-    CLASS_REF_NO_INSTANTIATE,
-    serialize_dataclass,
-    to_dict,
-)
-from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
-from misc_utils.hpc_computing_args import ClusterArgs
-
-import datasets
 import numpy as np
 import torch
+import wandb
+from datasets import load_metric
 from packaging import version
 from transformers import (
     TrainingArguments,
-    Wav2Vec2ForCTC,
     Wav2Vec2Processor,
     is_apex_available,
     Wav2Vec2CTCTokenizer,
@@ -55,11 +24,32 @@ from transformers import (
     AutoTokenizer,
     AutoFeatureExtractor,
     AutoModelForCTC,
-    AutoProcessor,
 )
+from transformers.trainer_pt_utils import get_parameter_names
 from transformers.trainer_utils import is_main_process
 
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
+from data_io.readwrite_files import read_json
+from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
+    ModelArgs,
+    DataArgs,
+)
+from huggingface_wav2vec2_finetuning.ctc_data_collator import DataCollatorCTCWithPadding
+from huggingface_wav2vec2_finetuning.ctc_trainer import CTCTrainer
+from huggingface_wav2vec2_finetuning.data_loading_commons import IterableDatasetBase
+from huggingface_wav2vec2_finetuning.hf_finetune_utils import (
+    setup_logging,
+    NoModelSaveEarlyStoppingCallback,
+    create_asr_vocabulary_for_training,
+)
+from misc_utils.buildable import Buildable
+from misc_utils.cached_data import CachedData
+from misc_utils.dataclass_utils import (
+    deserialize_dataclass,
+    UNDEFINED,
+    _UNDEFINED,
+)
+from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 
 torch.set_num_threads(4)
 
@@ -86,7 +76,7 @@ class TrainArgs(Buildable):
     """
 
     run_name: str  # only for wandb?
-    is_dryrun: bool = False
+    # is_dryrun: bool = False # TODO: remove?
     overwrite_output_dir: bool = True
     max_steps: int = 1_000_000_000
     num_train_epochs: int = 10
@@ -106,6 +96,13 @@ class TrainArgs(Buildable):
     fp16: bool = True
     group_by_length: bool = True
     ignore_data_skip: bool = True
+    do_train: bool = True
+    do_eval: bool = True
+    metric_for_best_model: str = "wer"  # eval_wer
+    load_best_model_at_end: str = True
+    greater_is_better: str = False
+    early_stopping_patience: float = 2
+    early_stopping_threshold: float = 0.001
 
 
 def _prepare_models(
@@ -146,7 +143,12 @@ def _prepare_models(
         with training_args.main_process_first(desc="new vocab"):
             # if not os.path.isfile(vocab_file):
             os.makedirs(tokenizer_name_or_path, exist_ok=True)
-            vocab_dict = {k: v for k, v in enumerate(model_args.new_vocab)}
+            vocab_dict = create_asr_vocabulary_for_training(
+                set(model_args.new_vocab),
+                data_args.word_delimiter_token,
+                data_args.unk_token,
+                data_args.pad_token,
+            )
             # save vocab dict to be loaded into tokenizer
             with open(vocab_file, "w") as file:
                 json.dump(vocab_dict, file)
@@ -162,8 +164,18 @@ def _prepare_models(
             "pad_token": pad_token,
             "word_delimiter_token": word_delimiter_token,
         }
+
+        original_model = AutoModelForCTC.from_pretrained(
+            model_args.model_name_or_path,
+            cache_dir=str(BASE_PATHES["transformers_cache_dir"]),
+            # vocab_size=len(self.processor.tokenizer),
+        )
+        state_dict = original_model.state_dict()
+        state_dict.pop("lm_head.weight")
+        state_dict.pop("lm_head.bias")
     else:
         tokenizer_name_or_path = model_args.model_name_or_path
+        state_dict = None
 
     # 5. Now we can instantiate the feature extractor, tokenizer and model
     # Note for distributed training, the .from_pretrained methods guarantee that only
@@ -204,6 +216,8 @@ def _prepare_models(
     # create model
     model = AutoModelForCTC.from_pretrained(
         model_args.model_name_or_path,
+        state_dict=state_dict,
+        ignore_mismatched_sizes=state_dict is not None,
         cache_dir=model_args.cache_dir,
         config=config,
         use_auth_token=data_args.use_auth_token,
@@ -221,7 +235,8 @@ def _prepare_models(
         config.save_pretrained(training_args.output_dir)
 
     try:
-        processor = AutoProcessor.from_pretrained(training_args.output_dir)
+        processor = Wav2Vec2Processor.from_pretrained(training_args.output_dir)
+        # Wav2Vec2Processor instead of AutoProcessor, otherwise it tries to load Wav2Vec2ProcessorWithLM here!
     except (OSError, KeyError):
         warnings.warn(
             "Loading a processor from a feature extractor config that does not"
@@ -385,6 +400,13 @@ class HFWav2vec2Finetuner(CachedData):
             eval_dataset=self.eval_dataset,
             tokenizer=processor.feature_extractor,
             optimizers=optimizers,
+        )
+
+        trainer.add_callback(
+            NoModelSaveEarlyStoppingCallback(
+                self.train_args.early_stopping_patience,
+                self.train_args.early_stopping_threshold,
+            )
         )
 
         if self.hf_train_args.do_eval:

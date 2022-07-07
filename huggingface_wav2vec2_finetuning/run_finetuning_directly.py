@@ -4,7 +4,7 @@ from beartype import beartype
 
 from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
     ModelArgs,
-    ModelIdentity,
+    ModelIdentity, DataArgs,
 )
 from huggingface_wav2vec2_finetuning.huggingface_wav2vec2_finetuner import (
     TrainArgs,
@@ -53,7 +53,7 @@ def create_finetuner(
         train_args=TrainArgs(
             run_name=run_name_for_wandb,
             overwrite_output_dir=True,
-            max_steps=10,
+            max_steps=40,
             num_train_epochs=1,
             # per_device_train_batch_size=6,
             per_device_train_batch_size=1,
@@ -61,10 +61,8 @@ def create_finetuner(
             learning_rate=1.0e-05,
             warmup_steps=500,
             evaluation_strategy="steps",
-            save_steps=20_000,
-            eval_steps=20_000,
-            # save_steps=10,
-            # eval_steps=10,
+            save_steps=10,
+            eval_steps=10,
             # logging_steps=5,
             logging_steps=10,
             save_total_limit=3,
@@ -100,7 +98,8 @@ if __name__ == "__main__":
         finetune_task
         for model_to_finetune in [
             ModelIdentity(
-                "facebook/wav2vec2-base-960h"
+                "facebook/wav2vec2-base-960h",
+                # "jonatasgrosman/wav2vec2-large-xlsr-53-german"
             ),  # facebooks base model wants upper-cased vocab
         ]
         for eval_corpus in [

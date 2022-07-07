@@ -1,3 +1,4 @@
 nemo-toolkit[asr]
 datasets
 wandb
+bitsandbytes-cuda113 # maybe adapt to your coda-version

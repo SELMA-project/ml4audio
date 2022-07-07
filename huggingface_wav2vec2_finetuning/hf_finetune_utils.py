@@ -1,7 +1,11 @@
+import functools
 import os
 from dataclasses import dataclass
 
 import sys
+from typing import Optional
+
+import numpy as np
 import transformers
 from beartype import beartype
 from transformers import (
@@ -9,6 +13,7 @@ from transformers import (
     Wav2Vec2Processor,
     Wav2Vec2CTCTokenizer,
     Wav2Vec2FeatureExtractor,
+    EarlyStoppingCallback,
 )
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
@@ -105,3 +110,61 @@ def apply_asr_processor(
         sampling_rate=TARGET_SAMPLE_RATE,
         labels=labels,
     )
+
+
+class NoModelSaveEarlyStoppingCallback(EarlyStoppingCallback):
+    """
+    original EarlyStoppingCallback monitors the state.best_metric which is only set when model is saved
+    I want early stopping without having to save models all the time
+    """
+
+    def __init__(
+        self,
+        early_stopping_patience: int = 1,
+        early_stopping_threshold: Optional[float] = 0.0,
+    ):
+        super().__init__(early_stopping_patience, early_stopping_threshold)
+        self.best_value: Optional[float] = None
+
+    def check_metric_value(self, args, state, control, metric_value):
+        # best_metric is set by code for load_best_model
+        operator = np.greater if args.greater_is_better else np.less
+        if self.best_value is None or (
+            operator(metric_value, self.best_value)
+            and abs(metric_value - self.best_value) > self.early_stopping_threshold
+        ):
+            self.best_value = metric_value
+            self.early_stopping_patience_counter = 0
+        else:
+            self.early_stopping_patience_counter += 1
+            print(
+                f"{self.__class__.__name__}: {self.early_stopping_patience_counter=} of {self.early_stopping_patience}"
+            )
+
+
+@beartype
+def create_asr_vocabulary_for_training(
+    vocab_set: set[str],
+    word_delimiter_token: Optional[str] = None,
+    unk_token: Optional[str] = None,
+    pad_token: Optional[str] = None,
+) -> dict[str, int]:
+    """
+    based on create_vocabulary_from_data
+    """
+
+    vocab_dict = {v: k for k, v in enumerate(sorted(list(vocab_set)))}
+
+    # replace white space with delimiter token
+    if word_delimiter_token is not None and " " in vocab_dict:
+        vocab_dict[word_delimiter_token] = vocab_dict[" "]
+        del vocab_dict[" "]
+
+    # add unk and pad token
+    if unk_token is not None and unk_token not in vocab_dict:
+        vocab_dict[unk_token] = len(vocab_dict)
+
+    if pad_token is not None and pad_token not in vocab_dict:
+        vocab_dict[pad_token] = len(vocab_dict)
+
+    return vocab_dict

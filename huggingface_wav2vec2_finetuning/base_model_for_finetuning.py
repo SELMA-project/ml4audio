@@ -152,6 +152,8 @@ class ModelArgs(Buildable):
     # new-version: https://github.com/huggingface/transformers/blob/f0982682bd6fd0b438dda79ec45f3a8fac83a985/examples/research_projects/robust-speech-event/run_speech_recognition_ctc_bnb.py#L86
     # old-version: https://github.com/huggingface/transformers/blob/f0982682bd6fd0b438dda79ec45f3a8fac83a985/examples/research_projects/wav2vec2/run_common_voice.py#L63
     # tilo: changed from default 0.1 to 0.0
+    # why did they change back to zero? no effect on WER? it has an effect on memory consumption, ~10% more on GPU during training
+    #
     attention_dropout: Optional[float] = 0.0
     activation_dropout: Optional[float] = 0.0
     feat_proj_dropout: Optional[float] = 0.0
