@@ -99,10 +99,15 @@ class TrainArgs(Buildable):
     do_train: bool = True
     do_eval: bool = True
     metric_for_best_model: str = "wer"  # eval_wer
-    load_best_model_at_end: str = True
-    greater_is_better: str = False
-    early_stopping_patience: float = 2
+    load_best_model_at_end: bool = True
+    greater_is_better: bool = False
+    early_stopping_patience: int = 2
     early_stopping_threshold: float = 0.001
+
+    def __post_init__(self):
+        assert (
+            self.save_steps % self.eval_steps == 0
+        ), f"hf-transformers says: load_best_model_at_end requires the saving steps to be a round multiple of the evaluation steps"
 
 
 def _prepare_models(
