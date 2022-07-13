@@ -107,9 +107,10 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
     def process_array_text(self, array: NumpyFloat1DArray, text: str) -> HfASRSample:
         sr = self.feature_extractor.sampling_rate
         assert sr == 16000
-        array = apply_nemo_perturbations_with_retry(
-            array, sample_rate=sr, augmentor=self.augmentor
-        )
+        if self.augmentor is not None:
+            array = apply_nemo_perturbations_with_retry(
+                array, sample_rate=sr, augmentor=self.augmentor
+            )
         text = self.transcript_normalizer.apply(text)
         assert text is not None
         datum = apply_asr_processor(array, text, self.feature_extractor, self.tokenizer)

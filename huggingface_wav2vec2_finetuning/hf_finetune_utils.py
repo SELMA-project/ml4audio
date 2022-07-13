@@ -122,16 +122,22 @@ class NoModelSaveEarlyStoppingCallback(EarlyStoppingCallback):
         self,
         early_stopping_patience: int = 1,
         early_stopping_threshold: Optional[float] = 0.0,
+        min_steps: int = 1000,
     ):
         super().__init__(early_stopping_patience, early_stopping_threshold)
+        self.min_steps = min_steps
         self.best_value: Optional[float] = None
 
     def check_metric_value(self, args, state, control, metric_value):
         # best_metric is set by code for load_best_model
         operator = np.greater if args.greater_is_better else np.less
-        if self.best_value is None or (
-            operator(metric_value, self.best_value)
-            and abs(metric_value - self.best_value) > self.early_stopping_threshold
+        if (
+            state.global_step < self.min_steps
+            or self.best_value is None
+            or (
+                operator(metric_value, self.best_value)
+                and abs(metric_value - self.best_value) > self.early_stopping_threshold
+            )
         ):
             self.best_value = metric_value
             self.early_stopping_patience_counter = 0
@@ -144,7 +150,7 @@ class NoModelSaveEarlyStoppingCallback(EarlyStoppingCallback):
 
 @beartype
 def create_asr_vocabulary_for_training(
-    vocab_set: set[str],
+    vocab_set: list[str],
     word_delimiter_token: Optional[str] = None,
     unk_token: Optional[str] = None,
     pad_token: Optional[str] = None,
@@ -152,8 +158,8 @@ def create_asr_vocabulary_for_training(
     """
     based on create_vocabulary_from_data
     """
-
-    vocab_dict = {v: k for k, v in enumerate(sorted(list(vocab_set)))}
+    assert len(set(vocab_set))==len(vocab_set)
+    vocab_dict = {v: k for k, v in enumerate(vocab_set)}
 
     # replace white space with delimiter token
     if word_delimiter_token is not None and " " in vocab_dict:
@@ -162,9 +168,15 @@ def create_asr_vocabulary_for_training(
 
     # add unk and pad token
     if unk_token is not None and unk_token not in vocab_dict:
+        assert unk_token not in [x.upper() for x in vocab_dict] + [
+            x.lower() for x in vocab_dict
+        ]
         vocab_dict[unk_token] = len(vocab_dict)
 
     if pad_token is not None and pad_token not in vocab_dict:
+        assert pad_token not in [x.upper() for x in vocab_dict] + [
+            x.lower() for x in vocab_dict
+        ]
         vocab_dict[pad_token] = len(vocab_dict)
 
     return vocab_dict

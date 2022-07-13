@@ -98,11 +98,11 @@ class DataArgs:
         },
     )
     unk_token: str = field(
-        default="[UNK]",
+        default="<unk>",
         metadata={"help": "The unk token for the tokenizer"},
     )
     pad_token: str = field(
-        default="[PAD]",
+        default="<pad>",
         metadata={"help": "The padding token for the tokenizer"},
     )
     word_delimiter_token: str = field(

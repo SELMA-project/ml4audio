@@ -85,6 +85,9 @@ class NemoPerturbatedAudioData(CachedData, AudioData):
                 self.sample_rate,
             ).numpy()
 
+        assert (
+            len(array) / self.sample_rate >= 0.1
+        ), f"{eid=} with {array.shape=} is not valid audio-signal"
         sf.write(
             processed_audio_file,
             array,

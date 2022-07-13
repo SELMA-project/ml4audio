@@ -51,10 +51,10 @@ from misc_utils.dataclass_utils import (
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 
-torch.set_num_threads(4)
+torch.set_num_threads(4)  # TODO(tilo): why?
 
-if is_apex_available():
-    pass
+# if is_apex_available():
+#     pass
 
 if version.parse(torch.__version__) >= version.parse("1.6"):
     _is_native_amp_available = True
@@ -103,6 +103,9 @@ class TrainArgs(Buildable):
     greater_is_better: bool = False
     early_stopping_patience: int = 2
     early_stopping_threshold: float = 0.001
+    min_steps: int = 10_000
+    gradient_accumulation_steps: int = 1
+    deepspeed: Optional[str] = None  # "ds_config_zero3.json"
 
     def __post_init__(self):
         assert (
@@ -149,7 +152,7 @@ def _prepare_models(
             # if not os.path.isfile(vocab_file):
             os.makedirs(tokenizer_name_or_path, exist_ok=True)
             vocab_dict = create_asr_vocabulary_for_training(
-                set(model_args.new_vocab),
+                model_args.new_vocab,
                 data_args.word_delimiter_token,
                 data_args.unk_token,
                 data_args.pad_token,
@@ -167,9 +170,10 @@ def _prepare_models(
             else None,
             "unk_token": unk_token,
             "pad_token": pad_token,
+            "bos_token": "<s>",
+            "eos_token": "</s>",
             "word_delimiter_token": word_delimiter_token,
         }
-
         original_model = AutoModelForCTC.from_pretrained(
             model_args.model_name_or_path,
             cache_dir=str(BASE_PATHES["transformers_cache_dir"]),
@@ -262,6 +266,14 @@ def _prepare_models(
     )
 
     return model, processor, transcript_normalizer
+
+
+# for deepspeed -> TODO: not yet working!
+# os.environ["MASTER_ADDR"] = "localhost"
+# os.environ["MASTER_PORT"] = "9994"  # modify if RuntimeError: Address already in use
+# os.environ["RANK"] = "0"
+# os.environ["LOCAL_RANK"] = "0"
+# os.environ["WORLD_SIZE"] = "1"
 
 
 @dataclass
@@ -357,6 +369,9 @@ class HFWav2vec2Finetuner(CachedData):
             pred_str = tokenizer.batch_decode(pred_ids)
             # we do not want to group tokens when computing the metrics
             label_str = tokenizer.batch_decode(pred.label_ids, group_tokens=False)
+            assert len(label_str) == len(
+                pred_str
+            ), f"{len(label_str)=}!={len(pred_str)=}"
 
             metrics = {
                 k: v.compute(predictions=pred_str, references=label_str)
@@ -385,16 +400,20 @@ class HFWav2vec2Finetuner(CachedData):
                 "weight_decay": 0.0,
             },
         ]
-        import bitsandbytes as bnb
+        if training_args.deepspeed is None:
+            import bitsandbytes as bnb
 
-        optimizer = bnb.optim.Adam8bit(
-            params=optimizer_grouped_parameters,
-            lr=training_args.learning_rate,
-            betas=(training_args.adam_beta1, training_args.adam_beta2),
-            eps=training_args.adam_epsilon,
-        )
+            optimizer = bnb.optim.Adam8bit(
+                params=optimizer_grouped_parameters,
+                lr=training_args.learning_rate,
+                betas=(training_args.adam_beta1, training_args.adam_beta2),
+                eps=training_args.adam_epsilon,
+            )
 
-        optimizers = (optimizer, None)
+            optimizers = (optimizer, None)
+        else:
+            optimizers = (None, None)
+            raise NotImplementedError("TODO: if oyu want it, fix it!")
 
         trainer = CTCTrainer(
             model=model,
@@ -411,6 +430,7 @@ class HFWav2vec2Finetuner(CachedData):
             NoModelSaveEarlyStoppingCallback(
                 self.train_args.early_stopping_patience,
                 self.train_args.early_stopping_threshold,
+                self.train_args.min_steps,
             )
         )
 

@@ -2,6 +2,7 @@ from io import BytesIO
 from tarfile import ExFileObject
 from typing import Any, Optional, Union
 
+import numpy as np
 import torch
 import torchaudio
 from beartype import beartype
@@ -92,7 +93,15 @@ def torchaudio_load(
         frame_offset=_parse_offset_for_torchaudio_load(offset, sample_rate),
         num_frames=_parse_duration_for_torchaudio_load(duration, sample_rate),
     )
+
+    if len(signal.shape) == 2:
+        channel_dim = np.argmin(signal.shape)
+        if channel_dim == 0:
+            signal = signal[0, :]
+        else:
+            signal = signal[:, 0]
     signal = signal.squeeze()
+    assert len(signal) > 1000, f"{data_source=} below 1k samples is not really a signal!"
     return signal, sample_rate
 
 

@@ -53,7 +53,7 @@ class AudioFile(FileLikeAudioDatum):
 
 @dataclass
 class TranscriptAnnotation(StableDatum):
-    segment_id: str
+    segment_id: str # rename to utterance_id ?
     text: str
 
 
@@ -134,6 +134,7 @@ class SegmentCorpus(Iterable[SegmentAnnotation], FillUndefined):
 class TranscriptCorpus(Iterable[TranscriptAnnotation], FillUndefined):
     """
     this serves as Interface
+    TODO: what was the difference between id and segmentcorpus_id?
     """
 
     id: Union[_UNDEFINED, NeStr] = UNDEFINED
