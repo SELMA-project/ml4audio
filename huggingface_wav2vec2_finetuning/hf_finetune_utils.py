@@ -3,11 +3,12 @@ import os
 from dataclasses import dataclass
 
 import sys
-from typing import Optional
+from typing import Optional, Any
 
 import numpy as np
 import transformers
 from beartype import beartype
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from transformers import (
     set_seed,
     Wav2Vec2Processor,
@@ -148,6 +149,23 @@ class NoModelSaveEarlyStoppingCallback(EarlyStoppingCallback):
             )
 
 
+class ReduceLROnPlateauWithWarmup(ReduceLROnPlateau):
+    """
+    TODO: I have not yet tested this!
+        ReduceLROnPlateauWithWarmup nice idea, but is it really necessary/useful? see: https://github.com/huggingface/transformers/issues/16503
+    """
+    def step(self, metrics: Optional[float] = None, epoch: Optional[int] = ...) -> None:
+        if metrics is None:
+            # trainer calls step-method without arguments
+            for i, param_group in enumerate(self.optimizer.param_groups):
+                old_lr = float(param_group["lr"])
+                new_lr = max(old_lr * self.factor, self.min_lrs[i])
+                if old_lr - new_lr > self.eps:
+                    param_group["lr"] = new_lr
+        else:
+            super().step(metrics, epoch)
+
+
 @beartype
 def create_asr_vocabulary_for_training(
     vocab_set: list[str],
@@ -158,7 +176,7 @@ def create_asr_vocabulary_for_training(
     """
     based on create_vocabulary_from_data
     """
-    assert len(set(vocab_set))==len(vocab_set)
+    assert len(set(vocab_set)) == len(vocab_set)
     vocab_dict = {v: k for k, v in enumerate(vocab_set)}
 
     # replace white space with delimiter token

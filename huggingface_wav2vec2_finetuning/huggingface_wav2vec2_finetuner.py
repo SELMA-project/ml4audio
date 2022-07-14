@@ -14,6 +14,7 @@ import torch
 import wandb
 from datasets import load_metric
 from packaging import version
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from transformers import (
     TrainingArguments,
     Wav2Vec2Processor,
@@ -101,7 +102,7 @@ class TrainArgs(Buildable):
     metric_for_best_model: str = "wer"  # eval_wer
     load_best_model_at_end: bool = True
     greater_is_better: bool = False
-    early_stopping_patience: int = 2
+    early_stopping_patience: Optional[int] = 2
     early_stopping_threshold: float = 0.001
     min_steps: int = 10_000
     gradient_accumulation_steps: int = 1
@@ -410,6 +411,13 @@ class HFWav2vec2Finetuner(CachedData):
                 eps=training_args.adam_epsilon,
             )
 
+            # TODO: ReduceLROnPlateauWithWarmup nice idea, but is it really necessary/useful? see: https://github.com/huggingface/transformers/issues/16503
+            # scheduler = ReduceLROnPlateauWithWarmup(
+            #     optimizer=optimizer,
+            #     mode="min",
+            #     factor=0.1,
+            #     patience=2,
+            # )
             optimizers = (optimizer, None)
         else:
             optimizers = (None, None)
@@ -425,14 +433,17 @@ class HFWav2vec2Finetuner(CachedData):
             tokenizer=processor.feature_extractor,
             optimizers=optimizers,
         )
-
-        trainer.add_callback(
-            NoModelSaveEarlyStoppingCallback(
-                self.train_args.early_stopping_patience,
-                self.train_args.early_stopping_threshold,
-                self.train_args.min_steps,
+        if (
+            self.train_args.early_stopping_patience is not None
+            and self.train_args.early_stopping_patience > 0
+        ):
+            trainer.add_callback(
+                NoModelSaveEarlyStoppingCallback(
+                    self.train_args.early_stopping_patience,
+                    self.train_args.early_stopping_threshold,
+                    self.train_args.min_steps,
+                )
             )
-        )
 
         if self.hf_train_args.do_eval:
             logger.info("*** Initial Evaluate ***")

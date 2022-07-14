@@ -6,6 +6,9 @@ from torch.utils.data.dataloader import DataLoader
 from transformers import Trainer
 
 from huggingface_wav2vec2_finetuning.ctc_data_collator import DataCollatorCTCWithPadding
+from huggingface_wav2vec2_finetuning.hf_finetune_utils import (
+    ReduceLROnPlateauWithWarmup,
+)
 
 
 def dummpy_step(**kwargs):
@@ -24,7 +27,12 @@ class CTCTrainer(Trainer):
         self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]
     ) -> torch.Tensor:
         try:
-            loss_d = super().training_step(model,inputs)
+            if (
+                isinstance(self.lr_scheduler, ReduceLROnPlateauWithWarmup)
+                and self.state.global_step % self.args.eval_steps == 0
+            ):
+                self.lr_scheduler.step(metrics=self.state.best_metric)
+            loss_d = super().training_step(model, inputs)
         except Exception as e:
             err = "CUDA out of memory" if "CUDA out of memory" in str(e) else e
             print(f"train-step failed with: {err}")
