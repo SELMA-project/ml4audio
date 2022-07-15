@@ -84,5 +84,5 @@ class HFWav2Vec2LogitsInferencer(ResamplingASRLogitsInferencer):
                 .logits.cpu()
                 .squeeze()
             )
-        assert logits.shape[1] == len(self.vocab), f"{logits.shape=},{len(self.vocab)}"
+        assert logits.shape[1] == len(self.vocab), f"{logits.shape=},{len(self.vocab)=}"
         return logits
