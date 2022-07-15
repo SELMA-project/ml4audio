@@ -6,5 +6,5 @@ numba==0.53.1 # somehow this version cannot be bumped
 # torchaudio -> # install gpu version
 # datasets
 # speechbrain
-transformers==4.18.0 # TODO: try to bump version
+transformers # don't fix version here!
 jiwer
