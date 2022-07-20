@@ -10,7 +10,7 @@ from transformers.models.wav2vec2.tokenization_wav2vec2 import (
     Wav2Vec2CTCTokenizerOutput,
 )
 
-from misc_utils.beartypes import NumpyFloat2DArray
+from misc_utils.beartypes import NumpyFloat2DArray, NeList, NeStr
 from misc_utils.buildable import Buildable
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 
@@ -61,8 +61,8 @@ class LogitAlignedTranscript:
         logits == ctc-matrix
     """
 
-    text: str
-    logit_ids: list[int]
+    text: NeStr
+    logit_ids: NeList[int]  # TODO: not too strict?
 
     logits_score: Optional[float] = None
     lm_score: Optional[float] = None
@@ -200,7 +200,7 @@ class GreedyDecoder(HFCTCDecoder):
         out: Wav2Vec2CTCTokenizerOutput = self._tokenizer.decode(  # noqa
             token_ids=greedy_path,
             output_char_offsets=True,
-            skip_special_tokens=False # for ctc (see huggingface/transformers)
+            skip_special_tokens=False,  # for ctc (see huggingface/transformers)
         )
         char_offsets: list[dict] = out.char_offsets
         vocab_space = [" "] + self.vocab
@@ -212,6 +212,8 @@ class GreedyDecoder(HFCTCDecoder):
         if any((len(bad_letters) > 0 for bad_letters in bad_letters)):
             print(f"got bad letters: {bad_letters=}")
         char_offsets = list(filter(lambda d: d["char"] in vocab_space, char_offsets))
+        if len(char_offsets) == 0:
+            char_offsets = [{"char": " ", "start_offset": 0}]
 
         return [
             LogitAlignedTranscript(

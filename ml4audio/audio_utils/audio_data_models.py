@@ -20,7 +20,7 @@ ArrayText = tuple[NumpyFloat1DArray, NeStr]
 
 
 IdArray = tuple[NeStr, NumpyFloat1DArray]
-IdArrayText = tuple[NeStr, NumpyFloat1DArray,NeStr]
+IdArrayText = tuple[NeStr, NumpyFloat1DArray, NeStr]
 IdInt16Array = tuple[NeStr, NumpyInt16Dim1]
 
 IdText = tuple[NeStr, NeStr]
@@ -53,7 +53,7 @@ class AudioFile(FileLikeAudioDatum):
 
 @dataclass
 class TranscriptAnnotation(StableDatum):
-    segment_id: str # rename to utterance_id ?
+    segment_id: str  # rename to utterance_id ?
     text: str
 
 
@@ -82,6 +82,7 @@ class AlignmentSpanAnnotation(AlignmentSpan):
 class StandAloneAlignmentSpanAnnotation(AlignmentSpanAnnotation):
     id_seq_a: str
     id_seq_b: str
+
 
 # TODO: remove SequenceAlignment
 # @dataclass
@@ -175,6 +176,7 @@ class AudioTextData(Iterable[ArrayText]):
     @abstractmethod
     def __iter__(self) -> Iterator[ArrayText]:
         raise NotImplementedError
+
 
 @dataclass
 class IdAudioTextData(Iterable[IdArrayText]):

@@ -96,3 +96,23 @@ class AlignedTranscript:
 class NeAlignedTranscript(AlignedTranscript):
     letters: NeList[LetterIdx] = UNDEFINED
     sample_rate: int = UNDEFINED
+
+    def slice_subsegment(self, abs_start: int, abs_end: int) -> "NeAlignedTranscript":
+        letters = [
+            x
+            for x in self.letters
+            if self.abs_idx(x) >= abs_start and self.abs_idx(x) < abs_end
+        ]
+        if len(letters) == 0:
+            print(
+                f"{self.__class__.__name__}: slice_subsegment made me empty! creating dummy letter"
+            )
+            letters = [LetterIdx(" ", 0)]
+
+        return NeAlignedTranscript(
+            letters=letters,
+            sample_rate=self.sample_rate,
+            logits_score=self.logits_score,
+            lm_score=self.lm_score,
+            frame_id=self.frame_id,
+        ).update_offset(self.offset)

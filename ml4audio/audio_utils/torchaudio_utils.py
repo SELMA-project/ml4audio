@@ -101,7 +101,9 @@ def torchaudio_load(
         else:
             signal = signal[:, 0]
     signal = signal.squeeze()
-    assert len(signal) > 1000, f"{data_source=} below 1k samples is not really a signal!"
+    assert (
+        len(signal) > 1000
+    ), f"{data_source=} below 1k samples is not really a signal!"
     return signal, sample_rate
 
 

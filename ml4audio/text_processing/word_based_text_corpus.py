@@ -46,7 +46,7 @@ class RglobRawCorpus(CachedData):
             counter[0] += 1  # TODO this is ugly!
             return l
 
-        files=self._get_files()
+        files = self._get_files()
         print(f"{self.name} found {len(files)} files: {files=}")
         lines_g = (
             count_lines(self.get_raw_text_fun(line))

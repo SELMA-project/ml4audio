@@ -117,7 +117,7 @@ class FinetunedCheckpoint(HfCheckpoint):
     finetune_master: Union[_UNDEFINED, dict] = UNDEFINED
 
     @staticmethod
-    def from_cache_dir(finetune_master_cache_dir:str) -> list["FinetunedCheckpoint"]:
+    def from_cache_dir(finetune_master_cache_dir: str) -> list["FinetunedCheckpoint"]:
         s = read_file(f"{finetune_master_cache_dir}/dataclass.json")
         finetune_master: dict = json.loads(
             s.replace("_target_", CLASS_REF_NO_INSTANTIATE)

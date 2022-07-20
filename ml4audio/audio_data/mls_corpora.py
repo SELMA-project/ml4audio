@@ -17,7 +17,7 @@ class MLSTarGzTranscripts(TarGzTranscripts):
     @beartype
     def build_id_transcripts(
         self, split_name: str, transcript_files: list[str]
-    ) -> list[tuple[str, NeStr]]: # NeStr too strict?
+    ) -> list[tuple[str, NeStr]]:  # NeStr too strict?
         t_file = next(
             filter(
                 lambda s: s.endswith(f"{split_name}/transcripts.txt"), transcript_files

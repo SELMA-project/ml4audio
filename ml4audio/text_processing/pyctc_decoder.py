@@ -6,7 +6,7 @@ from beartype import beartype
 from beartype.vale import Is
 
 from data_io.readwrite_files import read_lines
-from misc_utils.beartypes import NeList, TorchTensor2D
+from misc_utils.beartypes import NeList, TorchTensor2D, NeStr
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
@@ -49,6 +49,10 @@ def build_unigrams_from_lexicon_file(
 
 @dataclass
 class OutputBeamDc:
+    """
+    just to bring order into pyctcdecode's mess
+    """
+
     text: str
     last_lm_state: LMState
     text_frames: list[WordFrames]
@@ -56,6 +60,11 @@ class OutputBeamDc:
     lm_score: float
 
     def __post_init__(self):
+        if len(self.text) == 0:
+            self.text = " "
+            assert len(self.text_frames) == 0
+            self.text_frames = [(" ", (0, 0))]
+
         assert self.text == " ".join([token for token, _ in self.text_frames])
 
 
