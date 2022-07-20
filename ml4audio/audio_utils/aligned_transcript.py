@@ -4,6 +4,9 @@ copypasted from: https://github.com/dertilo/speech-to-text
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
+from misc_utils.beartypes import NeList
+from misc_utils.dataclass_utils import UNDEFINED
+
 
 @dataclass
 class LetterIdx:
@@ -87,3 +90,9 @@ class AlignedTranscript:
             lm_score=self.lm_score,
             frame_id=self.frame_id,
         ).update_offset(self.offset)
+
+
+@dataclass
+class NeAlignedTranscript(AlignedTranscript):
+    letters: NeList[LetterIdx] = UNDEFINED
+    sample_rate: int = UNDEFINED
