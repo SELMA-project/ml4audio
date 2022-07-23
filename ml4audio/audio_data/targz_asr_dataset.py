@@ -1,11 +1,11 @@
+import itertools
 import os
 import tarfile
 from abc import abstractmethod
 from dataclasses import field, dataclass
 from pathlib import Path
-from typing import Iterator, Optional, ClassVar, Union, Iterable
+from typing import Iterator, Optional, ClassVar, Union, Iterable, Any
 
-import itertools
 from beartype import beartype
 from tqdm import tqdm
 
@@ -149,6 +149,9 @@ class TarGzASRCorpus(TranscribedAudioCorpus, Buildable):
     targztranscripts: Union[_UNDEFINED, TarGzTranscripts] = UNDEFINED
     split: str = "dev"
 
+    def _build_self(self) -> Any:
+        pass
+
     @property
     def id(self):
         return self.name
@@ -241,6 +244,23 @@ class TarGzArrayText(AudioTextData, Buildable):
             self.generate_raw_data(), 0, self.limit
         ):
             yield array, text
+
+
+@dataclass
+class TarGzArrayTextWithSize(TarGzArrayText,CachedData):
+    """
+    some-how looping over zipped corpus takes forever!
+    calculating corpus size: 7409it [17:06:14,  9.56s/it]at position 110000 in cv-corpus-10.0-2022-07-04-es.tar.gz
+    """
+    cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["raw_data"])
+    use_hash_suffix: ClassVar[bool] = False
+    size_in_hours: float = field(init=False,default=UNDEFINED)
+
+    def _build_cache(self):
+        g = (
+            len(a) / self.sample_rate for a, t in tqdm(self, "calculating corpus size")
+        )
+        self.size_in_hours = sum(g) / (60 ** 2)
 
 
 @dataclass
