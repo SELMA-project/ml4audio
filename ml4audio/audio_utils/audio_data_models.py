@@ -148,7 +148,7 @@ class TranscriptCorpus(Iterable[TranscriptAnnotation], FillUndefined):
 
 @dataclass
 class AudioData(Iterable[IdArray]):
-    sample_rate: int
+    sample_rate: int = UNDEFINED
 
     @property
     @abstractmethod
@@ -166,7 +166,7 @@ class AudioTextData(Iterable[ArrayText]):
     naming: Auteda == Audio Text Data
     """
 
-    sample_rate: int
+    sample_rate: int = UNDEFINED
 
     @property
     @abstractmethod
@@ -184,7 +184,7 @@ class IdAudioTextData(Iterable[IdArrayText]):
     naming: Auteda == Audio Text Data
     """
 
-    sample_rate: int
+    sample_rate: int=UNDEFINED
 
     @property
     @abstractmethod
