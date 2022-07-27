@@ -95,6 +95,7 @@ class TarGzTranscripts(BuildableData):
                     )
                 ),
             )
+        self._load_data()
 
     def _load_data(self) -> None:
         self.split2id2transcript = {
