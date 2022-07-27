@@ -32,7 +32,7 @@ class MLSTarGzTranscripts(TarGzTranscripts):
         return [parse_line(l) for l in read_lines(t_file)]
 
     def build_transcript_file_name(self, member_name: str) -> str:
-        return member_name.split("huggingface/datasets/downloads/extracted")[-1]
+        return member_name
 
 
 class MLSIterableDataset(TarGzASRCorpus):

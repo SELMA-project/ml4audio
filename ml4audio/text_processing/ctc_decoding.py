@@ -210,7 +210,7 @@ class GreedyDecoder(HFCTCDecoder):
         bad_letters = [d["char"] for d in char_offsets if d["char"] not in vocab_space]
 
         if any((len(bad_letters) > 0 for bad_letters in bad_letters)):
-            print(f"got bad letters: {bad_letters=}")
+            print(f"{self.__class__.__name__}: got bad letters: {bad_letters=}")
         char_offsets = list(filter(lambda d: d["char"] in vocab_space, char_offsets))
         if len(char_offsets) == 0:
             char_offsets = [{"char": " ", "start_offset": 0}]

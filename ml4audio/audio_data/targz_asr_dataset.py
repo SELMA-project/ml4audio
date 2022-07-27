@@ -16,6 +16,7 @@ from data_io.readwrite_files import (
 )
 from misc_utils.beartypes import NeStr, bearify
 from misc_utils.buildable import Buildable
+from misc_utils.buildable_data import BuildableData
 from misc_utils.cached_data import (
     CachedData,
 )
@@ -39,13 +40,20 @@ from ml4audio.audio_utils.audio_io import (
 
 
 @dataclass
-class TarGzTranscripts(CachedData):
+class TarGzTranscripts(BuildableData):
     targz_file: str = "some-tar.gz file"
     split_names: ClassVar[list[str]] = ["train", "dev", "test"]
-    cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["raw_data"])
+    base_dir: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["raw_data"])
     split2id2transcript: dict[str, dict[str, str]] = field(
         init=False, repr=False, default=UNDEFINED
     )
+
+    @property
+    def _is_data_valid(self) -> bool:
+        return all(
+            os.path.isfile(f"{self.data_dir}/{split}.jsonl")
+            for split in self.split_names
+        )
 
     @property
     def name(self):
@@ -69,17 +77,17 @@ class TarGzTranscripts(CachedData):
                     print(f"found all transcripts-files!")
                     break
 
-    def _build_cache(self) -> None:
-        self.extract_folder = self.prefix_cache_dir(
-            "raw_extracts"
-        )  # tilo: this could actually be tmp-dir!
+    def _build_data(self) -> Any:
+        self.extract_folder = (
+            f"{self.data_dir}/raw_extracts"  # tilo: this could actually be tmp-dir!
+        )
         os.makedirs(self.extract_folder, exist_ok=True)
 
         transcript_files = list(self.extract_transcript_files())
 
         for split_name in self.split_names:
             write_jsonl(
-                self.prefix_cache_dir(f"{split_name}.jsonl"),
+                f"{self.data_dir}/{split_name}.jsonl",
                 (
                     {"id": eid, "text": text}
                     for eid, text in self.build_id_transcripts(
@@ -88,11 +96,10 @@ class TarGzTranscripts(CachedData):
                 ),
             )
 
-    def _post_build_setup(self) -> None:
+    def _load_data(self) -> None:
         self.split2id2transcript = {
             split: {
-                d["id"]: d["text"]
-                for d in read_jsonl(self.prefix_cache_dir(f"{split}.jsonl"))
+                d["id"]: d["text"] for d in read_jsonl(f"{self.data_dir}/{split}.jsonl")
             }
             for split in self.split_names
         }
@@ -125,6 +132,10 @@ class TarGzTranscripts(CachedData):
 
 @dataclass
 class TranscribedAudio:
+    """
+    TODO: does not carry segmenation information! offset+duraction / start end assumes that entire audio is used!
+    """
+
     audio_datum: FileLikeAudioDatum
     text: NeStr  # am I too strict here? no, cause even if audio contains just noise, at least a space " " should be there jiwer has this:  raise ValueError("one or more groundtruths are empty strings")
 
@@ -247,14 +258,15 @@ class TarGzArrayText(AudioTextData, Buildable):
 
 
 @dataclass
-class TarGzArrayTextWithSize(TarGzArrayText,CachedData):
+class TarGzArrayTextWithSize(TarGzArrayText, CachedData):
     """
     some-how looping over zipped corpus takes forever!
     calculating corpus size: 7409it [17:06:14,  9.56s/it]at position 110000 in cv-corpus-10.0-2022-07-04-es.tar.gz
     """
+
     cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["raw_data"])
     use_hash_suffix: ClassVar[bool] = False
-    size_in_hours: float = field(init=False,default=UNDEFINED)
+    size_in_hours: float = field(init=False, default=UNDEFINED)
 
     def _build_cache(self):
         g = (

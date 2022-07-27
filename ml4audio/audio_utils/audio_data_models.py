@@ -147,7 +147,7 @@ class TranscriptCorpus(Iterable[TranscriptAnnotation], FillUndefined):
 
 
 @dataclass
-class AudioData(Iterable[IdArray]):
+class AudioData(Iterable[IdArray],FillUndefined):
     sample_rate: int = UNDEFINED
 
     @property

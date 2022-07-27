@@ -15,6 +15,7 @@ from nemo.collections.asr.parts.preprocessing import (
     AudioAugmentor,
 )
 
+from misc_utils.processing_utils import exec_command
 from ml4audio.audio_utils.audio_io import normalize_audio_array
 from misc_utils.beartypes import NumpyFloat1DArray
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
@@ -169,11 +170,55 @@ class BandPassPerturb(SoxPerturbations):
 @dataclass
 class PitchPerturb(SoxPerturbations):
     pitch: int = None
+    pert_params: Union[_UNDEFINED, dict[str, Any]] = field(
+        init=False, default=UNDEFINED, repr=False
+    )
 
     def _build_sox_command(self, augmented_file, original_file) -> str:
         pert_params = {"pitch": self.pitch}
         sox_pipe = build_sox_distortions_piped(original_file, pert_params)
         return f"sox <({sox_pipe}) -b 16 {augmented_file}"
+
+
+@dataclass
+class NoSoxPerturb(SoxPerturbations):
+    pert_params: Union[_UNDEFINED, dict[str, Any]] = field(
+        init=False, default=UNDEFINED, repr=False
+    )
+
+    def _build_sox_command(self, augmented_file, original_file) -> str:
+        return f"cp {original_file} {augmented_file}"
+
+
+@dataclass
+class NoPerturbCopyTmp(ProbaPerturbationDC):
+    def perturb(self, data):
+        with NamedTemporaryFile(
+            dir="/nfs-storage/data/tmp",
+            suffix=".wav", delete=True
+        ) as orig_f, NamedTemporaryFile(
+            dir="/nfs-storage/data/tmp",
+            suffix="_augmented.wav", delete=True
+        ) as tmp_file:
+            sr = data.sample_rate
+            sf.write(orig_f.name, data.samples.transpose(), sr)
+
+            original = orig_f.name
+            augmented = tmp_file.name
+            dummpy_command = f"cp {original} {augmented}"
+            exec_command(dummpy_command)
+            # FNULL = open(os.devnull, "w")
+            # subprocess.call(
+            #     ["bash", "-c", dummpy_command, "> /dev/null 2>&1"],
+            #     stdout=FNULL,
+            #     stderr=subprocess.STDOUT,
+            # )
+
+            # try:
+            #     new_data = AudioSegment.from_file(augmented, target_sr=16000)
+            # except Exception as e:
+            #     print(f"this one failed: {sox_cmd=}")
+            #     raise e
 
 
 @dataclass

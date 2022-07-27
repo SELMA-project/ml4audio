@@ -350,12 +350,12 @@ class HFWav2vec2Finetuner(CachedData):
             self.data_args, self.model_args, self.hf_train_args
         )
         tokenizer = processor.tokenizer
-        self.train_dataset.feature_extractor = processor.feature_extractor
-        self.train_dataset.tokenizer = processor.tokenizer
-        self.train_dataset.transcript_normalizer = transcript_normalizer
-        self.eval_dataset.feature_extractor = processor.feature_extractor
-        self.eval_dataset.tokenizer = processor.tokenizer
-        self.eval_dataset.transcript_normalizer = transcript_normalizer
+        self.train_dataset.set_things(
+            processor.feature_extractor, tokenizer, transcript_normalizer
+        )
+        self.eval_dataset.set_things(
+            processor.feature_extractor, tokenizer, transcript_normalizer
+        )
 
         eval_metrics = {
             metric: load_metric(metric) for metric in self.data_args.eval_metrics

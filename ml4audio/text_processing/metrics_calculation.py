@@ -69,10 +69,5 @@ def calc_cer(hyps_targets: NeList[Tuple[str, str]]):
 
 @beartype
 def calc_asr_scores(id_hyp_target: NeList[tuple[str, str, str]]) -> dict[str, float]:
-    hyps_targets = [ht for _, *ht in id_hyp_target]
-    wer_errors_lens = [calc_num_word_errors(hyp, ref) for hyp, ref in hyps_targets]
-
-    wer = micro_average(wer_errors_lens)
-    cer = calc_cer([(h, t) for _, h, t in id_hyp_target])
-    scores = {"wer": wer, "cer": cer}
-    return scores
+    hyp_targets = [(h, t) for _, h, t in id_hyp_target]
+    return {"wer": calc_wer(hyp_targets), "cer": calc_cer(hyp_targets)}

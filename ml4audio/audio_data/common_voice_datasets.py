@@ -13,7 +13,11 @@ from data_io.readwrite_files import (
     read_csv,
 )
 from misc_utils.buildable import Buildable
+from misc_utils.buildable_data import BuildableData
+from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+from ml4audio.audio_utils.audio_data_models import AudioTextData, ArrayText
+from ml4audio.audio_utils.torchaudio_utils import load_resample_with_torch
 
 split_names: ClassVar[list[str]] = ["train", "dev", "test"]
 
@@ -34,11 +38,13 @@ class CommonVoiceDatum:
     @staticmethod
     def from_dict(d: dict):
         d["accents"] = list(d["accents"].split(","))
+        d["up_votes"] = int(d["up_votes"])
+        d["down_votes"] = int(d["down_votes"])
         return CommonVoiceDatum(**d)
 
 
 @dataclass
-class CommonVoiceExtracted(Buildable):
+class CommonVoiceExtracted(BuildableData):
     """
     data_dir look like:
           9994240 Jul 23 09:37 clips/
@@ -54,7 +60,7 @@ class CommonVoiceExtracted(Buildable):
     """
 
     url: Optional[str] = field(repr=False, default=None)
-    data_base: PrefixSuffix = PrefixSuffix("base_path", f"data/ASR_DATA/COMMON_VOICE")
+    base_dir: PrefixSuffix = PrefixSuffix("base_path", f"data/ASR_DATA/COMMON_VOICE")
     SPLITS: ClassVar[list[str]] = ["train", "test"]  # validated is NOT a dev-set
     targz_file: Optional[str] = None
     _name: str = field(init=False, repr=True)
@@ -77,8 +83,8 @@ class CommonVoiceExtracted(Buildable):
         return self.name.split("-")[-1]
 
     @property
-    def data_dir(self):
-        return f"{self.data_base}/{self.name}/{self.version}/{self.lang}"
+    def extract_dir(self):
+        return f"{self.data_dir}/{self.version}/{self.lang}"
 
     @property
     def version(self):
@@ -86,7 +92,16 @@ class CommonVoiceExtracted(Buildable):
 
     @property
     def clips_dir(self):
-        return f"{self.data_dir}/clips"
+        return f"{self.extract_dir}/clips"
+
+    @property
+    def _is_data_valid(self) -> bool:
+        return os.path.isdir(self.clips_dir) and all(
+            os.path.isfile(f"{self.extract_dir}/{s}.tsv") for s in self.SPLITS
+        )
+
+    def _build_data(self) -> Any:
+        self._download_and_extract_raw_data()
 
     def _download_and_extract_raw_data(self):
         """
@@ -117,21 +132,31 @@ class CommonVoiceExtracted(Buildable):
             if self.targz_file is None:
                 os.remove(file)
 
-    @property
-    def _is_ready(self) -> bool:
-        return os.path.isdir(self.clips_dir) and all(
-            os.path.isfile(f"{self.data_dir}/{s}") for s in self.SPLITS
-        )
-
-    def _build_self(self) -> Any:
-        self._download_and_extract_raw_data()
-
     def get_split_data(
         self, split_name: Annotated[str, Is[lambda s: s in CommonVoiceExtracted.SPLITS]]
     ) -> Iterator[CommonVoiceDatum]:
-        csv_file = f"{self.data_dir}/{split_name}.tsv"
+        csv_file = f"{self.extract_dir}/{split_name}.tsv"
         for d in read_csv(csv_file, use_json_loads=False):
             yield CommonVoiceDatum.from_dict(d)
+
+
+@dataclass
+class CommonVoiceAuteda(AudioTextData, Buildable):
+    raw_data: CommonVoiceExtracted = UNDEFINED
+    split_name: str = UNDEFINED
+    sample_rate: int = 16000
+
+    @property
+    def name(self) -> str:
+        return f"{self.raw_data.name}-{self.split_name}"
+
+    def __iter__(self) -> Iterator[ArrayText]:
+        for d in self.raw_data.get_split_data(self.split_name):
+            array = load_resample_with_torch(
+                data_source=f"{self.raw_data.clips_dir}/{d.path}",
+                target_sample_rate=16000,
+            ).numpy()
+            yield array, d.sentence
 
 
 if __name__ == "__main__":
@@ -142,8 +167,7 @@ if __name__ == "__main__":
     BASE_PATHES["cache_root"] = cache_root
     BASE_PATHES["raw_data"] = PrefixSuffix("cache_root", "RAW_DATA")
 
-    urls = [
-    ]
+    urls = []
     for url in urls:
         corpus: CommonVoiceExtracted = CommonVoiceExtracted(
             targz_file=f"{BASE_PATHES['base_path']}/data/ASR_DATA/COMMON_VOICE/cv-corpus-10.0-2022-07-04-es.tar.gz",

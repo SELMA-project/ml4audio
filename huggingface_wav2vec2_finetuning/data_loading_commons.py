@@ -6,7 +6,7 @@ from typing import Optional, Iterator, Iterable
 
 import sys
 from beartype import beartype
-from nemo.collections.asr.parts.preprocessing import AudioAugmentor
+from nemo.collections.asr.parts.preprocessing import AudioAugmentor, AudioSegment
 
 from huggingface_wav2vec2_finetuning.hf_finetune_utils import (
     apply_asr_processor,
@@ -53,6 +53,16 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
 
     def __exit__(self):
         pass
+
+    def set_things(
+        self,
+        fe: Wav2Vec2FeatureExtractor,
+        to: Wav2Vec2CTCTokenizer,
+        tr: TranscriptNormalizer,
+    ):
+        self.feature_extractor = fe
+        self.tokenizer = to
+        self.transcript_normalizer = tr
 
     @abstractmethod
     def _generate_array_texts(self) -> Iterator[ArrayText]:

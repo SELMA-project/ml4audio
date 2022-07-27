@@ -6,7 +6,8 @@ from beartype import beartype
 
 from huggingface_wav2vec2_finetuning.base_model_for_finetuning import (
     ModelArgs,
-    ModelIdentity, DataArgs,
+    ModelIdentity,
+    DataArgs,
 )
 from huggingface_wav2vec2_finetuning.huggingface_wav2vec2_finetuner import (
     TrainArgs,
@@ -50,9 +51,7 @@ def create_finetuner(
         # final_dropout=0.0,
         # mask_time_prob=0.05,
     )
-    data_args=DataArgs(
-        eval_metrics=["wer","cer"]
-    )
+    data_args = DataArgs(eval_metrics=["wer", "cer"])
     finetune_task = HFWav2vec2Finetuner(
         model_args=model_args,
         data_args=data_args,
@@ -88,7 +87,6 @@ def create_finetuner(
             gradient_accumulation_steps=4,
             deepspeed="huggingface_wav2vec2_finetuning/ds_config_zero3.json",
             # deepspeed="../ml4audio/huggingface_wav2vec2_finetuning/ds_config_zero3.json"
-
         ),
         overwrite_old_cache=True,
     )
