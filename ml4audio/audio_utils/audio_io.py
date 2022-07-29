@@ -5,15 +5,20 @@ from io import BytesIO
 from pathlib import Path
 from typing import Optional, Union, Iterator, Any
 
+import librosa
 import numpy as np
 from beartype import beartype
 from numpy.typing import NDArray
 
 from ml4audio.audio_utils.audio_data_models import FileLikeAudioDatum
-from ml4audio.audio_utils.torchaudio_utils import load_resample_with_torch
+from ml4audio.audio_utils.torchaudio_utils import (
+    load_resample_with_torch,
+    get_first_channel,
+)
 from misc_utils.beartypes import NumpyFloat1DArray, NumpyInt16Dim1, Numpy1DArray
 from misc_utils.processing_utils import exec_command
 from misc_utils.utils import get_val_from_nested_dict, NOT_EXISTING
+import soundfile as sf
 
 MAX_16_BIT_PCM: float = float(2 ** 15)  # 32768.0 for 16 bit, see "format"
 
@@ -39,11 +44,17 @@ def load_audio_array_from_filelike(
 
     elif filelike.format in ["flac"]:
         # TODO: torchaudio cannot load flacs?
-        array = load_resample_with_nemo(
-            audio_filepath=BytesIO(filelike.audio_source.read()),
+        #   nemo cannot properly handle multi-channel flacs
+        audio_source = (
+            filelike.audio_source
+            if isinstance(filelike.audio_source, str)
+            else BytesIO(filelike.audio_source.read())
+        )
+        array = load_resample_with_soundfile(
+            audio_file=audio_source,
+            target_sr=target_sample_rate,
             offset=offset,
             duration=duration,
-            target_sample_rate=target_sample_rate,
         )
     else:
         torch_tensor = load_resample_with_torch(
@@ -56,6 +67,10 @@ def load_audio_array_from_filelike(
         )
         array = torch_tensor.numpy()
 
+    if len(array) < 1000:
+        print(
+            f"{filelike.audio_source=},{offset=},{duration=} below 1k samples is not really a signal!"
+        )
     return array
 
 
@@ -139,6 +154,67 @@ def convert_to_16bit_array(a: NumpyFloat1DArray) -> NumpyInt16Dim1:
     return a
 
 
+def _convert_samples_to_float32(samples: NDArray) -> NDArray:
+    """
+    stolen from nemo
+    Convert sample type to float32.
+    Audio sample type is usually integer or float-point.
+    Integers will be scaled to [-1, 1] in float32.
+    """
+    float32_samples = samples.astype("float32")
+    if samples.dtype in np.sctypes["int"]:
+        bits = np.iinfo(samples.dtype).bits
+        float32_samples *= 1.0 / 2 ** (bits - 1)
+    elif samples.dtype in np.sctypes["float"]:
+        pass
+    else:
+        raise TypeError("Unsupported sample type: %s." % samples.dtype)
+    return float32_samples
+
+
+@beartype
+def load_resample_with_soundfile(
+    audio_file: Union[str, BytesIO],
+    target_sr: Optional[int] = None,
+    int_values: bool = False,
+    offset: Optional[float] = None,
+    duration: Optional[float] = None,
+    trim: bool = False,
+    trim_db=60,
+) -> NumpyFloat1DArray:
+    """
+    based on nemo code
+    """
+    with sf.SoundFile(audio_file, "r") as f:
+        dtype = "int32" if int_values else "float32"
+        sample_rate = f.samplerate
+        if offset is not None:
+            f.seek(int(offset * sample_rate))
+        if duration is not None:
+            samples = f.read(int(duration * sample_rate), dtype=dtype)
+        else:
+            samples = f.read(dtype=dtype)
+
+    samples = (
+        samples.transpose()
+    )  # channels in first, signal in second axis, thats how librosa wants it
+
+    samples = _convert_samples_to_float32(samples)
+    if target_sr is not None and target_sr != sample_rate:
+        samples = librosa.core.resample(
+            samples, orig_sr=sample_rate, target_sr=target_sr
+        )
+    if trim:
+        samples, _ = librosa.effects.trim(samples, top_db=trim_db)
+    if samples.ndim >= 2:
+        # here was bug in nemo-code!
+        # explanation: resampy does resample very last axis, see: https://github.com/bmcfee/resampy/blob/29d34876a61fcd74e72003ceb0775abaf6fdb961/resampy/core.py#L15
+        # resample(x, sr_orig, sr_new, axis=-1, filter='kaiser_best', **kwargs):
+        assert samples.shape[0] < samples.shape[1]
+        samples = np.mean(samples, 0)
+    return samples
+
+
 @beartype
 def load_resample_with_nemo(
     audio_filepath: Union[str, BytesIO],
@@ -157,9 +233,13 @@ def load_resample_with_nemo(
         duration=duration,
         trim=False,
     )
-    s = audio.samples.shape
-    a = audio.samples.squeeze()
-    return a
+    signal = audio.samples
+    signal = get_first_channel(signal)
+    assert (
+        len(signal) > 1000
+    ), f"{audio_filepath=} below 1k samples is not really a signal!"
+    assert len(audio.samples.shape) == 1, f"{len(audio.samples.shape)=}"
+    return signal
 
 
 @beartype

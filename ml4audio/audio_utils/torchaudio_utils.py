@@ -6,10 +6,11 @@ import numpy as np
 import torch
 import torchaudio
 from beartype import beartype
+from numpy.typing import NDArray
 from torch import float32
 from torchaudio.transforms import Resample
 
-from misc_utils.beartypes import TorchTensor1D
+from misc_utils.beartypes import TorchTensor1D, NumpyFloat1DArray
 
 resamplers: dict[str, Resample] = {}
 
@@ -94,17 +95,23 @@ def torchaudio_load(
         num_frames=_parse_duration_for_torchaudio_load(duration, sample_rate),
     )
 
-    if len(signal.shape) == 2:
-        channel_dim = np.argmin(signal.shape)
-        if channel_dim == 0:
-            signal = signal[0, :]
-        else:
-            signal = signal[:, 0]
-    signal = signal.squeeze()
+    signal = get_first_channel(signal)
     assert (
         len(signal) > 1000
     ), f"{data_source=} below 1k samples is not really a signal!"
     return signal, sample_rate
+
+@beartype
+def get_first_channel(signal:NDArray)->NumpyFloat1DArray:
+    if len(signal.shape) == 2:
+        channel_dim = np.argmin(signal.shape)
+        first_channel = 0
+        if channel_dim == 0:
+            signal = signal[first_channel, :]
+        else:
+            signal = signal[:, first_channel]
+    signal = signal.squeeze()
+    return signal
 
 
 torchaudio.utils.sox_utils.set_buffer_size(
