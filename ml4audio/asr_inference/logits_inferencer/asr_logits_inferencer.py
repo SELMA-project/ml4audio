@@ -33,6 +33,10 @@ from misc_utils.dataclass_utils import (
     decode_dataclass,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+from ml4audio.asr_inference.pytorch_to_onnx_for_wav2vec import (
+    convert_to_onnx,
+    quantize_onnx_model,
+)
 from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -152,6 +156,46 @@ class FinetunedCheckpoint(HfCheckpoint):
 
 
 @dataclass
+class OnnxedHFCheckpoint(HfCheckpoint):
+    vanilla_chkpt: HfCheckpoint = UNDEFINED
+    do_quantize: bool = True
+    name: NeStr = field(init=False)
+    _onnx_model: Optional[str] = field(init=False, default=None)
+
+    def __post_init__(self):
+        suffix = "-quantized" if self.do_quantize else ""
+        self.name = f"{self.vanilla_chkpt.name}-onnx{suffix}"
+        super().__post_init__()
+
+    @property
+    def model_path(self) -> str:
+        return self.vanilla_chkpt.model_path
+
+    @property
+    def onnx_model(self) -> str:
+        return self._create_onnx_model_file(self.do_quantize)
+
+    def _create_onnx_model_file(self, do_quantize: bool):
+        suf = ".quant" if do_quantize else ""
+        return self.prefix_cache_dir(f"wav2vec2.{suf}.onnx")
+
+    def _build_cache(self):
+        model_id_or_path = self.vanilla_chkpt.model_path
+        onnx_model_name = self._create_onnx_model_file(False)
+        convert_to_onnx(model_id_or_path, onnx_model_name)
+
+        if self.do_quantize:
+            quantized_model_name = self._create_onnx_model_file(True)
+            quantize_onnx_model(onnx_model_name, quantized_model_name)
+            os.remove(onnx_model_name)
+
+        import onnx
+
+        onnx_model = onnx.load(self.onnx_model)
+        onnx.checker.check_model(onnx_model)
+
+
+@dataclass
 class ResamplingASRLogitsInferencer(Buildable):
     """
         Resampling  Asr Connectionis temporal classification (CTC) Logits Inference
@@ -182,7 +226,6 @@ class ResamplingASRLogitsInferencer(Buildable):
     target_sample_rate: ClassVar[int] = 16000
     resample_type: str = "kaiser_best"
     do_normalize: bool = True  # TODO: not sure yet what is better at inference time
-    _model: Optional[torch.nn.Module] = field(init=False, repr=False, default=None)
 
     @property
     @beartype
@@ -193,9 +236,6 @@ class ResamplingASRLogitsInferencer(Buildable):
     @abstractmethod
     def vocab(self) -> NeList[str]:
         raise NotImplementedError
-
-    def move_to_device(self, device):
-        self._model = self._model.to(device)
 
     @beartype
     def resample_calc_logits(self, audio: NumpyFloatORInt16_1DArray) -> TorchTensor2D:

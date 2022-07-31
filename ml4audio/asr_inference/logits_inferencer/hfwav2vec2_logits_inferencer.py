@@ -4,12 +4,19 @@ from typing import Union, List, Optional
 import numpy as np
 import torch
 from beartype import beartype
-from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
+from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC, BatchFeature
 
+from misc_utils.dataclass_utils import UNDEFINED
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     ResamplingASRLogitsInferencer,
+    OnnxedHFCheckpoint,
 )
-from misc_utils.beartypes import NumpyFloat2DArray, NumpyFloat1DArray, TorchTensor2D
+from misc_utils.beartypes import (
+    NumpyFloat2DArray,
+    NumpyFloat1DArray,
+    TorchTensor2D,
+    TorchTensor3D,
+)
 
 HFWAV2VEC2_SAMPLE_RATE = 16_000  # TODO: somewhen this might be model dependent!
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,6 +34,10 @@ class HFWav2Vec2LogitsInferencer(ResamplingASRLogitsInferencer):
     _processor: Optional[Wav2Vec2Processor] = field(
         init=False, repr=False, default=None
     )
+    _model: Optional[torch.nn.Module] = field(init=False, repr=False, default=None)
+
+    def move_to_device(self, device):
+        self._model = self._model.to(device)
 
     def _build_self(self) -> "HFWav2Vec2LogitsInferencer":
         self._processor = self._load_prepare_processor()
@@ -67,7 +78,6 @@ class HFWav2Vec2LogitsInferencer(ResamplingASRLogitsInferencer):
         # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         # soundfile.write(f"{debug_dir}/audio-{timestamp}.wav", audio, 16000)
 
-        device = next(self._model.parameters()).device
         inputs = self._processor(
             audio,
             sampling_rate=HFWAV2VEC2_SAMPLE_RATE,
@@ -75,14 +85,47 @@ class HFWav2Vec2LogitsInferencer(ResamplingASRLogitsInferencer):
             # padding=True, #TODO why was this set to true?
             # return_attention_mask=True,
         )
+        return self._infer_logits(inputs)
+
+    @beartype
+    def _infer_logits(self, features: BatchFeature) -> TorchTensor2D:
+        device = next(self._model.parameters()).device
         with torch.no_grad():
             logits = (
                 self._model(
-                    inputs.input_values.to(device),
-                    attention_mask=inputs.attention_mask.to(device),
+                    features.input_values.to(device),
+                    attention_mask=features.attention_mask.to(device),
                 )
                 .logits.cpu()
                 .squeeze()
             )
         assert logits.shape[1] == len(self.vocab), f"{logits.shape=},{len(self.vocab)=}"
         return logits
+
+
+@dataclass
+class OnnxHFWav2Vec2LogitsInferencer(HFWav2Vec2LogitsInferencer):
+    checkpoint: OnnxedHFCheckpoint = UNDEFINED
+
+    def _build_self(self) -> "OnnxHFWav2Vec2LogitsInferencer":
+        self._processor = self._load_prepare_processor()
+
+        import onnx
+
+        onnx_model = onnx.load(self.checkpoint.onnx_model)
+        onnx.checker.check_model(onnx_model)
+
+        import onnxruntime as rt
+
+        sess_options = rt.SessionOptions()
+        sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
+        self._session = rt.InferenceSession(self.checkpoint.onnx_model, sess_options)
+        return self
+
+    @beartype
+    def _infer_logits(self, features: BatchFeature) -> TorchTensor2D:
+        input_values = features.input_values
+        onnx_outputs = self._session.run(
+            None, {self._session.get_inputs()[0].name: input_values.numpy()}
+        )[0]
+        return torch.from_numpy(onnx_outputs)
