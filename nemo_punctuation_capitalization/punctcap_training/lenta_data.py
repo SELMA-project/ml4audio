@@ -18,7 +18,7 @@ from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 
 def clean_russian_text_for_punctcap_training(text: str, punct_marks: str = ",?."):
     """
-    copypasted from tugtekins "russian_normalization_train"-method https://gitlab.cc-asp.fraunhofer.de/mturan/russian-punct-casing/-/blob/master/local/get_lenta_data.py#L13
+    copypasted from tugtekins "russian_normalization_train"-method <fhg-gitlab>/mturan/russian-punct-casing/-/blob/master/local/get_lenta_data.py#L13
     # TODO(tilo): @tugtekin -> please explanation for: NFKC, re.sub, regex.sub, !
         we need pytests!
         written2spoken before this cleaning method, OR adapt cleaning method as to keep numbers!
