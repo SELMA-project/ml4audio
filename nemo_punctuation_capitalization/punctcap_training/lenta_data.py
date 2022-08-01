@@ -3,10 +3,12 @@ import os.path
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import Iterable, Iterator
 
 import pandas
 import regex
+from pandas import Series
+from tqdm import tqdm
 
 from data_io.download_extract_files import wget_file
 from data_io.readwrite_files import write_lines
@@ -73,7 +75,7 @@ class LentaData(Buildable, Iterable[str]):
             wget_file(self._bz2_file_url, str(self.data_dir))
         return self
 
-    def __iter__(self):
+    def __iter__(self)->Iterator[str]:
         chunksize = 1000
 
         with pandas.read_csv(
@@ -81,10 +83,12 @@ class LentaData(Buildable, Iterable[str]):
         ) as reader:
             for chunk in reader:
                 for d in chunk.iterrows():
-                    original = d[1].text.replace("\n", " ").replace("\r", "")
-                    yield original, clean_russian_text_for_punctcap_training(
-                        original, punct_marks=self.punct_marks
-                    )
+                    if isinstance(d,tuple) and isinstance(d[1],Series) and isinstance(d[1].text,str):
+                        original = d[1].text.replace("\n", " ").replace("\r", "")
+                        yield original
+                    # clean_russian_text_for_punctcap_training(
+                    #     original, punct_marks=self.punct_marks
+                    # )
 
 
 if __name__ == "__main__":
@@ -97,10 +101,8 @@ if __name__ == "__main__":
     BASE_PATHES["processed_data"] = PrefixSuffix("cache_root", "PROCESSED_DATA")
 
     corpus = LentaData().build()
-    os.remove("original.txt")
-    os.remove("target.txt")
-    for o, t in itertools.islice(corpus, 0, 10):
-        write_lines("original.txt", [o], mode="ab")
-        write_lines("target.txt", [t], mode="ab")
+    list(tqdm(corpus))
+    for t in itertools.islice(corpus, 0, 10):
+        print(f"{t=}")
     # wget -q ${lenta} -P ${resource_fold} || exit 1
     # bzip2 -d ${resource_fold}/${file_base} || exit 1

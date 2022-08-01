@@ -1,9 +1,11 @@
 import itertools
 import os
+import random
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from random import shuffle
 from typing import Union, Optional, Any, Iterable, Iterator
 
 import pandas
@@ -92,6 +94,9 @@ python nemo_punctuation_capitalization/punctcap_training/punctuation_capitalizat
         return cmd
 
 
+random.seed(42)
+
+
 @dataclass
 class MixedCorpus(Buildable, Iterable[str]):
     name: str
@@ -105,7 +110,7 @@ class MixedCorpus(Buildable, Iterable[str]):
         )
         for corpus in self.corpora:
             self._lines += list(itertools.islice(corpus, 0, limit_each))
-
+        shuffle(self._lines)
         print(f"{pandas.Series([len(t) for t in self._lines]).describe().to_dict()=}")
 
     def __iter__(self) -> Iterator[str]:
@@ -213,7 +218,7 @@ if __name__ == "__main__":
         # tugtekins_russian_model = f"{base_path}/data/PUNCTUATION/RU.nemo"
         # train_punctcap(
         #     text_corpus=MixedCorpus(
-        #         name=f"wiki_lenta",
+        #         name=f"wiki_lenta-random",
         #         corpora=BuildableList(
         #             [
         #                 TatoebaWikipediaData(
@@ -231,7 +236,7 @@ if __name__ == "__main__":
         # )
         train_punctcap(
             text_corpus=MixedCorpus(
-                name=f"wiki_lenta",
+                name=f"wiki_lenta_random",
                 corpora=BuildableList(
                     [
                         TatoebaWikipediaData(
