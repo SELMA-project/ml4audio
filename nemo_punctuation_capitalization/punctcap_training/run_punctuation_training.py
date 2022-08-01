@@ -1,17 +1,21 @@
+import itertools
 import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional, Any, Iterable, Iterator
 
+import pandas
 import torch
 import wandb
 
 from data_io.readwrite_files import write_file
+from misc_utils.buildable import Buildable, BuildableList
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+from nemo_punctuation_capitalization.punctcap_training.lenta_data import LentaData
 from nemo_punctuation_capitalization.punctcap_training.nemo_punctcap_traindata import (
     NepucaData,
     NepucaSplit,
@@ -27,6 +31,8 @@ from nemo_punctuation_capitalization.punctcap_training.punctuation_tatoeba_data 
 class NemoTrainedPunctuationCapitalizationModel(CachedData):
     data: Union[_UNDEFINED, NepucaData] = UNDEFINED
     base_model: str = "bert-base-multilingual-uncased"
+    pretrained_model: Optional[int] = None
+    do_training: bool = True
     cache_base: PrefixSuffix = field(
         default_factory=lambda: PrefixSuffix("cache_root", "NEMO_PUNCTCAP_MODELS")
     )
@@ -44,9 +50,10 @@ class NemoTrainedPunctuationCapitalizationModel(CachedData):
         out, err = process.communicate(cmd.encode("utf-8"))
         process.terminate()  # just me being paranoid!
         process.kill()
-        nemo_model = list(Path(self.nemo_exp_dir).rglob("*.nemo"))[0]
-        shutil.move(str(nemo_model), self.model_file)
-        shutil.rmtree(nemo_model.parent)
+        if self.do_training:
+            nemo_model = list(Path(self.nemo_exp_dir).rglob("*.nemo"))[0]
+            shutil.move(str(nemo_model), self.model_file)
+            shutil.rmtree(nemo_model.parent)
 
     @property
     def model_file(self):
@@ -66,6 +73,8 @@ BASE_PATH=${{PWD}}
 # export PYTHONPATH=${{PYTHONPATH}}:$BASE_PATH/iais_code/NeMo
 
 python nemo_punctuation_capitalization/punctcap_training/punctuation_capitalization_train_evaluate.py \
+    pretrained_model={self.pretrained_model} \
+    +do_training={'true' if self.do_training else 'false'} \
     +do_testing=true \
     exp_manager.exp_dir={self.nemo_exp_dir} \
     model.language_model.pretrained_model_name={self.base_model} \
@@ -83,34 +92,71 @@ python nemo_punctuation_capitalization/punctcap_training/punctuation_capitalizat
         return cmd
 
 
-def train_punctcap(lang_code="deu"):
+@dataclass
+class MixedCorpus(Buildable, Iterable[str]):
+    name: str
+    corpora: BuildableList
+    _lines: list[str] = field(init=False, default_factory=lambda: [])
+    limit: Optional[int] = None
+
+    def _build_self(self) -> Any:
+        limit_each = (
+            int(self.limit / len(self.corpora)) if self.limit is not None else None
+        )
+        for corpus in self.corpora:
+            self._lines += list(itertools.islice(corpus, 0, limit_each))
+
+        print(f"{pandas.Series([len(t) for t in self._lines]).describe().to_dict()=}")
+
+    def __iter__(self) -> Iterator[str]:
+        yield from self._lines
+
+    # def __len__(self):
+    #     return len(self._lines)
+
+
+def prep_wiki_text_corpus(lang_code):
     wikipedia_data = TatoebaWikipediaData(
         raw_data=TatoebaMonolingualData(
             base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
             file_name=f"{lang_code}.tar",
         )
     ).build()
-    limit = 110_000
 
-    if wikipedia_data.num_lines < limit:
-        print(
-            f"{lang_code=} has too few wikipedia-data, only {wikipedia_data.num_lines} lines"
-        )
-        return
+    # if wikipedia_data.num_lines < limit:
+    #     print(
+    #         f"{lang_code=} has too few wikipedia-data, only {wikipedia_data.num_lines} lines"
+    #     )
+    #     return None
+    # else:
+    return wikipedia_data
 
-    dev_size = min(10_000, round(0.1 * wikipedia_data.num_lines))
+
+def train_punctcap(
+    text_corpus,
+    base_model="bert-base-multilingual-uncased",
+    limit=110_000,
+    dev_size=10_000,
+    pretrained_model=None,
+    do_training=True,
+):
 
     processed_data = NepucaData(
         train_dev_data=NepucaSplit(
-            name=wikipedia_data.name,
-            raw_lines=wikipedia_data,
+            name=text_corpus.name,
+            raw_lines=text_corpus,
             limit=limit,
             dev_size=dev_size,
         ),
         max_seq_len=30,
     )
     trained_model = NemoTrainedPunctuationCapitalizationModel(
-        data=processed_data, clean_on_fail=False
+        pretrained_model=pretrained_model,
+        base_model=base_model,
+        do_training=do_training,
+        data=processed_data,
+        clean_on_fail=False,
+        overwrite_cache=True,
     ).build()
     # ret=subprocess.run(cmd, capture_output=True, shell=True)
     # print(ret.stdout.decode())
@@ -130,6 +176,26 @@ def train_punctcap(lang_code="deu"):
 
 
 if __name__ == "__main__":
+    """
+        Punctuation Report:
+    label       precision recall f1
+    O (pad_label) 99.27 99.28 99.28
+    ,             93.62 92.25 92.93
+    .             92.83 94.70 93.76
+    ?             63.60 23.29 34.09
+    --------------------------------------------
+    macro avg     87.33 77.38 80.01
+    weighted avg  98.34 98.34 98.34
+
+    Capitalization Report:
+    label       precision recall f1
+    O (pad_label) 99.35 99.31 99.33
+    U             96.51 96.67 96.59
+    --------------------------------------------
+    macro avg     97.93 97.99 97.96
+    weighted avg  98.88 98.88 98.88
+
+    """
     base_path = os.environ["BASE_PATH"]
     cache_root = f"{base_path}/data/cache"
     BASE_PATHES["base_path"] = base_path
@@ -143,5 +209,40 @@ if __name__ == "__main__":
     lang_codes = TatoebaLanguages().build()
     print(list(lang_codes))
     # lang_codes = ["por", "eng", "deu", "fra", "spa", "ita", "rus", "lit"]
-    for lang in ["deu"]:  #
-        train_punctcap(lang)
+    for lang in ["rus"]:  #
+        # tugtekins_russian_model = f"{base_path}/data/PUNCTUATION/RU.nemo"
+        # train_punctcap(
+        #     text_corpus=MixedCorpus(
+        #         name=f"wiki_lenta",
+        #         corpora=BuildableList(
+        #             [
+        #                 TatoebaWikipediaData(
+        #                     raw_data=TatoebaMonolingualData(
+        #                         base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
+        #                         file_name=f"{lang}.tar",
+        #                     )
+        #                 ),
+        #                 LentaData(),
+        #             ]
+        #         ),
+        #     ),
+        #     pretrained_model=tugtekins_russian_model,
+        #     do_training=False,
+        # )
+        train_punctcap(
+            text_corpus=MixedCorpus(
+                name=f"wiki_lenta",
+                corpora=BuildableList(
+                    [
+                        TatoebaWikipediaData(
+                            raw_data=TatoebaMonolingualData(
+                                base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
+                                file_name=f"{lang}.tar",
+                            )
+                        ),
+                        LentaData(),
+                    ]
+                ),
+            ),
+            do_training=True,
+        )

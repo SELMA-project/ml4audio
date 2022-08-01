@@ -36,7 +36,7 @@ def main(cfg: DictConfig) -> None:
                 "`model.test_ds` config section is required if `do_testing` config item is `True`."
             )
 
-    if not cfg.pretrained_model:
+    if not isinstance(cfg.pretrained_model,str) or cfg.pretrained_model in ["null","None"]:
         logging.info(f"Config: {OmegaConf.to_yaml(cfg)}")
         model = PunctuationCapitalizationModel(cfg.model, trainer=trainer)
     else:
@@ -52,21 +52,24 @@ def main(cfg: DictConfig) -> None:
                 f"Provide path to the pre-trained .nemo file or choose from "
                 f"{PunctuationCapitalizationModel.list_available_models()}"
             )
-        model.update_config_after_restoring_from_checkpoint(
-            class_labels=cfg.model.class_labels,
-            common_dataset_parameters=cfg.model.common_dataset_parameters,
-            train_ds=cfg.model.get("train_ds") if cfg.do_training else None,
-            validation_ds=cfg.model.get("validation_ds") if cfg.do_training else None,
-            test_ds=cfg.model.get("test_ds") if cfg.do_testing else None,
-            optim=cfg.model.get("optim") if cfg.do_training else None,
-        )
-        model.set_trainer(trainer)
+
         if cfg.do_training:
+            model.update_config_after_restoring_from_checkpoint(
+                class_labels=cfg.model.class_labels,
+                common_dataset_parameters=cfg.model.common_dataset_parameters,
+                train_ds=cfg.model.get("train_ds") if cfg.do_training else None,
+                validation_ds=cfg.model.get(
+                    "validation_ds") if cfg.do_training else None,
+                test_ds=cfg.model.get("test_ds") if cfg.do_testing else None,
+                optim=cfg.model.get("optim") if cfg.do_training else None,
+            )
+            model.set_trainer(trainer)
+
             model.setup_training_data()
             model.setup_validation_data()
             model.setup_optimization()
         else:
-            model.setup_test_data()
+            model.setup_test_data(cfg.model.get("test_ds") )
     if cfg.do_training:
         trainer.fit(model)
     if cfg.do_testing:

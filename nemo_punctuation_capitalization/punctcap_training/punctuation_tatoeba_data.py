@@ -36,9 +36,10 @@ class TatoebaMonolingualData(Buildable):
             download_data(
                 base_url=self.base_url,
                 file_name=self.file_name,
-                data_folder=str(self.data_base_dir),
+                data_dir=str(self.data_base_dir),
                 unzip_it=True,
                 remove_zipped=False,
+                verbose=True
             )
         else:
             print(f"found data in {self.data_dir}")
@@ -68,6 +69,8 @@ class TatoebaWikipediaData(Buildable, Iterable[str]):
         else:
             print(f"{self.name} does not have wikipedia.txt.gz")
 
+    # def __len__(self):
+    #     return self.num_lines
 
 @dataclass
 class TatoebaLanguages(CachedData, Iterable[str]):
