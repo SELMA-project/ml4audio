@@ -84,6 +84,9 @@ class TarGzTranscripts(BuildableData):
         os.makedirs(self.extract_folder, exist_ok=True)
 
         transcript_files = list(self.extract_transcript_files())
+        assert len(transcript_files) == len(
+            self.split_names
+        ), f"did not find transcript-files!"
 
         for split_name in self.split_names:
             write_jsonl(

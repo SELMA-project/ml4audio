@@ -6,11 +6,12 @@ import numpy as np
 import torch
 import torchaudio
 from beartype import beartype
-from numpy.typing import NDArray
 from torch import float32
 from torchaudio.transforms import Resample
 
-from misc_utils.beartypes import TorchTensor1D, NumpyFloat1DArray
+from misc_utils.beartypes import (
+    TorchTensor1D,
+)
 
 resamplers: dict[str, Resample] = {}
 
@@ -101,8 +102,11 @@ def torchaudio_load(
     ), f"{data_source=} below 1k samples is not really a signal!"
     return signal, sample_rate
 
+
 @beartype
-def get_first_channel(signal:NDArray)->NumpyFloat1DArray:
+def get_first_channel(
+    signal # Union[NumpyArray, TorchTensorFloat]
+): # Union[NumpyFloat1DArray, TorchTensor1D]:
     if len(signal.shape) == 2:
         channel_dim = np.argmin(signal.shape)
         first_channel = 0
@@ -110,6 +114,11 @@ def get_first_channel(signal:NDArray)->NumpyFloat1DArray:
             signal = signal[first_channel, :]
         else:
             signal = signal[:, first_channel]
+    elif len(signal.shape) == 1:
+        pass
+    else:
+        raise NotImplementedError("how to handle 3dim arrays?")
+
     signal = signal.squeeze()
     return signal
 

@@ -59,7 +59,7 @@ class CommonVoiceExtracted(BuildableData):
     "validated" is superset of train+test, it is NOT a dev set!!
     """
 
-    url: Optional[str] = field(repr=False, default=None)
+    url: Optional[str] = field(repr=True, default=None)
     base_dir: PrefixSuffix = PrefixSuffix("base_path", f"data/ASR_DATA/COMMON_VOICE")
     SPLITS: ClassVar[list[str]] = ["train", "test"]  # validated is NOT a dev-set
     targz_file: Optional[str] = None
@@ -126,7 +126,7 @@ class CommonVoiceExtracted(BuildableData):
             )
 
             shutil.copytree(
-                extract_folder, f"{self.data_base}/{self.name}", dirs_exist_ok=True
+                extract_folder, f"{self.base_dir}/{self.name}", dirs_exist_ok=True
             )
 
             if self.targz_file is None:
@@ -154,7 +154,7 @@ class CommonVoiceAuteda(AudioTextData, Buildable):
         for d in self.raw_data.get_split_data(self.split_name):
             array = load_resample_with_torch(
                 data_source=f"{self.raw_data.clips_dir}/{d.path}",
-                target_sample_rate=16000,
+                target_sample_rate=self.sample_rate,
             ).numpy()
             yield array, d.sentence
 
@@ -167,11 +167,13 @@ if __name__ == "__main__":
     BASE_PATHES["cache_root"] = cache_root
     BASE_PATHES["raw_data"] = PrefixSuffix("cache_root", "RAW_DATA")
 
-    urls = []
+    urls = [
+        "https://mozilla-common-voice-datasets.s3.dualstack.us-west-2.amazonaws.com/cv-corpus-10.0-2022-07-04/cv-corpus-10.0-2022-07-04-fr.tar.gz?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAQ3GQRTO3J5BBMF42%2F20220801%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20220801T190622Z&X-Amz-Expires=43200&X-Amz-Security-Token=FwoGZXIvYXdzEBwaDDeo96fG%2FP4o7jBCDSKSBNcK7WPx%2FL7bMv6RnysJOa7q7IAzSdUZe%2BzcSH8cv0q0S4uaXtVhrQk9Ciq2goWsLSSlOcXTB%2BNxxRXQUw%2Br%2BQQZmAy0XcYZVo%2Fg1Ex3f%2B7hrduJKpKuS0sSuDTzYEFYF2aVX0vlQ%2B6LmBrVC8xF7Q%2B%2BqsC7LjPExYrjp1aqOK7zxNk2VXzQp5hrzWICgfFD0k4ITy%2Bk%2B6GhJvnild%2BSE0fkPlQU6krhrXuJtjVuJfzj03qu%2B9E0%2FFBpSOmW9JtoVBUz0n6Zuek2RV%2Bp4cPgi8XSXzrZj8NaF5lQQln7z8uHBCJi9iMao7gAOBPjik3eXw%2BdKV9AEqVYIzOXFKVHKAeFcYNuYXg%2FfffF6kAcHQN9LI5tnOt0CIrjgvp68ebOmDw18heymBYf6ptLKYEYe0dRZykfnAsxJPg8GPcjuIoQV1wySr9Zx6syhqdJ4uqDRz15sXPgO1zBg21VC0fBZ6s58W2jnVAfHLEiE3I8nZUHvs%2BQ1a7cF6TVuRRIAr6RX8emdvCqe5C1ZBea%2FFa2FNKSI%2F5qkuvS4i1Cb2JR6FlxfHn8QwVFRmdJdidtuNt6shcyg%2BIjfN4MHpzCzIE3KRn8F%2BU62B0SiclP5mfTUeZ30VYEZp%2ByWyB3HC6ATNSKEjwndc0pwk87NHpgsjrXGsL7dCOrOu4Pe6O62KaMPLFs4mRWHO7vWt1wdnhC2l9Bk4zOKP%2FGoJcGMip548b0zOthkp0dX1kVcJBxP%2ForTAqQmQpFB%2FFs3vbJTxn93BceNg8QTbE%3D&X-Amz-Signature=424e9b178b2a14a41045a0c213d02392e879b4ed0bf4a56bb78868d0f275a743&X-Amz-SignedHeaders=host"
+    ]
     for url in urls:
         corpus: CommonVoiceExtracted = CommonVoiceExtracted(
-            targz_file=f"{BASE_PATHES['base_path']}/data/ASR_DATA/COMMON_VOICE/cv-corpus-10.0-2022-07-04-es.tar.gz",
-            # url=url,
+            # targz_file=f"{BASE_PATHES['base_path']}/data/ASR_DATA/COMMON_VOICE/cv-corpus-10.0-2022-07-04-es.tar.gz",
+            url=url,
         )
         corpus.build()
 
