@@ -1,0 +1,21 @@
+ml4audio@git+https://github.com/SELMA-project/ml4audio@main#egg=ml4audio
+# datasets # why?
+python-levenshtein
+beartype
+numba==0.53.1
+numpy==1.21.6 # why?
+librosa
+kenlm@git+https://github.com/kpu/kenlm.git@master#egg=kenlm
+pyctcdecode
+# pytest
+
+fastapi #==0.78.0
+Flask #==2.1.2
+icdiff
+jina==3.6.6
+jiwer
+nemo-toolkit[nlp]==1.9.0
+torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
+tqdm
+transformers==4.20.1
+resampy==0.2.2 # newer version here somehow deadlocked jina-ai executors! super strange!
