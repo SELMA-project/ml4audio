@@ -1,0 +1,93 @@
+FROM python:3.9-bullseye AS dependencies
+WORKDIR /code
+ENV APT_INSTALL="apt-get install -y --no-install-recommends"
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive $APT_INSTALL \
+        build-essential \
+        ca-certificates \
+        wget \
+        git \
+        g++ \
+        cmake \
+        vim \
+        # for testing \
+        # libsndfile
+        libsndfile1-dev \
+        # portaudio
+        portaudio19-dev python3-pyaudio \
+#        # python sox \
+#        supervisor \
+        sox libsox-dev && \
+    apt-get clean && \
+    apt-get -y autoremove && \
+    rm -rf /var/lib/apt/lists/*
+
+
+ENV PATH="/venv/bin:$PATH"
+ENV PIP_INSTALL="/venv/bin/pip install --no-cache-dir --upgrade"
+
+RUN apt-get update && apt-get install -y ffmpeg libavcodec-extra python3-venv
+RUN python3 -m venv /venv && $PIP_INSTALL pip packaging setuptools
+RUN $PIP_INSTALL torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
+RUN $PIP_INSTALL install Cython
+
+# to trigger re-run of following, "disable" caching, see: https://stackoverflow.com/questions/35134713/disable-cache-for-specific-run-commands
+# use with: --build-arg CACHEBUST=$(date +%s)
+ARG CACHEBUST=3
+RUN echo "$CACHEBUST"
+
+COPY requirements.txt requirements.txt
+RUN $PIP_INSTALL -r requirements.txt
+
+# ==================================================================
+#                   BUILD MODELS - stage
+# ------------------------------------------------------------------
+
+FROM dependencies AS build_models
+# ARG CACHEBUST=1
+# RUN echo "$CACHEBUST"
+COPY --from=spanish_asr_model:latest . /model
+COPY build_model_in_docker.py /code/build_model_in_docker.py
+RUN python /code/build_model_in_docker.py
+#
+RUN rm -rf /venv/lib/python3.9/site-packages/sklearn/ensemble
+RUN rm -rf /venv/lib/python3.9/site-packages/pynini.libs
+RUN rm -rf /root/.cache/pip
+RUN rm -rf /root/.cache/matplotlib
+
+# ==================================================================
+#                   PRODUCTION - stage
+# ------------------------------------------------------------------
+FROM python:3.9.13-slim-buster AS production
+WORKDIR /code
+ENV PATH="/venv/bin:$PATH"
+ENV APT_INSTALL="apt-get install -y --no-install-recommends"
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive $APT_INSTALL \
+        # libsndfile TODO: currently asr_logits_inferencer uses librosa to resample!!
+        libsndfile1-dev \
+        # portaudio
+        portaudio19-dev python3-pyaudio \
+#        # python sox \
+        sox libsox-dev && \
+
+    apt-get clean && \
+    apt-get -y autoremove && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=build_models /model /model
+COPY --from=build_models /venv /venv
+COPY --from=build_models /root/.cache /root/.cache
+
+ENV HF_DATASETS_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
+
+# PYTHONFAULTHANDLER TODO: wasdatdenn?
+ENV PYTHONFAULTHANDLER=1
+ENV JINA_MP_START_METHOD=spawn
+
+COPY app /code/app
+
+CMD ["uvicorn app.main:app --host 0.0.0.0 --port 8000"]

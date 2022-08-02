@@ -1,5 +1,5 @@
 # fastapi ASR Service
-
+### copy model-files into empty docker-image
 ```commandline
 cd languagemodel.german-default/model
 # bake into image
@@ -8,6 +8,13 @@ cd languagemodel.german-default/model
   docker build -t $IMAGE . 
   
   # && docker image push $IMAGE
+```
+### build docker-image
+```commandline
+DOCKER_BUILDKIT=1 docker build -f docker/fastapi_cpu/Dockerfile --target build_models -t build_models .
+
+docker run -it --rm -v ${PWD}:/code --rm --shm-size 8G build_models:latest bash
+
 ```
 
 # TODO
