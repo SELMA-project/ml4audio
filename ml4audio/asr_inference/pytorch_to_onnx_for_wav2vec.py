@@ -40,9 +40,10 @@ def quantize_onnx_model(onnx_model_path, quantized_model_path):
     from onnxruntime.quantization import quantize_dynamic, QuantType
 
     quantize_dynamic(
-        onnx_model_path, quantized_model_path,
-        weight_type=QuantType.QInt8, # better stay with default: QInt8
-        use_external_data_format=True # to support big models (>2GB)
+        onnx_model_path,
+        quantized_model_path,
+        weight_type=QuantType.QInt8,  # better stay with default: QInt8
+        use_external_data_format=True,  # to support big models (>2GB)
     )
 
     print(f"Quantized model saved to: {quantized_model_path}")

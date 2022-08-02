@@ -194,11 +194,9 @@ class NoSoxPerturb(SoxPerturbations):
 class NoPerturbCopyTmp(ProbaPerturbationDC):
     def perturb(self, data):
         with NamedTemporaryFile(
-            dir="/nfs-storage/data/tmp",
-            suffix=".wav", delete=True
+            dir="/nfs-storage/data/tmp", suffix=".wav", delete=True
         ) as orig_f, NamedTemporaryFile(
-            dir="/nfs-storage/data/tmp",
-            suffix="_augmented.wav", delete=True
+            dir="/nfs-storage/data/tmp", suffix="_augmented.wav", delete=True
         ) as tmp_file:
             sr = data.sample_rate
             sf.write(orig_f.name, data.samples.transpose(), sr)

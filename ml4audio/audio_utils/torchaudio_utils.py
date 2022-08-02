@@ -105,8 +105,8 @@ def torchaudio_load(
 
 @beartype
 def get_first_channel(
-    signal # Union[NumpyArray, TorchTensorFloat]
-): # Union[NumpyFloat1DArray, TorchTensor1D]:
+    signal,  # Union[NumpyArray, TorchTensorFloat]
+):  # Union[NumpyFloat1DArray, TorchTensor1D]:
     if len(signal.shape) == 2:
         channel_dim = np.argmin(signal.shape)
         first_channel = 0

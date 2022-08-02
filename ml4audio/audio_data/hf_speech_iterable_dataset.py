@@ -12,8 +12,11 @@ from data_io.readwrite_files import (
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
-from ml4audio.audio_data.targz_asr_dataset import TarGzASRCorpus, TarGzTranscripts, \
-    TarGzArrayTextWithSize
+from ml4audio.audio_data.targz_asr_dataset import (
+    TarGzASRCorpus,
+    TarGzTranscripts,
+    TarGzArrayTextWithSize,
+)
 
 HF_DATASETS = "huggingface_cache/datasets"
 
@@ -29,6 +32,7 @@ class HFTarGzTranscripts(TarGzTranscripts):
     """
     TODO: rename to CommonVoiceTarGzTranscripts
     """
+
     def contains_transcript(self, member: tarfile.TarInfo) -> bool:
         file_name = Path(member.name).stem
         return file_name in self.split_names
@@ -59,15 +63,15 @@ class HFIterableDataset(TarGzASRCorpus):
         return Path(member_name).name
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    base_path=os.environ["BASE_PATH"]
+    base_path = os.environ["BASE_PATH"]
     cache_root = f"{base_path}/data/cache"
     BASE_PATHES["base_path"] = base_path
     BASE_PATHES["cache_root"] = cache_root
     BASE_PATHES["raw_data"] = PrefixSuffix("cache_root", "RAW_DATA")
 
-    corpus=TarGzArrayTextWithSize(
+    corpus = TarGzArrayTextWithSize(
         corpus=HFIterableDataset(
             targztranscripts=HFTarGzTranscripts(
                 targz_file=str(
