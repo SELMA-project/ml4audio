@@ -1,6 +1,7 @@
 import logging
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import uvicorn
@@ -35,7 +36,7 @@ def get_inferencer_dataclass() -> Dict[str, Any]:
     return d
 
 
-@app.post("/upload_modelfile/")
+@app.post("/upload_modelfile")
 async def upload_modelfile(file: UploadFile):
     global inferencer
 
@@ -92,14 +93,18 @@ def load_nemo_model(nemo_model="model.nemo"):
     global inferencer
     inferencer = PunctuationCapitalizationModel.restore_from(nemo_model)
     result = inferencer.add_punctuation_capitalization([default_query])
-    # print(f"{inferencer.cfg=}")
+    print(f"{inferencer.cfg=}")
     # print(f"DE-Result : {result}")
 
 
-# @app.on_event("startup")
-# async def startup_event():
-#     file = "model.nemo"
-#     load_nemo_model(file)
+@app.on_event("startup")
+async def startup_event():
+    model_files = [str(p) for p in Path("/code").rglob("model.nemo")]
+
+    if len(model_files) > 0:
+        load_nemo_model(model_files[0])
+    else:
+        print(f"no model found in container, use /upload_modelfile")
 
 
 if __name__ == "__main__":

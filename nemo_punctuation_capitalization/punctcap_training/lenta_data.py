@@ -75,7 +75,7 @@ class LentaData(Buildable, Iterable[str]):
             wget_file(self._bz2_file_url, str(self.data_dir))
         return self
 
-    def __iter__(self)->Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         chunksize = 1000
 
         with pandas.read_csv(
@@ -83,7 +83,11 @@ class LentaData(Buildable, Iterable[str]):
         ) as reader:
             for chunk in reader:
                 for d in chunk.iterrows():
-                    if isinstance(d,tuple) and isinstance(d[1],Series) and isinstance(d[1].text,str):
+                    if (
+                        isinstance(d, tuple)
+                        and isinstance(d[1], Series)
+                        and isinstance(d[1].text, str)
+                    ):
                         original = d[1].text.replace("\n", " ").replace("\r", "")
                         yield original
                     # clean_russian_text_for_punctcap_training(

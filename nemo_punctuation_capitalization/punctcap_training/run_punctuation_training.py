@@ -214,29 +214,49 @@ if __name__ == "__main__":
     lang_codes = TatoebaLanguages().build()
     print(list(lang_codes))
     # lang_codes = ["por", "eng", "deu", "fra", "spa", "ita", "rus", "lit"]
-    for lang in ["rus"]:  #
-        # tugtekins_russian_model = f"{base_path}/data/PUNCTUATION/RU.nemo"
-        # train_punctcap(
-        #     text_corpus=MixedCorpus(
-        #         name=f"wiki_lenta-random",
-        #         corpora=BuildableList(
-        #             [
-        #                 TatoebaWikipediaData(
-        #                     raw_data=TatoebaMonolingualData(
-        #                         base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
-        #                         file_name=f"{lang}.tar",
-        #                     )
-        #                 ),
-        #                 LentaData(),
-        #             ]
-        #         ),
-        #     ),
-        #     pretrained_model=tugtekins_russian_model,
-        #     do_training=False,
-        # )
+    lang = "rus"
+    # tugtekins_russian_model = f"{base_path}/data/PUNCTUATION/RU.nemo"
+    # train_punctcap(
+    #     text_corpus=MixedCorpus(
+    #         name=f"wiki_lenta-random",
+    #         corpora=BuildableList(
+    #             [
+    #                 TatoebaWikipediaData(
+    #                     raw_data=TatoebaMonolingualData(
+    #                         base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
+    #                         file_name=f"{lang}.tar",
+    #                     )
+    #                 ),
+    #                 LentaData(),
+    #             ]
+    #         ),
+    #     ),
+    #     pretrained_model=tugtekins_russian_model,
+    #     do_training=False,
+    # )
+    # train_punctcap(
+    #     text_corpus=MixedCorpus(
+    #         name=f"wiki_lenta_random",
+    #         corpora=BuildableList(
+    #             [
+    #                 TatoebaWikipediaData(
+    #                     raw_data=TatoebaMonolingualData(
+    #                         base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
+    #                         file_name=f"{lang}.tar",
+    #                     )
+    #                 ),
+    #                 LentaData(),
+    #             ]
+    #         ),
+    #     ),
+    #     do_training=True,
+    #     limit=110_000,
+    #     dev_size=10_000
+    # )
+    for lang in ["por", "eng", "deu", "fra", "spa", "ita", "lit"]:  #
         train_punctcap(
             text_corpus=MixedCorpus(
-                name=f"wiki_lenta_random",
+                name=f"wiki-{lang}",
                 corpora=BuildableList(
                     [
                         TatoebaWikipediaData(
@@ -245,9 +265,10 @@ if __name__ == "__main__":
                                 file_name=f"{lang}.tar",
                             )
                         ),
-                        LentaData(),
                     ]
                 ),
             ),
             do_training=True,
+            limit=1_100_000,
+            dev_size=100_000,
         )

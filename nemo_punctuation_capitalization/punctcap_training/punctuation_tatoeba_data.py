@@ -39,7 +39,7 @@ class TatoebaMonolingualData(Buildable):
                 data_dir=str(self.data_base_dir),
                 unzip_it=True,
                 remove_zipped=False,
-                verbose=True
+                verbose=True,
             )
         else:
             print(f"found data in {self.data_dir}")
@@ -71,6 +71,7 @@ class TatoebaWikipediaData(Buildable, Iterable[str]):
 
     # def __len__(self):
     #     return self.num_lines
+
 
 @dataclass
 class TatoebaLanguages(CachedData, Iterable[str]):
