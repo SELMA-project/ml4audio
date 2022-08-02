@@ -1,7 +1,7 @@
 import itertools
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Union
 
 import torch
 from beartype import beartype
@@ -12,6 +12,7 @@ from transformers.models.wav2vec2.tokenization_wav2vec2 import (
 
 from misc_utils.beartypes import NumpyFloat2DArray, NeList, NeStr
 from misc_utils.buildable import Buildable
+from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 
 SeqVocIdx = tuple[int, int]
@@ -162,11 +163,11 @@ class BaseCTCDecoder:
 @dataclass
 class HFCTCDecoder(BaseCTCDecoder, Buildable):
 
-    tokenizer_name_or_path: str
+    tokenizer_name_or_path: Union[str, PrefixSuffix]
 
     def _build_self(self) -> Any:
         self._tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(
-            self.tokenizer_name_or_path
+            str(self.tokenizer_name_or_path)
         )
         return self
 
