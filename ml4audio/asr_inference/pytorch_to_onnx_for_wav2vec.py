@@ -28,6 +28,14 @@ def convert_to_onnx(model_id_or_path, onnx_model_name):
 
 
 def quantize_onnx_model(onnx_model_path, quantized_model_path):
+    """
+    TODO:
+        use_external_data_format create extra file containing weights, this files absolute path on file system seems to be hard-coded in the onnx-file!
+        so one cannot really copy it!
+    :param onnx_model_path:
+    :param quantized_model_path:
+    :return:
+    """
     print("Starting quantization...")
     from onnxruntime.quantization import quantize_dynamic, QuantType
 

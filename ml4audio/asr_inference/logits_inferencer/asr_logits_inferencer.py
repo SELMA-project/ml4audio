@@ -160,7 +160,6 @@ class OnnxedHFCheckpoint(HfCheckpoint):
     vanilla_chkpt: HfCheckpoint = UNDEFINED
     do_quantize: bool = True
     name: NeStr = field(init=False)
-    _onnx_model: Optional[str] = field(init=False, default=None)
 
     def __post_init__(self):
         suffix = "-quantized" if self.do_quantize else ""
@@ -177,7 +176,7 @@ class OnnxedHFCheckpoint(HfCheckpoint):
 
     def _create_onnx_model_file(self, do_quantize: bool):
         suf = ".quant" if do_quantize else ""
-        return self.prefix_cache_dir(f"wav2vec2.{suf}.onnx")
+        return self.prefix_cache_dir(f"wav2vec2{suf}.onnx")
 
     def _build_cache(self):
         model_id_or_path = self.vanilla_chkpt.model_path

@@ -128,4 +128,4 @@ class OnnxHFWav2Vec2LogitsInferencer(HFWav2Vec2LogitsInferencer):
         onnx_outputs = self._session.run(
             None, {self._session.get_inputs()[0].name: input_values.numpy()}
         )[0]
-        return torch.from_numpy(onnx_outputs)
+        return torch.from_numpy(onnx_outputs.squeeze())
