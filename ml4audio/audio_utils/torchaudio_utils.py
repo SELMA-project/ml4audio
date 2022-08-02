@@ -81,7 +81,7 @@ def _parse_duration_for_torchaudio_load(
 
 @beartype
 def torchaudio_load(
-    data_source: Union[str, BytesIO, ExFileObject],
+    data_source: Any,  # Union[str, BytesIO, ExFileObject] might also accept "tempfile.SpooledTemporaryFile" and many more
     offset: Optional[Union[int, float]] = None,
     duration: Optional[Union[int, float]] = None,
     format: Optional[str] = None,
