@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
+from pprint import pprint
 
 from data_io.readwrite_files import read_json
 from misc_utils.dataclass_utils import (
-    dataclass_to_yaml,
-    decode_dataclass,
+    decode_dataclass, to_dict,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.asr_inference.hf_asr_pipeline import (
@@ -28,4 +28,4 @@ if __name__ == "__main__":
     jzon = read_json(str(p))
     inferencer: HfAsrPipelineFromLogitsInferencerDecoder = decode_dataclass(jzon)
     inferencer.build()
-    print(dataclass_to_yaml(inferencer))
+    pprint(to_dict(inferencer))

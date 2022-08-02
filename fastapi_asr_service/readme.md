@@ -1,10 +1,10 @@
 # fastapi ASR Service
 ### copy model-files into empty docker-image
 ```commandline
-cd languagemodel.german-default/model
+cd some-where-to-exported-model-folder
 # bake into image
 { echo "FROM scratch" ; echo "COPY . ."; } > Dockerfile && \
-  export IMAGE=spanish_asr_model && \
+  export IMAGE=selmaproject/iais-asr-models:spanish && \
   docker build -t $IMAGE . 
   
   # && docker image push $IMAGE
@@ -12,8 +12,32 @@ cd languagemodel.german-default/model
 ### build docker-image
 ```commandline
 DOCKER_BUILDKIT=1 docker build -f docker/fastapi_cpu/Dockerfile --target build_models -t build_models .
-
+IMAGE=selmaproject/iais-asr-services:spanish
+DOCKER_BUILDKIT=1 docker build -f docker/fastapi_cpu/Dockerfile --build-arg MODEL_IMAGE=selmaproject/iais-asr-models:spanish -t $IMAGE .
 docker run -it --rm -v ${PWD}:/code --rm --shm-size 8G build_models:latest bash
+
+curl -F ‘file=@path/to/local/file’ localhost:8000/transcribe
+```
+* image size: `6.7`GB; ~4GB: asr-model
+```commandline
+du -h / | grep -P "\dG|\d{3,5}M"
+118M    /usr/lib
+222M    /usr
+114M    /venv/lib/python3.9/site-packages/scipy
+1.5G    /venv/lib/python3.9/site-packages/torch/lib
+1.6G    /venv/lib/python3.9/site-packages/torch
+103M    /venv/lib/python3.9/site-packages/sklearn
+2.3G    /venv/lib/python3.9/site-packages
+2.3G    /venv/lib/python3.9
+2.3G    /venv/lib
+2.3G    /venv
+3.6G    /model/AM_MODELS/FinetunedCheckpoint-spanish-w2v-1b-970861b88cc53d764564a3757b7ef095923a9cd0/model
+3.6G    /model/AM_MODELS/FinetunedCheckpoint-spanish-w2v-1b-970861b88cc53d764564a3757b7ef095923a9cd0
+3.6G    /model/AM_MODELS
+257M    /model/LM_MODELS/KenLMForPyCTCDecodeFromArpa-patrickvonplaten-spanish-ngram-lm-72c2589e580dfc61e1b419ba71b962b2488c1097
+257M    /model/LM_MODELS
+3.9G    /model
+6.4G    /
 
 ```
 

@@ -64,7 +64,7 @@ async def upload_modelfile(file: UploadFile = File(..., media_type="audio/wav"))
         data_source=file.file,
         target_sample_rate=16000,
     )
-    text = inferencer.predict(audio)
+    text = inferencer.predict(audio.numpy())
     return {"filename": file.filename, "transcript": text}
 
 
@@ -90,7 +90,7 @@ def get_model_config() -> Dict[str, Any]:
 
 @app.on_event("startup")
 async def startup_event():
-    # TODO: this is docker-container specific!
+    global inferencer
     cache_root_in_container = "/model"
     cache_root = os.environ.get("cache_root", cache_root_in_container)
     BASE_PATHES["base_path"] = "/"
@@ -101,7 +101,7 @@ async def startup_event():
     p = next(Path(cache_root).rglob("HfAsrPipeline*/dataclass.json"))
 
     jzon = read_json(str(p))
-    inferencer: HfAsrPipelineFromLogitsInferencerDecoder = decode_dataclass(jzon)
+    inferencer = decode_dataclass(jzon)
     inferencer.build()
 
 

@@ -1,3 +1,8 @@
+# see: https://github.com/docker/for-mac/issues/2155
+# global arg ->  must declare it before every FROM or it will be local
+ARG MODEL_IMAGE
+FROM ${MODEL_IMAGE} as model_image
+
 FROM python:3.9-bullseye AS dependencies
 WORKDIR /code
 ENV APT_INSTALL="apt-get install -y --no-install-recommends"
@@ -34,7 +39,8 @@ RUN $PIP_INSTALL install Cython
 
 # to trigger re-run of following, "disable" caching, see: https://stackoverflow.com/questions/35134713/disable-cache-for-specific-run-commands
 # use with: --build-arg CACHEBUST=$(date +%s)
-ARG CACHEBUST=3
+
+ARG CACHEBUST=6
 RUN echo "$CACHEBUST"
 
 COPY requirements.txt requirements.txt
@@ -45,9 +51,8 @@ RUN $PIP_INSTALL -r requirements.txt
 # ------------------------------------------------------------------
 
 FROM dependencies AS build_models
-# ARG CACHEBUST=1
-# RUN echo "$CACHEBUST"
-COPY --from=spanish_asr_model:latest . /model
+RUN echo "using model: $MODEL_IMAGE"
+COPY --from=model_image . /model
 COPY build_model_in_docker.py /code/build_model_in_docker.py
 RUN python /code/build_model_in_docker.py
 #
@@ -86,8 +91,9 @@ ENV TRANSFORMERS_OFFLINE=1
 
 # PYTHONFAULTHANDLER TODO: wasdatdenn?
 ENV PYTHONFAULTHANDLER=1
-ENV JINA_MP_START_METHOD=spawn
+# ENV JINA_MP_START_METHOD=spawn
 
 COPY app /code/app
 
-CMD ["uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["/bin/bash", "-c", "source /venv/bin/activate && \
+           uvicorn app.main:app --host 0.0.0.0 --port 8000"]
