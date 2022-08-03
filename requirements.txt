@@ -8,3 +8,4 @@ numba==0.53.1 # somehow this version cannot be bumped
 # speechbrain
 transformers # don't fix version here!
 jiwer
+unicode_tr # for turkish see: https://emre.github.io/unicode_tr/
