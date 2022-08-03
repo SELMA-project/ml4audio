@@ -23,6 +23,7 @@ from misc_utils.dataclass_utils import (
 #     return mapping
 from ml4audio.text_processing.character_mappings.character_mapping import (
     CHARACTER_MAPPINGS,
+    TextNormalizer,
 )
 
 SILENCE_SYMBOL = "|"
@@ -65,7 +66,7 @@ class Casing(str, Enum):
 def normalize_filter_text(
     text: str,
     vocab: list[str],
-    text_normalizer: str,
+    text_normalizer: Union[str, TextNormalizer],
     casing: Casing,
 ) -> str:
     text = normalize_upper_lower_text(text, text_normalizer, casing)
@@ -73,9 +74,14 @@ def normalize_filter_text(
 
 
 @beartype
-def normalize_upper_lower_text(text, text_normalizer, casing: Casing = Casing.original):
-    text = CHARACTER_MAPPINGS[text_normalizer](text).strip(" ")
-    text = casing.apply(text)
+def normalize_upper_lower_text(
+    text, text_normalizer: Union[str, TextNormalizer], casing: Casing = Casing.original
+):
+    if isinstance(text_normalizer, str):
+        text = CHARACTER_MAPPINGS[text_normalizer](text).strip(" ")
+        text = casing.apply(text)
+    else:
+        text = text_normalizer(text).strip(" ")
     return text
 
 
@@ -100,8 +106,13 @@ def casing_vocab_filtering(
 
 @dataclass
 class TranscriptNormalizer(Buildable):
-    casing: Union[_UNDEFINED, Casing] = UNDEFINED
-    text_normalizer: Union[_UNDEFINED, str] = UNDEFINED
+    """
+    TODO: confusing naming
+    the arg: text_normalizer is referring to CHARACTER_MAPPINGS
+    """
+
+    casing: Casing = UNDEFINED
+    text_normalizer: Union[TextNormalizer, str] = UNDEFINED
     vocab: Union[
         _UNDEFINED, list[str]
     ] = UNDEFINED  # here not NeList cause CachedList initially is empty list (before build)

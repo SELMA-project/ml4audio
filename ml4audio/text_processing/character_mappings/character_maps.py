@@ -14,6 +14,8 @@ see: https://www.businessballs.com/glossaries-and-terminology/accents-and-diacri
 ē - macron
 č - háček
 ŭ - crescent
+
+TODO: what about upper-cased letters!!
 """
 
 # assuming that this backward accent is just typo
@@ -32,6 +34,8 @@ remove_hats = {
     "â": "a",
     "ê": "e",
     "ô": "o",
+    "î": "i",
+    "û": "u",
 }
 
 remove_tilde = {
@@ -47,6 +51,7 @@ remove_flat = {
 remove_accent = {
     # accent acute
     "ń": "n",
+    "é": "e",  # wtf didn't have this!
 }
 
 remove_diaeresis = {
@@ -74,6 +79,9 @@ strange_stuff = {
     "ß": "s",  # TODO: one or two s?
 }
 
+all_kinds_of_apostrophes = "’‘`´ʹʻʼʽʿˈ"
+normalize_apostrophes = {c: "'" for c in all_kinds_of_apostrophes}
+
 ENGLISH_CHARACTER_MAPPING = (
     remove_backward_accent
     | remove_hats
@@ -84,10 +92,11 @@ ENGLISH_CHARACTER_MAPPING = (
     | map_ligature
     | remove_reverse_hat
     | strange_stuff
+    | normalize_apostrophes
 )
 
-
-PUNCTUATION = string.punctuation + "„“’”"
+not_apostrophes_what_to_call_them = "„“”"
+PUNCTUATION = string.punctuation + not_apostrophes_what_to_call_them
 PUNCTUATION_MAPPING = {key: " " for key in PUNCTUATION}
 
 PUNCTUATION_MAPPING.pop("-")
