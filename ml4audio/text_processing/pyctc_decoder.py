@@ -12,6 +12,7 @@ from misc_utils.dataclass_utils import (
     UNDEFINED,
     _UNDEFINED,
 )
+from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 from ml4audio.text_processing.ctc_decoding import (
@@ -20,7 +21,8 @@ from ml4audio.text_processing.ctc_decoding import (
     LogitAlignedTranscript,
     HFCTCDecoder,
 )
-from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode
+from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode, \
+    KenLMBinaryUnigramsFile
 from pyctcdecode.decoder import (
     WordFrames,
     BeamSearchDecoderCTC,
@@ -139,13 +141,7 @@ class PyCTCBinKenLMDecoder(BaseCTCDecoder, Buildable):
     beta: Union[_UNDEFINED, float] = UNDEFINED
     vocab: NeList[str] = UNDEFINED
 
-    kenlm_binary_file: Union[
-        str, _UNDEFINED
-    ] = UNDEFINED  # TODO: rename lm_data to lm_model
-    unigrams_file: Union[
-        str, _UNDEFINED
-    ] = UNDEFINED  # TODO: rename lm_data to lm_model
-
+    kenlm_binary_unigrams_file: KenLMBinaryUnigramsFile = UNDEFINED
     num_best: int = 1  # number of beams to return
     beam_size: int = 100
 
@@ -156,11 +152,11 @@ class PyCTCBinKenLMDecoder(BaseCTCDecoder, Buildable):
 
     def _build_self(self) -> None:
 
-        unigrams = list(read_lines(self.unigrams_file))
+        unigrams = list(read_lines(self.kenlm_binary_unigrams_file.unigrams_filepath))
 
         self._pyctc_decoder = build_ctcdecoder(
             labels=self.vocab,
-            kenlm_model_path=self.kenlm_binary_file,
+            kenlm_model_path=self.kenlm_binary_unigrams_file.kenlm_binary_filepath,
             unigrams=unigrams,
             alpha=self.lm_weight,  # tuned on a val set
             beta=self.beta,  # tuned on a val set

@@ -2,6 +2,7 @@ import os
 import shutil
 from abc import abstractmethod
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Union, Annotated
 
 from beartype import beartype
@@ -95,6 +96,27 @@ class KenLMForPyCTCDecode(CachedData):
         )
         # KenLMBinaryAndLexicon() # TODO
         write_lines(self.unigrams_filepath, unigrams)
+
+
+@dataclass
+class KenLMBinaryUnigramsFile(CachedData):
+
+    name: str = UNDEFINED
+    kenlm_binary_file: PrefixSuffix = UNDEFINED  # TODO: rename lm_data to lm_model
+    unigrams_file: PrefixSuffix = UNDEFINED  # TODO: rename lm_data to lm_model
+    cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_models"])
+
+    @property
+    def kenlm_binary_filepath(self) -> str:
+        return self.prefix_cache_dir(Path(str(self.kenlm_binary_file)).name)
+
+    @property
+    def unigrams_filepath(self) -> str:
+        return self.prefix_cache_dir(Path(str(self.unigrams_file)).name)
+
+    def _build_cache(self):
+        shutil.copy(str(self.kenlm_binary_file), self.kenlm_binary_filepath)
+        shutil.copy(str(self.unigrams_file), self.unigrams_filepath)
 
 
 @dataclass

@@ -21,7 +21,8 @@ from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer impor
     HFWav2Vec2LogitsInferencer,
 )
 from ml4audio.text_processing.ctc_decoding import BaseCTCDecoder
-from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder
+from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder, \
+    PyCTCBinKenLMDecoder
 from pyctcdecode import BeamSearchDecoderCTC
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,14 +80,14 @@ class HfAsrPipelineFromLogitsInferencerDecoder(CachedData):
         pass
 
     def _prepare_asr_pipeline(self):
-        if isinstance(self.decoder, PyCTCKenLMDecoder):
+        if isinstance(self.decoder, (PyCTCKenLMDecoder,PyCTCBinKenLMDecoder)):
             self.decoder.build()
             pyctc_decoder_or_None = self.decoder._pyctc_decoder
             assert pyctc_decoder_or_None is not None
         else:
             pyctc_decoder_or_None = None
         model_id = self.logits_inferencer.checkpoint.model_path
-        decoder, feature_extractor = prepare_decoder_and_feature_extractor(
+        pyctc_beamsearch_decoder, feature_extractor = prepare_decoder_and_feature_extractor(
             pyctc_decoder_or_None, model_id
         )
 
@@ -102,10 +103,13 @@ class HfAsrPipelineFromLogitsInferencerDecoder(CachedData):
             device=self.device,
             feature_extractor=feature_extractor,
             tokenizer=tokenizer,
-            decoder=decoder,
+            decoder=pyctc_beamsearch_decoder,
         )
-        if decoder is not None:
-            assert asr_pipeline.type == "ctc_with_lm"
+        if pyctc_beamsearch_decoder is not None:
+            # cause I don't trust hf/transformers to properly set these!
+            asr_pipeline.type = "ctc_with_lm"
+            asr_pipeline.decoder = pyctc_beamsearch_decoder
+
         return asr_pipeline
 
     def _post_build_setup(self):
