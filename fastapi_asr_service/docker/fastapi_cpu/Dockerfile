@@ -51,7 +51,6 @@ RUN $PIP_INSTALL -r requirements.txt
 # ------------------------------------------------------------------
 
 FROM dependencies AS build_models
-RUN echo "using model: $MODEL_IMAGE"
 COPY --from=model_image . /model
 COPY build_model_in_docker.py /code/build_model_in_docker.py
 RUN python /code/build_model_in_docker.py
@@ -65,6 +64,7 @@ RUN rm -rf /root/.cache/matplotlib
 #                   PRODUCTION - stage
 # ------------------------------------------------------------------
 FROM python:3.9.13-slim-buster AS production
+LABEL maintainer="Tilo Himmelsbach"
 WORKDIR /code
 ENV PATH="/venv/bin:$PATH"
 ENV APT_INSTALL="apt-get install -y --no-install-recommends"

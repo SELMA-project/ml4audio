@@ -3,8 +3,8 @@
 ```commandline
 cd some-where-to-exported-model-folder
 # bake into image
-{ echo "FROM scratch" ; echo "COPY . ."; } > Dockerfile && \
-  export IMAGE=selmaproject/iais-asr-models:spanish && \
+{ echo "FROM scratch" ; echo "COPY . ."; echo "CMD ['fake']"; } > Dockerfile && \
+  export IMAGE=selmaproject/iais-asr-models:engdeu && \
   docker build -t $IMAGE . 
   
   # && docker image push $IMAGE
