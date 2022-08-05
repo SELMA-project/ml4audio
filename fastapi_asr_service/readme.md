@@ -33,7 +33,7 @@ cd some-where-to-exported-model-folder
         ├── lm.arpa.gz
         └── unigrams.txt.gz
 ```
-* [what is this dataclass.json good for?](#dataclass.json)
+* [what is this dataclass.json good for?](#dataclass-json)
 ### build docker-image
 ```commandline
 IMAGE=selmaproject/iais-asr-services:spanish
@@ -103,12 +103,12 @@ async def get_image(style: str, file: UploadFile = File(...)):
     asyncio.create_task(generate_remaining_models(models, image, name))
     return {"name": name, "time": time.time() - start}
 ```
-### dataclass.json
+# dataclass json
 * `what is this dataclass.json good for?`: mostly for documentation, here an example
 * not really human-readable json that contains information about:
   * which python-classes where used: `ml4audio.audio_data.common_voice_datasets.CommonVoiceExtracted` for loading common-voice data
   * what data was used for model-finetuning:
-    * `1603616` (1.6mio audios) -> 3600 hours seem by model during training
+    * `1603616` (1.6mio audios) -> 3600 hours seen by model during training
     * `SLR72` contains ~ 7.5 hours -> how much exactly was used during training is not (yet) "logged"->TODO! 
   * "learning_rate": 1e-05
   * "arpa_file" for LM -> "/some-where/foo/bar/data/LM_DATA/SPANISH_LM_DATA/hf_patrickvonplaten/kenLM.arpa"
