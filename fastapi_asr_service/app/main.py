@@ -2,6 +2,7 @@
 import logging
 import os
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any, Optional, Dict
 
 import uvicorn
@@ -14,6 +15,8 @@ from misc_utils.dataclass_utils import (
     encode_dataclass,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+from misc_utils.processing_utils import exec_command
+
 from ml4audio.asr_inference.hf_asr_pipeline import (
     HfAsrPipelineFromLogitsInferencerDecoder,
 )
@@ -54,16 +57,28 @@ def userfriendly_inferencer_dict(inferencer):
 
 
 @app.post("/transcribe")
-async def upload_modelfile(file: UploadFile = File(..., media_type="audio/wav")):
+async def upload_modelfile(file: UploadFile):
     global inferencer
 
     if not file:
         raise HTTPException(status_code=400, detail="Audio bytes expected")
 
-    audio = load_resample_with_torch(
-        data_source=file.file,
-        target_sample_rate=16000,
-    )
+    def save_file(filename, data):
+        with open(filename, "wb") as f:
+            f.write(data)
+
+    with NamedTemporaryFile(suffix=".wav", delete=True) as tmp_wav, NamedTemporaryFile(
+        delete=True
+    ) as tmp_original:
+        save_file(tmp_original.name, await file.read())
+
+        cmd = f"ffmpeg -i {tmp_original.name} -ar 16000 {tmp_wav.name} -y"
+        o, e = exec_command(cmd)
+
+        audio = load_resample_with_torch(
+            data_source=tmp_wav.name,
+            target_sample_rate=16000,
+        )
     text = inferencer.predict(audio.numpy())
     return {"filename": file.filename, "transcript": text}
 
