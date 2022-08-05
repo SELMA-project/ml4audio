@@ -21,8 +21,9 @@ RUN apt-get update && \
         libsndfile1-dev \
         # portaudio
         portaudio19-dev python3-pyaudio \
-#        # python sox \
-#        supervisor \
+        # ffmpeg
+        ffmpeg libavcodec-extra \
+       # sox \
         sox libsox-dev && \
     apt-get clean && \
     apt-get -y autoremove && \
@@ -32,7 +33,7 @@ RUN apt-get update && \
 ENV PATH="/venv/bin:$PATH"
 ENV PIP_INSTALL="/venv/bin/pip install --no-cache-dir --upgrade"
 
-RUN apt-get update && apt-get install -y ffmpeg libavcodec-extra python3-venv
+RUN apt-get update && apt-get install -y python3-venv
 RUN python3 -m venv /venv && $PIP_INSTALL pip packaging setuptools
 RUN $PIP_INSTALL torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
 RUN $PIP_INSTALL install Cython
@@ -40,7 +41,7 @@ RUN $PIP_INSTALL install Cython
 # to trigger re-run of following, "disable" caching, see: https://stackoverflow.com/questions/35134713/disable-cache-for-specific-run-commands
 # use with: --build-arg CACHEBUST=$(date +%s)
 
-ARG CACHEBUST=6
+ARG CACHEBUST=8
 RUN echo "$CACHEBUST"
 
 COPY requirements.txt requirements.txt
@@ -75,13 +76,17 @@ RUN apt-get update && \
         libsndfile1-dev \
         # portaudio
         portaudio19-dev python3-pyaudio \
-#        # python sox \
+        # ffmpeg
+        ffmpeg libavcodec-extra \
+        # sox \
         sox libsox-dev && \
 
     apt-get clean && \
     apt-get -y autoremove && \
     rm -rf /var/lib/apt/lists/*
 
+# maybe for better docker-caching copy from model-image here, this only works if build_models-stage does not modify the models!! does it? well it could!
+#COPY --from=model_image . /model
 COPY --from=build_models /model /model
 COPY --from=build_models /venv /venv
 COPY --from=build_models /root/.cache /root/.cache
