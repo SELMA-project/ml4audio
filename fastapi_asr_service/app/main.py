@@ -97,7 +97,41 @@ def get_inferencer_dataclass() -> Dict[str, Any]:
 def get_model_config() -> Dict[str, Any]:
     global inferencer
     if inferencer is not None:
-        d = userfriendly_inferencer_dict(inferencer)
+        d = encode_dataclass(
+            inferencer,
+            skip_keys=[
+                "_id_",
+                "_target_",
+                "finetune_master",
+                "cache_base",
+                "cache_dir",
+                "prefix",
+                "use_hash_suffix",
+                "lm_data",
+            ],
+        )
+    else:
+        d = {"response": "no model loaded yet!"}
+    return d
+
+
+@app.get("/inferencer_config")
+def get_model_config() -> Dict[str, Any]:
+    global inferencer
+    if inferencer is not None:
+        d = encode_dataclass(
+            inferencer,
+            skip_keys=[
+                "_id_",
+                "_target_",
+                # "finetune_master",
+                "cache_base",
+                "cache_dir",
+                "prefix",
+                "use_hash_suffix",
+                # "lm_data",
+            ],
+        )
     else:
         d = {"response": "no model loaded yet!"}
     return d
