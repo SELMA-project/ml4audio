@@ -79,8 +79,8 @@ async def upload_modelfile(file: UploadFile):
             data_source=tmp_wav.name,
             target_sample_rate=16000,
         )
-    text = inferencer.predict(audio.numpy())
-    return {"filename": file.filename, "transcript": text}
+    prediction = inferencer.predict(audio.numpy())
+    return {"filename": file.filename} | prediction
 
 
 @app.get("/get_inferencer_dataclass")

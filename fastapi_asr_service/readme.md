@@ -64,6 +64,12 @@ du -h / | grep -P "\dG|\d{3,5}M"
 6.4G    /
 
 ```
+### run docker-image
+
+```commandline
+LANG_CODE=rus
+docker run --rm -p 8000:8000 selmaproject/iais-asr-services:$LANG_CODE
+```
 
 # TODO
 ### async via ProcessPoolExecutor

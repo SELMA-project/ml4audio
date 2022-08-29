@@ -121,13 +121,13 @@ class HfAsrPipelineFromLogitsInferencerDecoder(CachedData):
         self.asr_pipeline = self._prepare_asr_pipeline()
 
     @beartype
-    def predict(self, audio_array) -> str:
+    def predict(self, audio_array) -> dict:
         audio_array = audio_array.astype(np.float)
 
         prediction = self.asr_pipeline(
             audio_array,
             chunk_length_s=self.chunk_length_s,
             stride_length_s=self.stride_length_s,
+            return_timestamps="word"
         )
-        hyp = prediction["text"]
-        return hyp
+        return prediction

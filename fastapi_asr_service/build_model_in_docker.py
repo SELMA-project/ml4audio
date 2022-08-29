@@ -4,7 +4,8 @@ from pprint import pprint
 
 from data_io.readwrite_files import read_json
 from misc_utils.dataclass_utils import (
-    decode_dataclass, to_dict,
+    decode_dataclass,
+    to_dict,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.asr_inference.hf_asr_pipeline import (
