@@ -11,6 +11,7 @@ from transformers import (
     Wav2Vec2FeatureExtractor,
     Wav2Vec2ProcessorWithLM,
     AutoFeatureExtractor,
+    AutomaticSpeechRecognitionPipeline,
 )
 
 from misc_utils.beartypes import NumpyInt16Dim1
@@ -21,8 +22,10 @@ from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer impor
     HFWav2Vec2LogitsInferencer,
 )
 from ml4audio.text_processing.ctc_decoding import BaseCTCDecoder
-from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder, \
-    PyCTCBinKenLMDecoder
+from ml4audio.text_processing.pyctc_decoder import (
+    PyCTCKenLMDecoder,
+    PyCTCBinKenLMDecoder,
+)
 from pyctcdecode import BeamSearchDecoderCTC
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,17 +82,18 @@ class HfAsrPipelineFromLogitsInferencerDecoder(CachedData):
     def _build_cache(self):
         pass
 
-    def _prepare_asr_pipeline(self):
-        if isinstance(self.decoder, (PyCTCKenLMDecoder,PyCTCBinKenLMDecoder)):
+    def _prepare_asr_pipeline(self) -> AutomaticSpeechRecognitionPipeline:
+        if isinstance(self.decoder, (PyCTCKenLMDecoder, PyCTCBinKenLMDecoder)):
             self.decoder.build()
             pyctc_decoder_or_None = self.decoder._pyctc_decoder
             assert pyctc_decoder_or_None is not None
         else:
             pyctc_decoder_or_None = None
         model_id = self.logits_inferencer.checkpoint.model_path
-        pyctc_beamsearch_decoder, feature_extractor = prepare_decoder_and_feature_extractor(
-            pyctc_decoder_or_None, model_id
-        )
+        (
+            pyctc_beamsearch_decoder,
+            feature_extractor,
+        ) = prepare_decoder_and_feature_extractor(pyctc_decoder_or_None, model_id)
 
         # sampling_rate = feature_extractor.sampling_rate
         # assert sampling_rate == self.sample_rate
@@ -97,7 +101,7 @@ class HfAsrPipelineFromLogitsInferencerDecoder(CachedData):
         model = Wav2Vec2ForCTC.from_pretrained(model_id)
 
         self.device = 0 if torch.cuda.is_available() else -1
-        asr_pipeline = pipeline(
+        asr_pipeline: AutomaticSpeechRecognitionPipeline = pipeline(  # noqa
             "automatic-speech-recognition",
             model=model,
             device=self.device,
