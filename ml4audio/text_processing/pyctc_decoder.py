@@ -21,8 +21,10 @@ from ml4audio.text_processing.ctc_decoding import (
     LogitAlignedTranscript,
     HFCTCDecoder,
 )
-from ml4audio.text_processing.lm_model_for_pyctcdecode import KenLMForPyCTCDecode, \
-    KenLMBinaryUnigramsFile
+from ml4audio.text_processing.lm_model_for_pyctcdecode import (
+    KenLMForPyCTCDecode,
+    KenLMBinaryUnigramsFile,
+)
 from pyctcdecode.decoder import (
     WordFrames,
     BeamSearchDecoderCTC,

@@ -4,7 +4,11 @@ import string
 
 from unicode_tr import unicode_tr
 
-from ml4audio.text_processing.character_mappings.character_maps import (
+from ml4audio.text_processing.character_mappings.cyrillic_character_maps import (
+    NO_JO,
+    RECOVER_CYRILLIC,
+)
+from ml4audio.text_processing.character_mappings.latin_character_maps import (
     REMOVE_EVERYTHING,
     REPLACE_ALL_PUNCT_WITH_SPACE,
     NORMALIZE_APOSTROPHES,
@@ -56,10 +60,14 @@ class CharacterMapping(TextNormalizer):
         # https://stackoverflow.com/questions/265960/best-way-to-strip-punctuation-from-a-string-in-python
         self.table = str.maketrans(self.mapping)
 
+    @property
+    def replace_mapping(self):
+        return SAME_SAME_BUT_DIFFERENT
+
     def __call__(self, text: str) -> str:
-        text = text.translate(self.table)
-        for k, v in SAME_SAME_BUT_DIFFERENT.items():
+        for k, v in self.replace_mapping.items():
             text = text.replace(k, v)
+        text = text.translate(self.table)
         text = re.sub(r"\s+", " ", text)
         return text
 
@@ -93,6 +101,32 @@ class GermanTextNormalizer(CharacterMapping):
             k: v
             for k, v in (
                 REMOVE_EVERYTHING | REPLACE_ALL_PUNCT_WITH_SPACE | NORMALIZE_DASH
+            ).items()
+            if k not in white_list
+        }
+
+
+@register_normalizer_plugin("ru")
+class RussianTextNormalizer(CharacterMapping):
+    @property
+    def replace_mapping(self):
+        multiletter = {
+            "ch": "ч",
+            "sh": "ш",  # cannot map multi-letter here
+            # "sh": "щ",
+            "you": "ю",
+            "ja": "я",
+            "th": "д",
+        }
+        return SAME_SAME_BUT_DIFFERENT | multiletter
+
+    @property
+    def mapping(self) -> dict[str, str]:
+        white_list = {}
+        return {
+            k: v
+            for k, v in (
+                REPLACE_ALL_PUNCT_WITH_SPACE | RECOVER_CYRILLIC | NO_JO
             ).items()
             if k not in white_list
         }
