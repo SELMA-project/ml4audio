@@ -57,7 +57,7 @@ def userfriendly_inferencer_dict(inferencer):
 
 
 @app.post("/transcribe")
-async def upload_modelfile(file: UploadFile):
+async def upload_and_process_audio_file(file: UploadFile):
     global inferencer
 
     if not file:
