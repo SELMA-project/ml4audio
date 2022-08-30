@@ -5,8 +5,10 @@ import string
 from unicode_tr import unicode_tr
 
 from ml4audio.text_processing.character_mappings.character_maps import (
-    ENGLISH_CHARACTER_MAPPING,
-    PUNCTUATION_MAPPING,
+    REMOVE_EVERYTHING,
+    REPLACE_ALL_PUNCT_WITH_SPACE,
+    NORMALIZE_APOSTROPHES,
+    NORMALIZE_DASH,
 )
 from ml4audio.text_processing.character_mappings.not_str_translatable_maps import (
     SAME_SAME_BUT_DIFFERENT,
@@ -86,15 +88,14 @@ class NoPunctuation(CharacterMapping):
 class GermanTextNormalizer(CharacterMapping):
     @property
     def mapping(self) -> dict[str, str]:
-        GERMAN_WHITE_LIST = {"ä", "ü", "ö", "ß"}
-
-        GERMAN_CHARACTER_MAPPING = {
+        white_list = {"ä", "ü", "ö", "ß"}
+        return {
             k: v
-            for k, v in ENGLISH_CHARACTER_MAPPING.items()
-            if k not in GERMAN_WHITE_LIST
+            for k, v in (
+                REMOVE_EVERYTHING | REPLACE_ALL_PUNCT_WITH_SPACE | NORMALIZE_DASH
+            ).items()
+            if k not in white_list
         }
-
-        return {**GERMAN_CHARACTER_MAPPING, **PUNCTUATION_MAPPING}
 
 
 @register_normalizer_plugin("tr")
@@ -104,10 +105,8 @@ class TurkishTextCleaner(TextCleaner):
         turkish_white_list = ["ç", "ö", "ü", "ğ", "ı", "ş"]
 
         return {
-            k: v
-            for k, v in ENGLISH_CHARACTER_MAPPING.items()
-            if k not in turkish_white_list
-        } | PUNCTUATION_MAPPING
+            k: v for k, v in REMOVE_EVERYTHING.items() if k not in turkish_white_list
+        } | REPLACE_ALL_PUNCT_WITH_SPACE
 
     def __init__(self) -> None:
         # https://stackoverflow.com/questions/265960/best-way-to-strip-punctuation-from-a-string-in-python
@@ -118,7 +117,8 @@ class TurkishTextCleaner(TextCleaner):
         for k, v in SAME_SAME_BUT_DIFFERENT.items():
             text = text.replace(k, v)
         text = re.sub(r"\s+", " ", text)
-        return unicode_tr(text)
+        instance_of_subclass_of_str_overring_upper_lower_methods = unicode_tr(text)
+        return instance_of_subclass_of_str_overring_upper_lower_methods
 
 
 @register_normalizer_plugin("es")
@@ -127,15 +127,23 @@ class SpanishTextNormalizer(CharacterMapping):
     def mapping(self) -> dict[str, str]:
         SPANISH_WHITE_LIST = {"ñ", "ü", "ö", "á", "é", "í", "ó", "ú"}
         SPANISH_CHARACTER_MAPPING = {
-            k: v
-            for k, v in ENGLISH_CHARACTER_MAPPING.items()
-            if k not in SPANISH_WHITE_LIST
+            k: v for k, v in REMOVE_EVERYTHING.items() if k not in SPANISH_WHITE_LIST
         }
-        return {**SPANISH_CHARACTER_MAPPING, **PUNCTUATION_MAPPING}
+        return {**SPANISH_CHARACTER_MAPPING, **REPLACE_ALL_PUNCT_WITH_SPACE}
 
 
 @register_normalizer_plugin("en")
 class EnglishTextNormalizer(CharacterMapping):
     @property
     def mapping(self) -> dict[str, str]:
-        return {**ENGLISH_CHARACTER_MAPPING, **PUNCTUATION_MAPPING}
+        english_white_list = ["-", "'"]
+        return {
+            k: v
+            for k, v in (
+                REMOVE_EVERYTHING
+                | REPLACE_ALL_PUNCT_WITH_SPACE
+                | NORMALIZE_APOSTROPHES
+                | NORMALIZE_DASH
+            ).items()
+            if k not in english_white_list
+        }

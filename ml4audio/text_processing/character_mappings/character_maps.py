@@ -79,10 +79,11 @@ strange_stuff = {
     "ß": "s",  # TODO: one or two s?
 }
 
-all_kinds_of_apostrophes = "’‘`´ʹʻʼʽʿˈ"
-normalize_apostrophes = {c: "'" for c in all_kinds_of_apostrophes}
+all_kinds_of_apostrophes = "'’‘`´ʹʻʼʽʿˈ"  # also map itself, -> identity mapping to overwrite potentially removing mappings that came before
+NORMALIZE_APOSTROPHES = {c: "'" for c in all_kinds_of_apostrophes}
+NORMALIZE_DASH = {"–": "-", "-": "-"}  # utf8: b'\xe2\x80\x93'
 
-ENGLISH_CHARACTER_MAPPING = (
+REMOVE_EVERYTHING = (
     remove_backward_accent
     | remove_hats
     | remove_tilde
@@ -92,17 +93,9 @@ ENGLISH_CHARACTER_MAPPING = (
     | map_ligature
     | remove_reverse_hat
     | strange_stuff
-    | normalize_apostrophes
 )
 
 not_apostrophes_what_to_call_them = "„“”"
-PUNCTUATION = string.punctuation + not_apostrophes_what_to_call_them
-PUNCTUATION_MAPPING = {key: " " for key in PUNCTUATION}
-
-PUNCTUATION_MAPPING.pop("-")
-PUNCTUATION_MAPPING.pop("'")  # keep "'" cause its in wav2vec2-vocab
-PUNCTUATION_MAPPING["–"] = "-"  # utf8: b'\xe2\x80\x93'
-
-remove_them = ["`", "’"]
-for punct in remove_them:
-    PUNCTUATION_MAPPING[punct] = ""
+string_punctuation = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"  # string.punctuation
+PUNCTUATION = string_punctuation + not_apostrophes_what_to_call_them
+REPLACE_ALL_PUNCT_WITH_SPACE = {key: " " for key in PUNCTUATION}
