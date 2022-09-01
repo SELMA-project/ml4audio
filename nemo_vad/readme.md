@@ -10,3 +10,6 @@ pip install -r requirements.txt
 ```
 * [visualize_segmentation.py](scripts/visualize_segmentation.py)
 ![image](images/vad_demo.png)
+
+### [training VAD with nemo](https://github.com/NVIDIA/NeMo/blob/main/tutorials/asr/Voice_Activity_Detection.ipynb)
+* TODO

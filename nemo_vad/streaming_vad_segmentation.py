@@ -2,13 +2,12 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from time import time
-from typing import Iterator, Optional, Generator, List, Tuple
+from typing import Iterator, Optional, Generator, List, Tuple, Any
 
 import numpy as np
-from nvidia_nemo_vad.nemo_streaming_vad import NeMoVAD
-from speech_processing.audio_array_buffering import build_buffer_audio_arrays_generator
-from speech_processing.audio_streaming import resample_stream_file
-from speech_processing.speech_utils import torchaudio_info
+
+from misc_utils.buildable import Buildable
+from ml4audio.audio_utils.torchaudio_utils import torchaudio_info
 from nemo_vad.nemo_streaming_vad import NeMoVAD
 
 
@@ -31,59 +30,43 @@ class VoiceSegment:
 TARGET_SAMPLE_RATE = 16_000  # fixed until trained own model on different sample_rate
 
 
+def build_buffer_audio_arrays_generator(chunk_size=int(16000 * 0.1)) -> Generator:
+    """
+    TODO: oh-du-schreckliche!
+        why did I ever wanted this to be a generator?
+    """
+    chunk = yield
+    buffer = np.zeros(0, dtype=np.int16)
+    while chunk is not None:
+        valid_chunk: Optional[np.ndarray] = None
+        assert buffer.dtype == chunk.dtype
+        buffer = np.concatenate([buffer, chunk])
+        if len(buffer) >= chunk_size:
+            valid_chunk = buffer[:chunk_size]
+            buffer = buffer[chunk_size:]
+        chunk = yield valid_chunk
+
+    if len(buffer) > 0:
+        assert len(buffer) < chunk_size
+        yield buffer
+        # could be that part of the signal is thrown away
+
+
 @dataclass
-class StreamingSignalSegmentor:
+class StreamingSignalSegmentor(Buildable):
     vad: NeMoVAD
-    frame_dur: float = 0.1
-    input_sample_rate: int = TARGET_SAMPLE_RATE
+    # frame_dur: float = 0.1
+    # input_sample_rate: int = TARGET_SAMPLE_RATE
 
-    def init(self) -> None:
-        if not self.vad.no_vad():
-            self.vad.input_sample_rate = self.input_sample_rate
-            self.vad.frame_duration = self.frame_dur
-            self.vad.init()
-
+    def _build_self(self) -> Any:
         self.segments_generator = None
         self.chunk_generator = None
-
-    def speech_arrays_from_file(
-        self, audio_filepath
-    ) -> Tuple[List[VoiceSegment], float]:
-        """
-        TODO: not used anymore?
-        only for debug
-        """
-        CHUNK_DUR = 0.05
-        segmentor_frame_dur = self.frame_dur
-        assert CHUNK_DUR < segmentor_frame_dur
-        arrays = list(
-            resample_stream_file(
-                audio_filepath, self.input_sample_rate, chunk_duration=CHUNK_DUR
-            )
-        )
-
-        # print(f"GOT {len(arrays)} chunks from {audio_filepath}")
-
-        start = time()
-        if isinstance(self.vad, NeMoVAD):
-            g = (self.handle_audio_array(a) for a in arrays)
-            voice_segs = [vs for vs in g if vs is not None and vs.is_final()]
-            last_seg = self.flush()
-            if last_seg is not None:
-                voice_segs = voice_segs + [last_seg]
-
-            # print(f"GOT {len(voice_segs)} voice-segments")
-            old_dur = {sum([len(a) / self.input_sample_rate for a in arrays])}
-            new_dur = {sum([len(v.array) / self.input_sample_rate for v in voice_segs])}
-            # print(f"overall: {new_dur} seconds of {old_dur}")
-
-        else:
-            voice_segs = [VoiceSegment(np.concatenate(arrays), start="bla")]
-        infer_duration = time() - start
-        return voice_segs, infer_duration
+        self.frame_dur = self.vad.frame_duration
+        self.input_sample_rate = self.vad.input_sample_rate
 
     def handle_audio_array(self, array: np.ndarray) -> Optional[VoiceSegment]:
         assert array.dtype == np.int16
+        assert len(array) <= self.frame_dur * self.input_sample_rate
         if self.chunk_generator is None:
             self.chunk_generator = build_buffer_audio_arrays_generator(
                 chunk_size=int(self.frame_dur * self.input_sample_rate)
@@ -226,7 +209,7 @@ if __name__ == "__main__":
         input_sample_rate=RATE,
     )
     segmenter.init()
-    num_frames, sample_rate = torchaudio_info(file)
+    num_frames, sample_rate, dur = torchaudio_info(file)
     voice_segs, dur = segmenter.speech_arrays_from_file(file)
     speech_arrays = [vs.array for vs in voice_segs]
     print(f"infer-speed: {(num_frames/sample_rate)/dur}")

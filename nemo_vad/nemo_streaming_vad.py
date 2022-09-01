@@ -16,7 +16,9 @@ from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM, read_audio_chunks_from
 from misc_utils.buildable import Buildable
 
 """
-based on: https://github.com/NVIDIA/NeMo/blob/v1.0.0/tutorials/asr/07_Online_Offline_Microphone_VAD_Demo.ipynb
+based on: https://github.com/NVIDIA/NeMo/blob/v1.0.0/tutorials/asr/07_Online_Offline_Microphone_VAD_Demo.ipynb from May 2021
+
+more upto date: https://github.com/NVIDIA/NeMo/blob/stable/tutorials/asr/Online_Offline_Microphone_VAD_Demo.ipynb
 
 """
 TARGET_SAMPLE_RATE = 16_000
@@ -164,7 +166,7 @@ if __name__ == "__main__":
     wav_file = f"nemo_vad/tests/resources/VAD_demo.wav"
     for chunk in tqdm(
         read_audio_chunks_from_file(
-            wav_file, vad.input_sample_rate, chunk_duration=vad.frame_duration
+            wav_file, vad.input_sample_rate, chunk_duration=vad.raw_audio_chunks_dur
         )
     ):
         vad.is_speech(chunk)
