@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Optional, Union, Iterator, Any
 
 import librosa
@@ -15,7 +16,12 @@ from ml4audio.audio_utils.torchaudio_utils import (
     load_resample_with_torch,
     get_first_channel,
 )
-from misc_utils.beartypes import NumpyFloat1DArray, NumpyInt16Dim1, Numpy1DArray
+from misc_utils.beartypes import (
+    NumpyFloat1DArray,
+    NumpyInt16Dim1,
+    Numpy1DArray,
+    TorchTensor1D,
+)
 from misc_utils.processing_utils import exec_command
 from misc_utils.utils import get_val_from_nested_dict, NOT_EXISTING
 import soundfile as sf
@@ -183,7 +189,7 @@ def load_resample_with_soundfile(
     trim_db=60,
 ) -> NumpyFloat1DArray:
     """
-    based on nemo code
+    based on nemo code: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/preprocessing/segment.py#L173
     """
     with sf.SoundFile(audio_file, "r") as f:
         dtype = "int32" if int_values else "float32"
@@ -299,3 +305,21 @@ def normalize_audio_array(array: Numpy1DArray) -> NumpyFloat1DArray:
     else:
         norm_samples = array
     return norm_samples
+
+
+@beartype
+def ffmpeg_torch_load(file: str, sample_rate=16000) -> TorchTensor1D:
+    """
+    TODO: this is super ugly, why cant I load with librosa? which or another ffmpeg wrapper
+    """
+
+    with NamedTemporaryFile(suffix=".wav", delete=True) as tmp_wav:
+
+        cmd = f"ffmpeg -i {file} -ar {sample_rate} {tmp_wav.name} -y"
+        o, e = exec_command(cmd)
+
+        audio = load_resample_with_torch(
+            data_source=tmp_wav.name,
+            target_sample_rate=sample_rate,
+        )
+    return audio
