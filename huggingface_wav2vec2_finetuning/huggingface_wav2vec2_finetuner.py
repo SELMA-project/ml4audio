@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# based on: https://github.com/huggingface/transformers/blob/220da3b8a1cde5870696369a02227f9211d626be/examples/research_projects/robust-speech-event/run_speech_recognition_ctc_bnb.py
 import json
 import logging
 import os
@@ -154,9 +154,9 @@ def _prepare_models(
             os.makedirs(tokenizer_name_or_path, exist_ok=True)
             vocab_dict = create_asr_vocabulary_for_training(
                 model_args.new_vocab,
-                data_args.word_delimiter_token,
-                data_args.unk_token,
-                data_args.pad_token,
+                word_delimiter_token=data_args.word_delimiter_token,
+                unk_token=data_args.unk_token,
+                pad_token=data_args.pad_token,
             )
             # save vocab dict to be loaded into tokenizer
             with open(vocab_file, "w") as file:
