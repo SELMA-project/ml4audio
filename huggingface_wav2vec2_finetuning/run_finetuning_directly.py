@@ -64,7 +64,7 @@ def create_finetuner(
         train_args=TrainArgs(
             run_name=run_name_for_wandb,
             overwrite_output_dir=True,
-            max_steps=20_000,
+            max_steps=200,
             num_train_epochs=1,
             per_device_train_batch_size=4,
             per_device_eval_batch_size=1,
@@ -85,7 +85,7 @@ def create_finetuner(
             ignore_data_skip=True,
             min_steps=10_000,
             gradient_accumulation_steps=4,
-            deepspeed="huggingface_wav2vec2_finetuning/ds_config_zero3.json",
+            # deepspeed="huggingface_wav2vec2_finetuning/ds_config_zero3.json", # TODO: was not working?
             # deepspeed="../ml4audio/huggingface_wav2vec2_finetuning/ds_config_zero3.json"
         ),
         overwrite_old_cache=True,
@@ -115,8 +115,8 @@ if __name__ == "__main__":
         for model_to_finetune in [
             ModelIdentity(
                 # "facebook/wav2vec2-base-960h",
-                # "facebook/wav2vec2-base",
-                "facebook/wav2vec2-xls-r-1b",
+                "facebook/wav2vec2-base",
+                # "facebook/wav2vec2-xls-r-1b",
                 # "jonatasgrosman/wav2vec2-large-xlsr-53-german"
             ),  # facebooks base model wants upper-cased vocab
         ]
