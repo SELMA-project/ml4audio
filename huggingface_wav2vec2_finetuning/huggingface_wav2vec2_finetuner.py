@@ -11,7 +11,6 @@ from typing import Union, Optional
 
 import numpy as np
 import torch
-import wandb
 from datasets import load_metric
 from packaging import version
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -65,6 +64,9 @@ logger = logging.getLogger(__name__)
 if "WANDB_API_KEY" not in os.environ:
     print(f"could not find WANDB_API_KEY!!! -> disabling wandb")
     os.environ["WANDB_DISABLED"] = "true"
+    wandb = None
+else:
+    import wandb
 
 
 @dataclass
