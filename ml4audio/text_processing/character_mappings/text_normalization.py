@@ -126,7 +126,7 @@ class RussianTextNormalizer(CharacterMapping):
         return {
             k: v
             for k, v in (
-                REPLACE_ALL_PUNCT_WITH_SPACE | RECOVER_CYRILLIC | NO_JO
+                REMOVE_EVERYTHING | REPLACE_ALL_PUNCT_WITH_SPACE | RECOVER_CYRILLIC | NO_JO
             ).items()
             if k not in white_list
         }

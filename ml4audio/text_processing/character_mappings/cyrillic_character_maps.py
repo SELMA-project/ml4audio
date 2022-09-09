@@ -26,4 +26,15 @@ RECOVER_CYRILLIC = {
     "z": "ц",
 }  #  "ъ", "ы", "ь", "э",
 
-NO_JO = {"ё": "е"}
+NO_JO = {
+    "ё": "е",
+    "ë": "е",
+}
+
+if __name__ == '__main__':
+
+    for k,v in NO_JO.items():
+        print(f"{k}: {k.encode('utf-8')} -> {v}: {v.encode('utf-8')}")
+
+    for k,v in RECOVER_CYRILLIC.items():
+        print(f"{k}: {k.encode('utf-8')} -> {v}: {v.encode('utf-8')}")
