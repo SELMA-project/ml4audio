@@ -156,4 +156,87 @@ if __name__ == "__main__":
     )
     for exp in experiments:
         exp.build()
-    # first_finetuned = FinetunedModel(finetune_master=o)
+
+"""
+# output should look similar to this: 
+
+
+extract_transcript_files from .../Multilingual_LibriSpeech/mls_english.tar.gz: 2it [00:16,  8.38s/it]found all transcripts-files!                                                                                                                                                                    
+extract_transcript_files from .../Multilingual_LibriSpeech/mls_english.tar.gz: 2it [00:55, 27.95s/it]                                                                                                                                                                                                
+build_self of MLSTarGzTranscripts took:167.98549032211304 seconds                                                                                             
+Using the `WANDB_DISABLED` environment variable is deprecated and will be removed in v5. Use the --report_to flag to control the integrations used for logging result (for instance --report_to none).                                                                                                                       
+local-rank: -1                                                                 
+09/09/2022 11:45:46 - WARNING - huggingface_wav2vec2_finetuning.huggingface_wav2vec2_finetuner - Process rank: -1, device: cuda:0, n_gpu: 1distributed training: False, 16-bits training: True                                                                                                                               
+09/09/2022 11:45:46 - INFO - huggingface_wav2vec2_finetuning.huggingface_wav2vec2_finetuner - Training/evaluation parameters TrainingArguments(                                                                                                                                                                              
+_n_gpu=1,                                                                      
+adafactor=False,                                                               
+adam_beta1=0.9,                                                                
+adam_beta2=0.999,                                                              
+adam_epsilon=1e-08,                                                            
+auto_find_batch_size=False,                                                    
+bf16=False,                                                                    
+bf16_full_eval=False,                                                          
+data_seed=None,                                                                
+dataloader_drop_last=False,                                                    
+dataloader_num_workers=0,                                                      
+dataloader_pin_memory=True,                                                    
+ddp_bucket_cap_mb=None,                                                        
+ddp_find_unused_parameters=None, 
+
+... 
+
+***** initial-eval metrics *****
+  eval_cer                =     2.2593
+  eval_loss               =    12.2895
+  eval_runtime            = 0:00:07.93
+  eval_samples            =        100
+  eval_samples_per_second =     12.595
+  eval_steps_per_second   =     12.595
+  eval_wer                =        1.0
+***** Running training *****
+  Num examples = 100000
+  Num Epochs = 1
+  Instantaneous batch size per device = 4
+  Total train batch size (w. parallel, distributed & accumulation) = 16
+  Gradient Accumulation steps = 4
+  Total optimization steps = 200
+
+{'loss': 11.0863, 'learning_rate': 5.000000000000001e-07, 'epoch': 0.0}                                                                                                                                            
+{'loss': 10.2139, 'learning_rate': 1.0000000000000002e-06, 'epoch': 0.0}                                                                                                                                           
+
+...
+
+{'loss': 3.1954, 'learning_rate': 7.95e-06, 'epoch': 0.03}                                                                                                                                                         
+{'loss': 3.1072, 'learning_rate': 8.45e-06, 'epoch': 0.03}                                                                                                                                                         
+{'loss': 3.0851, 'learning_rate': 8.95e-06, 'epoch': 0.03}                                                                                                                                                         
+worker_idx=0,self.local_rank=0: consumer_stats={'data_consuming_speed': 86.16219875366991, 'data_processing_speed': 77.0351257622233, 'overall_loading_speed': 40.671719567879535}
+{'loss': 3.0799, 'learning_rate': 9.450000000000001e-06, 'epoch': 0.03}                                                                                                                                            
+{'loss': 3.046, 'learning_rate': 9.950000000000001e-06, 'epoch': 0.03}                                                                                                                                             
+100%|█████████████████| 200/200 [05:52<00:00,  1.85s/it]***** Running Evaluation *****
+  Num examples = 100
+  Batch size = 1
+
+read 0 samples from mls_english-test, read-speed: 0.6247192765101427
+The following columns in the evaluation set don't have a corresponding argument in `Wav2Vec2ForCTC.forward` and have been ignored: sampling_rate. If sampling_rate are not expected by `Wav2Vec2ForCTC.forward`,  you can safely ignore this message.
+                                                                                                                                                                                                                  worker_idx=0,self.local_rank=0: consumer_stats={'data_consuming_speed': 6.703998102894713, 'data_processing_speed': 6.657164294536598, 'overall_loading_speed': 3.3402495586620393}| 11/100 [00:00<00:03, 23.91it/s]
+{'eval_loss': 3.1090574264526367, 'eval_wer': 1.0, 'eval_cer': 1.0, 'eval_runtime': 5.4913, 'eval_samples_per_second': 18.211, 'eval_steps_per_second': 18.211, 'epoch': 0.03}                                     
+                                                                                                                                                                                                                   
+Training completed. Do not forget to share your model on huggingface.co/models =)
+
+
+{'train_runtime': 357.8257, 'train_samples_per_second': 8.943, 'train_steps_per_second': 0.559, 'train_loss': 6.0282745456695555, 'epoch': 0.03}                                                                   
+
+...
+
+***** eval metrics *****
+  epoch                   =       0.03
+  eval_cer                =        1.0
+  eval_loss               =     3.1091
+  eval_runtime            = 0:00:05.52
+  eval_samples            =        100
+  eval_samples_per_second =     18.085
+  eval_steps_per_second   =     18.085
+  eval_wer                =        1.0
+build_self of HFWav2vec2Finetuner took:406.9063937664032 seconds
+
+"""
