@@ -5,10 +5,12 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import soundfile
 import torch
 from beartype import beartype
 from omegaconf import DictConfig
 
+from misc_utils.beartypes import NumpyFloat1DArray
 from misc_utils.buildable import Buildable
 from nemo.collections.asr.models import EncDecClassificationModel
 from nemo.collections.asr.parts.utils.vad_utils import (
@@ -175,5 +177,8 @@ class NemoOfflineVAD(Buildable):
         self.vad_model = vad_model
 
     @beartype
-    def predict(self, audio_file: str) -> StartEndsVADProbas:
-        return nemo_offline_vad_infer(self.cfg, self.vad_model, audio_file)
+    def predict(self, audio: NumpyFloat1DArray) -> StartEndsVADProbas:
+        with tempfile.NamedTemporaryFile(suffix=".wav") as tmpfile:
+            soundfile.write(tmpfile.name, audio, samplerate=16000)
+            pred = nemo_offline_vad_infer(self.cfg, self.vad_model, tmpfile.name)
+        return pred

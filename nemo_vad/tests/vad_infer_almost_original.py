@@ -172,5 +172,3 @@ def nemo_offline_vad_infer_main_original(
     ]
 
 
-if __name__ == '__main__':
-    main()

@@ -5,6 +5,7 @@ import numpy as np
 from beartype import beartype
 from omegaconf import OmegaConf
 
+from ml4audio.audio_utils.audio_io import load_resample_with_soundfile
 from nemo_vad.nemo_offline_vad import NemoOfflineVAD
 from nemo_vad.tests.vad_infer_almost_original import (
     nemo_offline_vad_infer_main_original,
@@ -35,10 +36,11 @@ def test_nemo_offline_vad(
     audio_file="tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav",
     config_yaml="nemo_vad/tests/vad_test_config.yaml",
 ):
+    audio = load_resample_with_soundfile(audio_file)
     cfg = OmegaConf.load(config_yaml)
     vad = NemoOfflineVAD(cfg)
     vad.build()
-    start_ends, _ = vad.predict(audio_file)
+    start_ends, _ = vad.predict(audio)
     vad_assertions(start_ends)
 
 
