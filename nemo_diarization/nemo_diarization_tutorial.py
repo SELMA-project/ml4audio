@@ -48,11 +48,12 @@ def create_test_manifest(data_dir, an4_audio, an4_rttm):
 
 
 def get_test_config(data_dir):
-    MODEL_CONFIG = os.path.join(data_dir, "offline_diarization.yaml")
-    if not os.path.exists(MODEL_CONFIG):
-        config_url = "https://raw.githubusercontent.com/NVIDIA/NeMo/main/examples/speaker_tasks/diarization/conf/offline_diarization.yaml"
-        MODEL_CONFIG = wget.download(config_url, data_dir)
+    # MODEL_CONFIG = os.path.join(data_dir, "offline_diarization.yaml")
+    # if not os.path.exists(MODEL_CONFIG):
+    #     config_url = "https://raw.githubusercontent.com/NVIDIA/NeMo/main/examples/speaker_tasks/diarization/conf/offline_diarization.yaml"
+    #     MODEL_CONFIG = wget.download(config_url, data_dir)
 
+    MODEL_CONFIG="offline_diarization.yaml"
     config = OmegaConf.load(MODEL_CONFIG)
     print(OmegaConf.to_yaml(config))
     return config
@@ -106,12 +107,12 @@ if __name__ == "__main__":
 
     from nemo.collections.asr.parts.utils.vad_utils import plot
 
-    plot(
-        an4_audio,
-        f"{output_dir}/vad_outputs/overlap_smoothing_output_median_0.875/an4_diarize_test.median",
-        an4_rttm,
-        per_args=config.diarizer.vad.parameters,  # threshold
-    )
-    matplotlib.pyplot.show()
+    # plot(
+    #     an4_audio,
+    #     f"{output_dir}/vad_outputs/overlap_smoothing_output_median_0.875/an4_diarize_test.median",
+    #     an4_rttm,
+    #     per_args=config.diarizer.vad.parameters,  # threshold
+    # )
+    # matplotlib.pyplot.show()
 
     print(f"postprocessing_params: {config.diarizer.vad.parameters}")
