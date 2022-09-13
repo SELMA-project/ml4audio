@@ -312,10 +312,10 @@ def ffmpeg_torch_load(file: str, sample_rate=16000) -> TorchTensor1D:
     """
     TODO: this is super ugly, why cant I load with librosa? which or another ffmpeg wrapper
     """
+    name = Path(file).stem
+    with NamedTemporaryFile(prefix=name, suffix=".wav", delete=True) as tmp_wav:
 
-    with NamedTemporaryFile(suffix=".wav", delete=True) as tmp_wav:
-
-        cmd = f"ffmpeg -i {file} -ar {sample_rate} {tmp_wav.name} -y"
+        cmd = f'ffmpeg -i "{file}" -ac 1 -ar {sample_rate} {tmp_wav.name} -y'
         o, e = exec_command(cmd)
 
         audio = load_resample_with_torch(
