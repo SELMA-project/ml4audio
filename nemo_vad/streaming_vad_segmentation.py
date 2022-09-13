@@ -117,18 +117,6 @@ class StreamingSignalSegmentor(Buildable):
         return last_segment
 
 
-def generate_segments(vad: NeMoVAD, audio_stream: Iterator[AudioChunk]):
-    g = generate_segments_from_chunk(vad)
-    g.send(None)
-    for chunk in audio_stream:
-        d = g.send(chunk)
-        if d is not None:
-            yield d
-    else:
-        for d in g:
-            yield d
-
-
 def generate_segments_from_chunk(
     vad: NeMoVAD,
 ) -> Generator[Optional[VoiceSegment], AudioChunk, None]:

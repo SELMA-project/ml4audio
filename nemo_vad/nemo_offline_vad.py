@@ -25,7 +25,6 @@ from nemo.utils import logging
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-
 def create_manifest(data_dir, audio_file):
     meta = {
         "audio_filepath": audio_file,
@@ -53,8 +52,10 @@ def nemo_offline_vad_infer(
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/speech_classification/vad_infer.py
     TODO: get rid of all these stupid nemo file-read/writes! (manifest, table, ...)
     """
+    assert os.path.isfile(audio_file)
+
     data_dir = "./"
-    create_manifest(data_dir, audio_file)
+    create_manifest(data_dir, audio_file)  # TODO: use tmpfile!
     manifest_vad_input = f"{data_dir}/vad_manifest.json"
 
     key_meta_map = {}
@@ -103,7 +104,7 @@ def nemo_offline_vad_infer(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cfg.frame_out_dir = tmpdir
-        return vad_inference_part(cfg, manifest_vad_input, vad_model)
+    return vad_inference_part(cfg, manifest_vad_input, vad_model)
 
 
 @beartype
@@ -176,4 +177,3 @@ class NemoOfflineVAD(Buildable):
     @beartype
     def predict(self, audio_file: str) -> StartEndsVADProbas:
         return nemo_offline_vad_infer(self.cfg, self.vad_model, audio_file)
-

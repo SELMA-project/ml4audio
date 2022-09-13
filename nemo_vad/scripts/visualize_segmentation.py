@@ -72,7 +72,7 @@ def visualize(results, audio, sample_rate, threshold, dur):
     )
     ax.set_title("Mel-frequency spectrogram")
     ax.grid()
-    plt.show()
+    plt.savefig("vad.png")
 
 
 def main():
