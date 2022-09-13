@@ -85,14 +85,17 @@ class TranslatedSubtitleBlock:
     end: float
 
 
-def write_webvtt(blocks: list[TranslatedSubtitleBlock], vtt_file: str):
+def write_webvtt(
+    blocks: list[TranslatedSubtitleBlock],
+    vtt_file: str,
+    get_subtitles=lambda x: [x.text, x.translation],
+):
     vtt = WebVTT()
     for block in blocks:
-        # print(f"{block.text=}\n")
         caption = Caption(
             ms_to_HMSf(round(block.start * 1000)),
             ms_to_HMSf(round(block.end * 1000)),
-            [block.translation],
+            get_subtitles(block),
         )
         vtt.captions.append(caption)
     vtt.save(vtt_file)

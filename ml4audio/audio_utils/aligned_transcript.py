@@ -52,6 +52,9 @@ class AlignedTranscript:
     def abs_idx(self, letter: LetterIdx):
         return self.offset + letter.r_idx
 
+    def abs_timestamp(self, letter: LetterIdx):
+        return self.abs_idx(letter) / self.sample_rate
+
     @property
     def rel_timestamps(self):
         return [l.r_idx / self.sample_rate for l in self.letters]
@@ -90,6 +93,28 @@ class AlignedTranscript:
             lm_score=self.lm_score,
             frame_id=self.frame_id,
         ).update_offset(self.offset)
+
+    def remove_unnecessary_spaces(self):
+        """
+        unnecessary: spaces at start/end, consecutive spaces
+        """
+        first_letter = [self.letters[0]] if self.letters[0].letter != " " else []
+        last_letter = [self.letters[-1]] if self.letters[-1].letter != " " else []
+        self.letters = (
+            first_letter
+            + [
+                self.letters[k]
+                for k in range(1, len(self.letters) - 1)
+                if self.letters[k].letter != " " or self.letters[k - 1].letter != " "
+            ]
+            + last_letter
+        )
+        assert not any(
+            (
+                self.text[k] == " " and self.text[k + 1] == " "
+                for k in range(len(self.text) - 1)
+            )
+        )
 
 
 @dataclass
