@@ -33,6 +33,7 @@ def calc_left_right_parts(
 @dataclass
 class LogitsCutter(Buildable):
     """
+    TODO(tilo): what did I want to use this for?
     consider having some iterable of somehow overlapping chunks of logits
     this LogitsCutter takes a logits_chunk cuts away the overlaps (left & right) and
      returns a non-overlapping left-part and right-part (whos right end will be cut away "next time")

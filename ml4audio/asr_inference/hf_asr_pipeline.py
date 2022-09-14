@@ -128,6 +128,6 @@ class HfAsrPipelineFromLogitsInferencerDecoder(CachedData):
             audio_array,
             chunk_length_s=self.chunk_length_s,
             stride_length_s=self.stride_length_s,
-            return_timestamps="word"
+            return_timestamps="word",
         )
         return prediction
