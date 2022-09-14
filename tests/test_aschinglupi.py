@@ -34,7 +34,7 @@ BASE_PATHES["asr_inference"] = get_test_cache_base()
     ],
 )
 def test_ASRStreamInferencer(
-    wav2vec2_base_greedy: HFASRDecodeInferencer,
+    asr_decode_inferencer: HFASRDecodeInferencer,
     librispeech_audio_file,
     librispeech_raw_ref,
     step_dur: float,
@@ -42,7 +42,7 @@ def test_ASRStreamInferencer(
     max_CER: float,
 ):
 
-    SR = expected_sample_rate = wav2vec2_base_greedy.logits_inferencer.input_sample_rate
+    SR = expected_sample_rate = asr_decode_inferencer.logits_inferencer.input_sample_rate
     asr_input = list(
         audio_messages_from_file(librispeech_audio_file, expected_sample_rate)
     )
@@ -56,7 +56,7 @@ def test_ASRStreamInferencer(
 
     start_time = time()
     streaming_asr = Aschinglupi(
-        hf_asr_decoding_inferencer=wav2vec2_base_greedy,
+        hf_asr_decoding_inferencer=asr_decode_inferencer,
         transcript_gluer=TranscriptGluer(),
         audio_bufferer=OverlapArrayChunker(
             chunk_size=int(window_dur * SR),
@@ -74,7 +74,7 @@ def test_ASRStreamInferencer(
 
     ref = normalize_filter_text(
         librispeech_raw_ref,
-        wav2vec2_base_greedy.logits_inferencer.vocab,
+        asr_decode_inferencer.logits_inferencer.vocab,
         text_normalizer="en",
         casing=Casing.upper,
     )

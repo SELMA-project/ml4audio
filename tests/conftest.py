@@ -8,7 +8,10 @@ from numpy.typing import NDArray
 from transformers import Wav2Vec2CTCTokenizer
 
 from misc_utils.beartypes import NumpyInt16Dim1, NeStr, NumpyFloat1DArray
-from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import HfCheckpoint
+from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import \
+    HFASRDecodeInferencer
+from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import HfCheckpoint, \
+    VocabFromASRLogitsInferencer
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
 )
@@ -22,6 +25,7 @@ from ml4audio.audio_utils.overlap_array_chunker import (
     audio_messages_from_chunks,
     messages_from_chunks,
 )
+from ml4audio.text_processing.ctc_decoding import GreedyDecoder
 from ml4audio.text_processing.metrics_calculation import calc_cer
 
 filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
@@ -118,6 +122,30 @@ def hfwav2vec2_base_logits_inferencer(request):
         input_sample_rate=expected_sample_rate,
     ).build()
     return logits_inferencer
+
+@pytest.fixture
+def asr_decode_inferencer(request):
+    cache_base = get_test_cache_base()
+
+    if not hasattr(request, "param"):
+        expected_sample_rate = 16000
+    else:
+        expected_sample_rate = request.param
+
+    model = "facebook/wav2vec2-base-960h"
+    # model = "jonatasgrosman/wav2vec2-large-xlsr-53-english"
+    logits_inferencer = HFWav2Vec2LogitsInferencer(
+        checkpoint=HfCheckpoint(
+            name=model, model_name_or_path=model, cache_base=cache_base
+        ),
+        input_sample_rate=expected_sample_rate,
+    )
+    asr = HFASRDecodeInferencer(
+        logits_inferencer=logits_inferencer,
+        decoder=GreedyDecoder(tokenizer_name_or_path=model),
+    )
+    asr.build()
+    return asr
 
 
 # TODO!!
