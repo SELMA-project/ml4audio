@@ -16,7 +16,7 @@
 ```
 ### diarization visualized
 * first "row" is reference, second one prediction
-* prediction has more finegrained segmentation -> this difference lead to high `miss_speaker` score, which only indicates that I was to lazy to manually label short audio segments -> the reference is not too accurate!
+* prediction has more finegrained segmentation -> this difference lead to high `miss_speaker` score, which only indicates that I was to lazy too manually label short audio segments -> the reference is not too accurate!
 * at the very beginning if you "zoom in" you can actually see one of the rare "true" diarization erros (`SER`=="speaker_confusion")
   * there is a very short green segment where `big_colored_neglaces` speaks which got not recognized/clustered properly!
 ![img_1.png](images/dw_africa_queen_elizabeth_speaker_segments.png)
