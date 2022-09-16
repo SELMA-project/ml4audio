@@ -13,7 +13,8 @@ from sklearn import preprocessing
 from torch import autocast
 from tqdm import tqdm
 
-from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat2DArray, NeList
+from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat2DArray, NeList, \
+    NeNumpyFloat1DArray
 from misc_utils.processing_utils import iterable_to_batches
 
 DEVICE = "cuda"
@@ -56,6 +57,7 @@ def rttm_line(start, duration, file_id, speaker):
 
 
 StartEndLabels = list[tuple[float, float, str]]
+SELs = StartEndLabels
 
 
 @beartype
@@ -85,6 +87,7 @@ def apply_labels_to_segments(
     """
     TODO(tilo): think about this method!
     """
+
     def calc_rel_overlap(s, e, sl, el) -> float:
         lens = e - s
         return (min(e, el) - max(s, sl)) / lens
@@ -115,7 +118,7 @@ def apply_labels_to_segments(
 
 @beartype
 def get_nemo_speaker_embeddings(
-    labeled_segments: list[tuple[NumpyFloat1DArray, float, float, str]],
+    labeled_segments: NeList[tuple[NeNumpyFloat1DArray, float, float, str]],
     sample_rate: int,
     speaker_model,
     window=1.5,
@@ -134,7 +137,7 @@ def get_nemo_speaker_embeddings(
     speaker_model.eval()
 
     all_embs = []
-
+    assert all((len(a)>0 for a,_,_,_ in labeled_segments))
     ss_start_dur_segment_label = [
         (start, s, d, segment, label)
         for segment, start, end, label in labeled_segments
@@ -145,11 +148,7 @@ def get_nemo_speaker_embeddings(
     expand_half = expand_by / 2  # tilo: this was just my stupid idea to try things out
     overlapchunks_labels = [
         (
-            segment[
-                max(0, round((s - expand_half) * SR)) : min(
-                    len(segment) - 1, round((s + d + expand_half) * SR)
-                )
-            ],
+            slice_me_nice(SR, d, expand_half, s, segment),
             label,
         )
         for ss, s, d, segment, label in ss_start_dur_segment_label
@@ -183,6 +182,16 @@ def get_nemo_speaker_embeddings(
     ]
     assert len(all_embs) == len(start_dur_label)
     return all_embs, start_dur_label
+
+
+def slice_me_nice(SR, d, expand_half, s, segment):
+    sliced = segment[
+        max(0, round((s - expand_half) * SR)) : min(
+            len(segment) - 1, round((s + d + expand_half) * SR)
+        )
+    ]
+    assert len(sliced) > 0
+    return sliced
 
 
 @beartype

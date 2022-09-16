@@ -11,9 +11,16 @@ from nemo.collections.asr.parts.utils.speaker_utils import (
 )
 from pytorch_lightning import seed_everything
 
-from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat2DArray
+from misc_utils.beartypes import (
+    NumpyFloat1DArray,
+    NumpyFloat2DArray,
+    NeNumpyFloat1DArray,
+)
 from misc_utils.buildable import Buildable
-from nemo_diarization.speaker_embedding_utils import get_nemo_speaker_embeddings
+from nemo_diarization.speaker_embedding_utils import (
+    get_nemo_speaker_embeddings,
+    StartEndLabels,
+)
 
 seed_everything(42)
 
@@ -28,9 +35,9 @@ class SpeakerClusterer(Buildable):
     _embeds: NumpyFloat2DArray = field(
         init=False, repr=False
     )  # cause one could want to investigate those after running predict
-    _s_e_mapped_labels: list[tuple[float, float, str]] = field(
+    cluster_sels: StartEndLabels = field(
         init=False, repr=False
-    )  # cause one could want to investigate those after running predict
+    )  # segments which are used for clustering, labeled given by clustering-algorithm, one could want to investigate those after running predict
 
     def _build_self(self) -> Any:
         self._speaker_model = EncDecSpeakerLabelModel.from_pretrained(
@@ -44,22 +51,22 @@ class SpeakerClusterer(Buildable):
         ref_labels: Optional[list[str]] = None,
     ) -> tuple[list[tuple[float, float, str]], Optional[list[str]]]:
 
-        self._s_e_mapped_labels, s_e_mapped_ref_labels = self._calc_raw_labels(
+        self.cluster_sels, ref_sels_projected_to_cluster_sels = self._calc_raw_labels(
             s_e_audio, ref_labels
         )
-        assert len(self._s_e_mapped_labels) == self._embeds.shape[0], (
-            len(self._s_e_mapped_labels),
+        assert len(self.cluster_sels) == self._embeds.shape[0], (
+            len(self.cluster_sels),
             self._embeds.shape,
         )
         if ref_labels is None:
-            s_e_mapped_ref_labels = None
+            ref_sels_projected_to_cluster_sels = None
 
-        lines = [" ".join([str(s), str(e), l]) for s, e, l in self._s_e_mapped_labels]
+        lines = [" ".join([str(s), str(e), l]) for s, e, l in self.cluster_sels]
         a = get_contiguous_stamps(lines)
         lines = merge_stamps(a)
         s_e_labels = [l.split(" ") for l in lines]
         s_e_labels = [(float(s), float(e), l) for s, e, l in s_e_labels]
-        return s_e_labels, s_e_mapped_ref_labels
+        return s_e_labels, ref_sels_projected_to_cluster_sels
 
     @beartype
     def _calc_raw_labels(
@@ -99,7 +106,7 @@ class SpeakerClusterer(Buildable):
     @beartype
     def _extract_embeddings(
         self,
-        s_e_audio: list[tuple[float, float, NumpyFloat1DArray]],
+        s_e_audio: list[tuple[float, float, NeNumpyFloat1DArray]],
         ref_labels: Optional[list[str]],
     ) -> tuple[NumpyFloat2DArray, list[tuple[float, float]], list[str]]:
         SR = 16_000
