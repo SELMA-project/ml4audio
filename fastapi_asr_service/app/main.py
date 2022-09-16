@@ -83,9 +83,9 @@ def upload_and_process_audio_file(file: UploadFile):
             f.write(data)
 
     with NamedTemporaryFile(delete=True) as tmp_original:
-        save_file(tmp_original.name, await file.read())
+        save_file(tmp_original.name, file.read())
 
-        audio = await ffmpeg_torch_load(tmp_original.name, sample_rate=SR)
+        audio = ffmpeg_torch_load(tmp_original.name, sample_rate=SR)
     audio = cut_away_noise(audio.numpy())
     prediction = asr_inferencer.predict(audio)
     return {"filename": file.filename} | prediction
