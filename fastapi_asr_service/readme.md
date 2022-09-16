@@ -36,8 +36,9 @@ cd some-where-to-exported-model-folder
 * [what is this dataclass.json good for?](#dataclass-json)
 ### build docker-image
 ```commandline
-IMAGE=selmaproject/iais-asr-services:spanish
-DOCKER_BUILDKIT=1 docker build -f docker/fastapi_cpu/Dockerfile --build-arg MODEL_IMAGE=selmaproject/iais-asr-models:spanish -t $IMAGE .
+LANG=deu
+IMAGE=selmaproject/iais-asr-services:$LANG
+DOCKER_BUILDKIT=1 docker build -f docker/fastapi_cpu/Dockerfile --build-arg MODEL_IMAGE=selmaproject/iais-asr-models:$LANG -t $IMAGE .
 docker run -it --rm -v ${PWD}:/code --rm --shm-size 8G build_models:latest bash
 
 curl -F ‘file=@path/to/local/file’ localhost:8000/transcribe
