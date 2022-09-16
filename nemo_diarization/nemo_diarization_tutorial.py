@@ -53,7 +53,7 @@ def get_test_config(data_dir):
     #     config_url = "https://raw.githubusercontent.com/NVIDIA/NeMo/main/examples/speaker_tasks/diarization/conf/offline_diarization.yaml"
     #     MODEL_CONFIG = wget.download(config_url, data_dir)
 
-    MODEL_CONFIG="offline_diarization.yaml"
+    MODEL_CONFIG = "offline_diarization.yaml"
     config = OmegaConf.load(MODEL_CONFIG)
     print(OmegaConf.to_yaml(config))
     return config

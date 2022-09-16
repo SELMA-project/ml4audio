@@ -68,18 +68,17 @@ def segment_by_pauses(
     at: AlignedTranscript, min_pause_dur: float = 0.5
 ) -> list[tuple[int, int]]:
     timestamps = at.rel_timestamps
+    text = at.text
 
     def calc_pause(k):
-        if at.text[k - 1] == " ":
+        if text[k - 1] == " ":
             previous = k - 2
         else:
             previous = k - 1
         pause_dur = timestamps[k] - timestamps[previous]
         return previous, k, pause_dur
 
-    start_end_pausedur = [
-        calc_pause(k) for k in range(1, len(at.text)) if at.text[k] != " "
-    ]
+    start_end_pausedur = [calc_pause(k) for k in range(1, len(text)) if text[k] != " "]
     Seg = namedtuple("startend", ["start", "end"])
     pause_segments = [
         Seg(start, end)

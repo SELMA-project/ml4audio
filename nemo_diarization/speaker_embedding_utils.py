@@ -1,3 +1,4 @@
+from random import shuffle
 from typing import Union
 
 import numpy as np
@@ -12,7 +13,7 @@ from sklearn import preprocessing
 from torch import autocast
 from tqdm import tqdm
 
-from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat2DArray
+from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat2DArray, NeList
 from misc_utils.processing_utils import iterable_to_batches
 
 DEVICE = "cuda"
@@ -30,24 +31,27 @@ except ImportError:
         yield
 
 
+@beartype
 def format_rttm_lines(
-    start_end_speaker: list[tuple[float, float, str]], some_id="who_cares"
-) -> list[str]:
+    start_end_speaker: NeList[tuple[float, float, str]],
+    file_id="who_cares",  # -> DER cares
+) -> NeList[str]:
     """
     nvidia/nemo-code is too so I had to copy/past+refactor this
     """
     lines = []
     for start, end, speaker in start_end_speaker:
         duration = float(end) - float(start)
+        assert duration > 0
         start = float(start)
-        log = rttm_line(start, duration, some_id, speaker)
+        log = rttm_line(start, duration, file_id, speaker)
         lines.append(log)
     return lines
 
 
-def rttm_line(start, duration, some_id, speaker):
+def rttm_line(start, duration, file_id, speaker):
     return "SPEAKER {} 1   {:.3f}   {:.3f} <NA> <NA> {} <NA> <NA>".format(
-        some_id, start, duration, speaker
+        file_id, start, duration, speaker
     )
 
 
@@ -55,7 +59,7 @@ StartEndLabels = list[tuple[float, float, str]]
 
 
 @beartype
-def read_rttm(rttm_filename: str) -> StartEndLabels:
+def read_sel_from_rttm(rttm_filename: str) -> StartEndLabels:
     start_end_speaker = []
     with open(rttm_filename, "r") as f:
         for line in f.readlines():
@@ -74,10 +78,13 @@ FloatInt = Union[float, int]
 
 @beartype
 def apply_labels_to_segments(
-    s_e_labels: list[tuple[FloatInt, FloatInt, str]],
-    new_segments: list[tuple[FloatInt, FloatInt]],
+    s_e_labels: NeList[tuple[FloatInt, FloatInt, str]],
+    new_segments: NeList[tuple[FloatInt, FloatInt]],
     min_overlap=0.6,  # proportion of overlap
-) -> list[str]:
+) -> NeList[str]:
+    """
+    TODO(tilo): think about this method!
+    """
     def calc_rel_overlap(s, e, sl, el) -> float:
         lens = e - s
         return (min(e, el) - max(s, sl)) / lens
@@ -85,11 +92,13 @@ def apply_labels_to_segments(
     labels = []
     label_start = -1
     label_end = -1
+    c = 0
     for s, e in new_segments:
         time_stamp = (s + e) / 2  # in the middle
-        if len(s_e_labels) > 0:
-            while s >= label_end:
-                label_start, label_end, lp = s_e_labels.pop(0)
+        if c < len(s_e_labels):
+            while s >= label_end and c < len(s_e_labels):
+                label_start, label_end, lp = s_e_labels[c]
+                c += 1
         is_completely_inside = s >= label_start and e <= label_end
 
         if is_completely_inside:
@@ -119,6 +128,7 @@ def get_nemo_speaker_embeddings(
 
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/models/clustering_diarizer.py#L329
     """
+    assert batch_size == 1, "only batch size 1 is supported"
     SR = sample_rate
     speaker_model = speaker_model.to(DEVICE)
     speaker_model.eval()
@@ -187,11 +197,12 @@ def save_umap_to_png(embedding: NumpyFloat2DArray, labels: list[str], png_file: 
     fig = plt.figure(figsize=(9, 9), dpi=90)
     ax = plt.subplot(111)
     # fmt: off
-    markers = ["o", "v", "*", "x", "|" ]  # TODO: only via for-loop, see: https://stackoverflow.com/questions/62886268/plotting-different-clusters-markers-for-every-class-in-scatter-plot
+    markers = ["o", "v", "*", "d", "P" ]  # TODO: only via for-loop, see: https://stackoverflow.com/questions/62886268/plotting-different-clusters-markers-for-every-class-in-scatter-plot
     colors=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
     # fmt: on
 
-    color_markers = [(c, m) for m in markers for c in colors]
+    color_markers = [(c, m) for c in colors for m in markers]
+    shuffle(color_markers)
     for k, l in enumerate(le.classes_):
         idx = [i for i, sp in enumerate(labels) if sp == l]
         print(f"{l}: {len(idx)}")

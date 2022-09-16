@@ -86,8 +86,8 @@ def speechbrain_DER(
 
     curr = os.path.abspath(os.path.dirname(__file__))
     # mdEval = os.path.join(curr, "../../tools/der_eval/md-eval.pl")
-    mdEval = os.path.join(curr, "../../audiopolylith/speaker_tasks/md-eval.pl")
-
+    mdEval = os.path.join(curr, "md-eval.pl")
+    assert os.path.isfile(mdEval)
     cmd = [
         mdEval,
         "-af",
@@ -105,6 +105,7 @@ def speechbrain_DER(
         stdout = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as ex:
         stdout = ex.output
+        print(f"{stdout=}")
 
     else:
         stdout = stdout.decode("utf-8")

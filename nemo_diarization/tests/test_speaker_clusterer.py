@@ -15,7 +15,7 @@ from nemo_diarization.audio_segmentation_utils import expand_segments, segment_b
 from nemo_diarization.speaker_clusterer import SpeakerClusterer
 from nemo_diarization.speaker_embedding_utils import (
     format_rttm_lines,
-    read_rttm,
+    read_sel_from_rttm,
     apply_labels_to_segments,
 )
 from nemo_diarization.speechbrain_der import speechbrain_DER
@@ -28,7 +28,7 @@ def test_speaker_clusterer_oracle_vad(
 ):
 
     SR = 16_000
-    start_end_speaker = read_rttm(rttm_ref)
+    start_end_speaker = read_sel_from_rttm(rttm_ref)
     array = load_resample_with_nemo(audio_file)
 
     s_e_audio = [
@@ -41,7 +41,7 @@ def test_speaker_clusterer_oracle_vad(
     with NamedTemporaryFile(suffix=".rttm") as tmp_file:
         rttm_pred_file = tmp_file.name
         write_lines(
-            rttm_pred_file, format_rttm_lines(s_e_labels, some_id=Path(audio_file).stem)
+            rttm_pred_file, format_rttm_lines(s_e_labels, file_id=Path(audio_file).stem)
         )
         miss_speaker, fa_speaker, sers, ders = speechbrain_DER(
             rttm_ref,
@@ -105,7 +105,7 @@ def test_speaker_clusterer(
         print(
             f"{timestamps[s]}->{timestamps[e]}\t{st}->{et}\t{et - st}\t{at.text[s:(e + 1)]}"
         )
-    s_e_sp_ref = read_rttm(rttm_ref)
+    s_e_sp_ref = read_sel_from_rttm(rttm_ref)
     array = load_resample_with_nemo(audio_file)
     s_e_audio = [(s, e, array[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
     assert all((len(a) > 1000 for s, e, a in s_e_audio))
@@ -135,7 +135,7 @@ def test_speaker_clusterer(
     ) as tmp_file:
         rttm_pred_file = tmp_file.name
         write_lines(
-            rttm_pred_file, format_rttm_lines(s_e_labels, some_id=Path(audio_file).stem)
+            rttm_pred_file, format_rttm_lines(s_e_labels, file_id=Path(audio_file).stem)
         )
         miss_speaker, fa_speaker, sers, ders = speechbrain_DER(
             rttm_ref,

@@ -23,6 +23,7 @@ class SpeakerClusterer(Buildable):
     model_name: str
     window: float = 1.5
     step_dur: float = 0.75
+    metric: str = "euclidean"  # cosine
     _speaker_model: EncDecSpeakerLabelModel = field(init=False, repr=False)
     _embeds: NumpyFloat2DArray = field(
         init=False, repr=False
@@ -86,7 +87,7 @@ class SpeakerClusterer(Buildable):
             min_dist=0.0,
             n_components=10,
             random_state=42,
-            metric="euclidean",  # TODO: what about cosine?
+            metric=self.metric,  # TODO: what about cosine?
         ).fit_transform(embeds)
         umap_labels = hdbscan.HDBSCAN(
             # min_samples=10,
