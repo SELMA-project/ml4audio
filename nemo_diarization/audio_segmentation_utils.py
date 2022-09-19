@@ -1,17 +1,24 @@
 import os
 from collections import namedtuple
+from typing import Annotated, Iterable
 
 import soundfile
 from beartype import beartype
+from beartype.abby import die_if_unbearable
+from beartype.vale import Is
 
-from misc_utils.beartypes import NumpyFloat1DArray
-from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
+from misc_utils.beartypes import NumpyFloat1DArray, NeList
+from ml4audio.asr_inference.transcript_glueing import NonEmptyAlignedTranscript
 
 
 @beartype
 def expand_segments(
     s_e: list[tuple[int, int]], timestamps: list[float]
 ) -> list[tuple[float, float]]:
+    """
+    TODO: not used anymore?
+    """
+
     def expand_to_the_right(k: int, this_end: float, expand_by=0.1):
         if k + 1 <= len(s_e) - 1:
             next_start, _ = s_e[k + 1]
@@ -41,32 +48,92 @@ def expand_segments(
     return s_e_times
 
 
+StartEndIdx = Annotated[
+    tuple[int, int],
+    (
+        Is[lambda x: x[1] > x[0]]
+        & Is[
+            lambda x: x[0] >= 0
+        ]  # force line-break, see: https://github.com/beartype/beartype/blob/305d73792de59d8f9918fabaab76203402ddb8c6/beartype/_util/func/utilfunccode.py#L348
+        & Is[lambda x: x[1] > 0]
+    ),
+]
+
+NeStartEnd = Annotated[
+    tuple[float, float],
+    (
+        Is[lambda x: x[1] > x[0]]
+        & Is[lambda x: x[0] >= 0]  # force line-break
+        & Is[lambda x: x[1] > 0]
+    ),
+]
+StartEndLabel = Annotated[
+    tuple[float, float, str],
+    (
+        Is[lambda x: x[1] > x[0]]
+        & Is[lambda x: x[0] >= 0]
+        & Is[lambda x: x[1] > 0]
+        & Is[lambda x: len(x[2]) > 0]
+    ),
+]
+
+
+@beartype
 def expand_merge_segments(
-    segments: list[tuple[float, float]],
+    segments: NeList[tuple[float, float]],
     max_gap_dur: float = 0.2,
-    expand_by: float = 0.1,
-) -> list[tuple[float, float]]:
-    overlap_stamps: list[tuple[float, float]] = []
+    expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
+) -> NeList[NeStartEnd]:
+    exp_segs: list[tuple[float, float]] = []
     for start, end in segments:
         start -= expand_by
         end += expand_by
-        if len(overlap_stamps) > 0:
-            prev_start, prev_end = overlap_stamps[-1]
+        if end <= start:
+            end = start + 0.1  # TODO: WTF!
+
+        if len(exp_segs) > 0:
+            prev_start, prev_end = exp_segs[-1]
         else:
             prev_start, prev_end = None, -9999
 
         if start - prev_end < max_gap_dur:
-            overlap_stamps[-1] = prev_start, prev_end
+            startend = prev_start, end
+            die_if_unbearable(startend, NeStartEnd)
+            exp_segs[-1] = startend
         else:
-            overlap_stamps.append((start, end))
+            startend = (start, end)
+            die_if_unbearable(startend, NeStartEnd)
+            exp_segs.append(startend)
 
-    return overlap_stamps
+    assert all((e > s for s, e in exp_segs))
+    return exp_segs
+
+
+@beartype
+def merge_short_segments(
+    segments: NeList[tuple[float, float]], min_dur: float = 1.5
+) -> NeList[NeStartEnd]:
+    GIVE_ME_NEW_START = "<GIVE_ME_NEW_START>"
+
+    def buffer_segment(segs: Iterable[tuple[float, float]]):
+        buffer_start = GIVE_ME_NEW_START
+        for start, end in segs:
+            if buffer_start == GIVE_ME_NEW_START:
+                buffer_start = start
+
+            if end - buffer_start > min_dur:
+                yield buffer_start, end
+                buffer_start = GIVE_ME_NEW_START
+
+    min_dur_segs = list(buffer_segment(segments))
+    assert all((e - s > min_dur for s, e in min_dur_segs))
+    return min_dur_segs
 
 
 @beartype
 def segment_by_pauses(
-    at: AlignedTranscript, min_pause_dur: float = 0.5
-) -> list[tuple[int, int]]:
+    at: NonEmptyAlignedTranscript, min_pause_dur: float = 0.5
+) -> NeList[tuple[int, int]]:
     timestamps = at.rel_timestamps
     text = at.text
 
@@ -121,3 +188,8 @@ def write_segmentwise_wav_file_just_for_fun(
             array[round(s * SR) : round(e * SR)],
             samplerate=SR,
         )
+
+
+# # pyannote Segment allows end<start -> wtf!
+# seg=Segment(start=1,end=0.5)
+# print(f"{seg.duration=},{seg=}")

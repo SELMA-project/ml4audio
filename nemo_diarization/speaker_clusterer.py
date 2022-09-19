@@ -15,8 +15,12 @@ from misc_utils.beartypes import (
     NumpyFloat1DArray,
     NumpyFloat2DArray,
     NeNumpyFloat1DArray,
+    NeList,
+    NeNumpyFloat2DArray,
+    NumpyFloat2D, NumpyFloat1D,
 )
 from misc_utils.buildable import Buildable
+from nemo_diarization.audio_segmentation_utils import NeStartEnd
 from nemo_diarization.speaker_embedding_utils import (
     get_nemo_speaker_embeddings,
     StartEndLabels,
@@ -47,8 +51,8 @@ class SpeakerClusterer(Buildable):
     @beartype
     def predict(
         self,
-        s_e_audio: list[tuple[float, float, NumpyFloat1DArray]],
-        ref_labels: Optional[list[str]] = None,
+        s_e_audio: list[tuple[NeStartEnd, NumpyFloat1D]],
+        ref_labels: Optional[NeList[str]] = None,
     ) -> tuple[list[tuple[float, float, str]], Optional[list[str]]]:
 
         self.cluster_sels, ref_sels_projected_to_cluster_sels = self._calc_raw_labels(
@@ -71,7 +75,7 @@ class SpeakerClusterer(Buildable):
     @beartype
     def _calc_raw_labels(
         self,
-        s_e_audio: list[tuple[float, float, NumpyFloat1DArray]],
+        s_e_audio: NeList[tuple[NeStartEnd, NumpyFloat1D]],
         ref_labels: Optional[list[str]],
     ):
         if ref_labels:
@@ -88,7 +92,7 @@ class SpeakerClusterer(Buildable):
         return s_e_mapped_labels, mapped_ref_labels
 
     @beartype
-    def _umpa_cluster(self, embeds: NumpyFloat2DArray) -> list[int]:
+    def _umpa_cluster(self, embeds: NumpyFloat2D) -> list[int]:
         clusterable_embedding = umap.UMAP(
             n_neighbors=30,
             min_dist=0.0,
@@ -106,11 +110,13 @@ class SpeakerClusterer(Buildable):
     @beartype
     def _extract_embeddings(
         self,
-        s_e_audio: list[tuple[float, float, NeNumpyFloat1DArray]],
-        ref_labels: Optional[list[str]],
-    ) -> tuple[NumpyFloat2DArray, list[tuple[float, float]], list[str]]:
+        s_e_audio: NeList[tuple[NeStartEnd, NeNumpyFloat1DArray]],
+        ref_labels: Optional[NeList[str]],
+    ) -> tuple[NumpyFloat2D, NeList[NeStartEnd], NeList[str]]:
         SR = 16_000
-        labeled_segments = [(a, s, e, l) for (s, e, a), l in zip(s_e_audio, ref_labels)]
+        labeled_segments = [
+            (a, startend, l) for (startend, a), l in zip(s_e_audio, ref_labels)
+        ]
         embeds, s_e_mapped_labels = get_nemo_speaker_embeddings(
             labeled_segments,
             sample_rate=SR,

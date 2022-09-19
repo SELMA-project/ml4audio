@@ -1,2 +1,2 @@
 librosa
-nemo_toolkit[asr]
+nemo_toolkit[asr]==1.9.0

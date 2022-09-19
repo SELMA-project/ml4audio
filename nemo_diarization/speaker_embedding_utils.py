@@ -1,9 +1,10 @@
 from random import shuffle
-from typing import Union
+from typing import Union, Annotated
 
 import numpy as np
 import torch
 from beartype import beartype
+from beartype.vale import Is
 from matplotlib import pyplot as plt
 from nemo.collections.asr.parts.utils.speaker_utils import (
     get_subsegments,
@@ -13,9 +14,16 @@ from sklearn import preprocessing
 from torch import autocast
 from tqdm import tqdm
 
-from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat2DArray, NeList, \
-    NeNumpyFloat1DArray
+from misc_utils.beartypes import (
+    NumpyFloat1DArray,
+    NumpyFloat2DArray,
+    NeList,
+    NeNumpyFloat1DArray,
+    NumpyFloat1D,
+    NumpyFloat2D,
+)
 from misc_utils.processing_utils import iterable_to_batches
+from nemo_diarization.audio_segmentation_utils import NeStartEnd, StartEndLabel
 
 DEVICE = "cuda"
 if not torch.cuda.is_available():
@@ -56,8 +64,7 @@ def rttm_line(start, duration, file_id, speaker):
     )
 
 
-StartEndLabels = list[tuple[float, float, str]]
-SELs = StartEndLabels
+StartEndLabels = NeList[StartEndLabel]
 
 
 @beartype
@@ -118,14 +125,14 @@ def apply_labels_to_segments(
 
 @beartype
 def get_nemo_speaker_embeddings(
-    labeled_segments: NeList[tuple[NeNumpyFloat1DArray, float, float, str]],
+    labeled_segments: NeList[tuple[NumpyFloat1D, NeStartEnd, str]],
     sample_rate: int,
     speaker_model,
     window=1.5,
     shift=0.75,
     expand_by=1.0,
     batch_size=1,
-) -> tuple[NumpyFloat2DArray, StartEndLabels]:
+) -> tuple[NumpyFloat2D, StartEndLabels]:
     """
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/speaker_tasks/recognition/extract_speaker_embeddings.py
 
@@ -137,10 +144,10 @@ def get_nemo_speaker_embeddings(
     speaker_model.eval()
 
     all_embs = []
-    assert all((len(a)>0 for a,_,_,_ in labeled_segments))
+    assert all((len(a) > 0 for a, _, _ in labeled_segments))
     ss_start_dur_segment_label = [
         (start, s, d, segment, label)
-        for segment, start, end, label in labeled_segments
+        for segment, (start, end), label in labeled_segments
         for s, d in get_subsegments(
             offset=0.0, window=window, shift=shift, duration=len(segment) / SR
         )
