@@ -1,10 +1,9 @@
 from random import shuffle
-from typing import Union, Annotated
+from typing import Union
 
 import numpy as np
 import torch
 from beartype import beartype
-from beartype.vale import Is
 from matplotlib import pyplot as plt
 from nemo.collections.asr.parts.utils.speaker_utils import (
     get_subsegments,
@@ -15,15 +14,13 @@ from torch import autocast
 from tqdm import tqdm
 
 from misc_utils.beartypes import (
-    NumpyFloat1DArray,
     NumpyFloat2DArray,
     NeList,
-    NeNumpyFloat1DArray,
     NumpyFloat1D,
     NumpyFloat2D,
 )
 from misc_utils.processing_utils import iterable_to_batches
-from nemo_diarization.audio_segmentation_utils import NeStartEnd, StartEndLabel
+from nemo_diarization.audio_segmentation_utils import NeStartEnd, StartEndLabels
 
 DEVICE = "cuda"
 if not torch.cuda.is_available():
@@ -42,11 +39,11 @@ except ImportError:
 
 @beartype
 def format_rttm_lines(
-    start_end_speaker: NeList[tuple[float, float, str]],
+    start_end_speaker: StartEndLabels,
     file_id="who_cares",  # -> DER cares
 ) -> NeList[str]:
     """
-    nvidia/nemo-code is too so I had to copy/past+refactor this
+    nvidia/nemo-code is too stupid I had to copy/past+refactor this
     """
     lines = []
     for start, end, speaker in start_end_speaker:
@@ -62,9 +59,6 @@ def rttm_line(start, duration, file_id, speaker):
     return "SPEAKER {} 1   {:.3f}   {:.3f} <NA> <NA> {} <NA> <NA>".format(
         file_id, start, duration, speaker
     )
-
-
-StartEndLabels = NeList[StartEndLabel]
 
 
 @beartype

@@ -20,10 +20,9 @@ from misc_utils.beartypes import (
     NumpyFloat2D, NumpyFloat1D,
 )
 from misc_utils.buildable import Buildable
-from nemo_diarization.audio_segmentation_utils import NeStartEnd
+from nemo_diarization.audio_segmentation_utils import NeStartEnd, StartEndLabels
 from nemo_diarization.speaker_embedding_utils import (
     get_nemo_speaker_embeddings,
-    StartEndLabels,
 )
 
 seed_everything(42)

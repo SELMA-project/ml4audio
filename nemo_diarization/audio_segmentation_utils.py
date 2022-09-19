@@ -76,6 +76,7 @@ StartEndLabel = Annotated[
         & Is[lambda x: len(x[2]) > 0]
     ),
 ]
+StartEndLabels = NeList[StartEndLabel]
 
 
 @beartype
@@ -131,9 +132,12 @@ def merge_short_segments(
 
 
 @beartype
-def segment_by_pauses(
+def pause_segmented_idx(
     at: NonEmptyAlignedTranscript, min_pause_dur: float = 0.5
 ) -> NeList[tuple[int, int]]:
+    """
+    indizes can be start == end
+    """
     timestamps = at.rel_timestamps
     text = at.text
 
@@ -172,6 +176,29 @@ def segment_by_pauses(
         + [(pause_segments[-1].end, len(at.letters) - 1)]
     )
     return segments
+
+
+@beartype
+def pause_based_segmentation(
+    at: NonEmptyAlignedTranscript, min_pause_dur=0.7, min_seg_dur=1.5
+) -> NeList[NeStartEnd]:
+    s_e = pause_segmented_idx(at, min_pause_dur=min_pause_dur)
+    timestamps = at.abs_timestamps
+    monoton_increasing = all(
+        (
+            abs(timestamps[k] - timestamps[k - 1]) > 0.0
+            for k in range(len(timestamps) - 1)
+        )
+    )
+    if not monoton_increasing:
+        print(
+            f"timestamps are not monoton_increasing!!!\nthis is not a big problem cause cause 'merge_short_segments' does something"
+        )
+    # s_e_times = expand_segments(s_e, timestamps)
+    s_e_times = [(timestamps[s], timestamps[e]) for s, e in s_e]
+    s_e_times = expand_merge_segments(s_e_times, max_gap_dur=0.2, expand_by=0.1)
+    s_e_times = merge_short_segments(s_e_times, min_dur=min_seg_dur)
+    return s_e_times
 
 
 @beartype
