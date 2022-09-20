@@ -10,7 +10,7 @@ from nemo_vad.nemo_offline_vad import NemoOfflineVAD
 
 
 def load_asr_inferencer():
-    cache_root_in_container = "/model"
+    cache_root_in_container = os.environ["CACHE_ROOT"]
     cache_root = os.environ.get("cache_root", cache_root_in_container)
     BASE_PATHES["base_path"] = "/"
     BASE_PATHES["cache_root"] = cache_root
