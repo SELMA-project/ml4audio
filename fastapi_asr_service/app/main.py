@@ -13,14 +13,12 @@ from fastapi_asr_service.app.fastapi_asr_service_utils import (
     load_asr_inferencer,
     load_vad_inferencer,
 )
-from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat1D
+from misc_utils.beartypes import NumpyFloat1D
 from misc_utils.dataclass_utils import (
     encode_dataclass,
 )
-
-from ml4audio.asr_inference.hf_asr_pipeline import (
-    HfAsrPipelineFromLogitsInferencerDecoder,
-)
+from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import Aschinglupi
+from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, letter_to_words
 from ml4audio.audio_utils.audio_io import ffmpeg_torch_load
 from nemo_vad.nemo_offline_vad import NemoOfflineVAD
 
@@ -28,13 +26,13 @@ DEBUG = os.environ.get("DEBUG", "False").lower() != "false"
 if DEBUG:
     print("DEBUGGING MODE")
 
-logger = logging.getLogger("websockets")
-logger.setLevel(logging.DEBUG if DEBUG else logging.INFO)
-logger.addHandler(logging.StreamHandler())
+# logger = logging.getLogger("websockets")
+# logger.setLevel(logging.DEBUG if DEBUG else logging.INFO)
+# logger.addHandler(logging.StreamHandler())
 
 app = FastAPI(debug=DEBUG)
 
-asr_inferencer: Optional[HfAsrPipelineFromLogitsInferencerDecoder] = None
+asr_inferencer: Optional[Aschinglupi] = None
 vad: Optional[NemoOfflineVAD] = None
 
 # if DEBUG:
@@ -98,8 +96,18 @@ async def upload_and_process_audio_file(file: UploadFile):
     audio = cut_away_noise(raw_audio)
     print(f"{len(raw_audio)=},{len(audio)=}")
     audio = audio.astype(np.float)
-    prediction = asr_inferencer.predict(audio)
-    return {"filename": file.filename} | prediction
+    at: AlignedTranscript = asr_inferencer.transcribe_audio_array(audio)
+    at.remove_unnecessary_spaces()
+    timestamps = at.abs_timestamps
+    tokens = letter_to_words(at.letters)
+    hf_like_format = {
+        "text": at.text,
+        "words": [
+            {"text": token, "start_end": (timestamps[s], timestamps[e])}
+            for s, e, token in tokens
+        ],
+    }
+    return {"filename": file.filename} | hf_like_format
 
 
 @app.get("/get_inferencer_dataclass")

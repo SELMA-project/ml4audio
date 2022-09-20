@@ -67,6 +67,9 @@ def hf_original_chunking_method(audio: NumpyFloat1DArray, chunk_len: int, step: 
 
 @dataclass
 class StreamingDecoder(PyCTCKenLMDecoder):
+    """
+    TODO(tilo): somehow I stopped half-way
+    """
 
     _buffer: NumpyFloat2DArray = field(init=False)
     _last_end: int = field(init=False, default=0)

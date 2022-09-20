@@ -10,6 +10,7 @@ from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import \
     HFASRDecodeInferencer
 from ml4audio.asr_inference.transcript_gluer import TranscriptGluer, \
     ASRStreamInferenceOutput
+from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
 from ml4audio.audio_utils.overlap_array_chunker import (
     audio_messages_from_file,
     OverlapArrayChunker,
@@ -66,11 +67,11 @@ def test_ASRStreamInferencer(
     ).build()
     startup_time = time() - start_time
     start_time = time()
-    outp: ASRStreamInferenceOutput = list(
+    at: AlignedTranscript = list(
         gather_final_aligned_transcripts(streaming_asr, asr_input)
     )[0]
     inference_duration = time() - start_time
-    hyp = outp.aligned_transcript.text.strip(" ")
+    hyp = at.text.strip(" ")
 
     ref = normalize_filter_text(
         librispeech_raw_ref,

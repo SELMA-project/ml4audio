@@ -16,7 +16,7 @@ def load_asr_inferencer():
     BASE_PATHES["cache_root"] = cache_root
     BASE_PATHES["asr_inference"] = PrefixSuffix("cache_root", "ASR_INFERENCE")
     BASE_PATHES["am_models"] = PrefixSuffix("cache_root", "AM_MODELS")
-    p = next(Path(cache_root).rglob("HfAsrPipeline*/dataclass.json"))
+    p = next(Path(cache_root).rglob("Aschinglupi*/dataclass.json")) # TODO(tilo): hard-coded the class-name here!!
     jzon = read_json(str(p))
     inferencer = decode_dataclass(jzon)
     inferencer.build()

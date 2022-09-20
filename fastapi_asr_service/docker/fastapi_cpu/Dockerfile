@@ -54,7 +54,7 @@ RUN $PIP_INSTALL -r requirements.txt
 FROM dependencies AS build_models
 COPY --from=model_image . /model
 COPY build_model_in_docker.py /code/build_model_in_docker.py
-COPY app/fastapi_asr_service_utils.py /code/app/fastapi_asr_service_utils.py
+COPY app/fastapi_asr_service_utils.py /code/fastapi_asr_service/app/fastapi_asr_service_utils.py
 COPY app/vad_inference_postprocessing.yaml /code/app/vad_inference_postprocessing.yaml
 COPY app/vad_multilingual_marblenet.nemo /code/app/vad_multilingual_marblenet.nemo
 RUN python /code/build_model_in_docker.py
