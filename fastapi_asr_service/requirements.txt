@@ -1,4 +1,5 @@
 ml4audio@git+https://github.com/SELMA-project/ml4audio@main#egg=ml4audio
+# if pushed changes to ml4audio do cache-bust here! -> docker (buildkit) does not reinstall if this file is not changing!
 # datasets # why?
 python-levenshtein
 beartype
@@ -21,3 +22,6 @@ transformers==4.20.1
 resampy==0.2.2 # newer version here somehow deadlocked jina-ai executors! super strange!
 python-multipart
 uvicorn[standard]
+omegaconf
+nemo_toolkit[asr]==1.11.0
+wandb # WTF!! nemo wants it!!

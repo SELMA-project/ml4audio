@@ -1,7 +1,7 @@
 name: &name "vad_inference_postprocessing"
 
 dataset: null # Path of json file of evaluation data. Audio files should have unique names
-num_workers: 1
+num_workers: 0
 sample_rate: 16000
 
 # functionality
@@ -14,7 +14,7 @@ prepare_manifest:
 
 vad:
   #    model_path: "vad_multilingual_marblenet"  # loading this from ngc-hub seem NOT to be working!
-    model_path: null    # provide a ".nemo" model path
+    model_path: app/vad_multilingual_marblenet.nemo    # provide a ".nemo" model path
     parameters: # Tuned parameter for CH109! (with 11 moved multi-speech sessions as dev set)
       normalize_audio: False
       window_length_in_sec: 0.15  # window length in sec for VAD context input

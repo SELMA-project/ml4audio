@@ -41,7 +41,7 @@ RUN $PIP_INSTALL install Cython
 # to trigger re-run of following, "disable" caching, see: https://stackoverflow.com/questions/35134713/disable-cache-for-specific-run-commands
 # use with: --build-arg CACHEBUST=$(date +%s)
 
-ARG CACHEBUST=8
+ARG CACHEBUST=0
 RUN echo "$CACHEBUST"
 
 COPY requirements.txt requirements.txt
@@ -54,6 +54,9 @@ RUN $PIP_INSTALL -r requirements.txt
 FROM dependencies AS build_models
 COPY --from=model_image . /model
 COPY build_model_in_docker.py /code/build_model_in_docker.py
+COPY app/fastapi_asr_service_utils.py /code/app/fastapi_asr_service_utils.py
+COPY app/vad_inference_postprocessing.yaml /code/app/vad_inference_postprocessing.yaml
+COPY app/vad_multilingual_marblenet.nemo /code/app/vad_multilingual_marblenet.nemo
 RUN python /code/build_model_in_docker.py
 #
 RUN rm -rf /venv/lib/python3.9/site-packages/sklearn/ensemble

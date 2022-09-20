@@ -9,9 +9,11 @@ import uvicorn
 from beartype import beartype
 from fastapi import FastAPI, UploadFile, HTTPException
 
-from fastapi_asr_service.app.fastapi_asr_service_utils import load_asr_inferencer, \
-    load_vad_inferencer
-from misc_utils.beartypes import NumpyFloat1DArray
+from fastapi_asr_service.app.fastapi_asr_service_utils import (
+    load_asr_inferencer,
+    load_vad_inferencer,
+)
+from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat1D
 from misc_utils.dataclass_utils import (
     encode_dataclass,
 )
@@ -58,7 +60,7 @@ SR = 16_000
 
 
 @beartype
-def cut_away_noise(array: NumpyFloat1DArray) -> NumpyFloat1DArray:
+def cut_away_noise(array: NumpyFloat1D) -> NumpyFloat1D:
     global vad
     start_ends, probas = vad.predict(array)
     if len(start_ends) == 0:
@@ -72,7 +74,12 @@ def cut_away_noise(array: NumpyFloat1DArray) -> NumpyFloat1DArray:
 
 
 @app.post("/transcribe")
-def upload_and_process_audio_file(file: UploadFile):
+async def upload_and_process_audio_file(file: UploadFile):
+    """
+    TODO(tilo): cannot go with normal sync def method, cause:
+    fastapi wants to run things in multiprocessing-processes -> therefore needs to pickle stuff
+    some parts of nemo cannot be pickled: "_pickle.PicklingError: Can't pickle <class 'nemo.collections.common.parts.preprocessing.collections.SpeechLabelEntity'>"
+    """
     global asr_inferencer
 
     if not file:
@@ -82,11 +89,15 @@ def upload_and_process_audio_file(file: UploadFile):
         with open(filename, "wb") as f:
             f.write(data)
 
-    with NamedTemporaryFile(delete=True) as tmp_original:
-        save_file(tmp_original.name, file.read())
+    with NamedTemporaryFile(delete=False, suffix=".wav") as tmp_original:
+        # data_bytes = file.file.read() # if in synchronous context otherwise just file
+        data_bytes = await file.read()  # if in Asynchronous context
+        save_file(tmp_original.name, data_bytes)
 
-        audio = ffmpeg_torch_load(tmp_original.name, sample_rate=SR)
-    audio = cut_away_noise(audio.numpy())
+        raw_audio = ffmpeg_torch_load(tmp_original.name, sample_rate=SR).numpy()
+    audio = cut_away_noise(raw_audio)
+    print(f"{len(raw_audio)=},{len(audio)=}")
+    audio = audio.astype(np.float)
     prediction = asr_inferencer.predict(audio)
     return {"filename": file.filename} | prediction
 
@@ -148,8 +159,8 @@ def get_model_config() -> Dict[str, Any]:
 @app.on_event("startup")
 def startup_event():
     global asr_inferencer, vad
-    asr_inferencer= load_asr_inferencer()
-    vad=load_vad_inferencer()
+    asr_inferencer = load_asr_inferencer()
+    vad = load_vad_inferencer()
 
 
 if __name__ == "__main__":
