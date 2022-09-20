@@ -28,6 +28,9 @@ remove_backward_accent = {
     "ò": "o",
     "ù": "u",
 }
+# TODO!!
+map_to_a = {k: "a" for k in ["ã", "ǎ", "á", "ă", "â", "å", "ā", "á", "à", "ą"]}
+map_to_A = {k: "A" for k in ["Á", "Ǎ", "À", "Å", "Â", "Ā"]}
 
 # hats, circumflex
 remove_hats = {

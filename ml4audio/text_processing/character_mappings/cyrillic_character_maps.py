@@ -31,10 +31,10 @@ NO_JO = {
     "ë": "е",
 }
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    for k,v in NO_JO.items():
+    for k, v in NO_JO.items():
         print(f"{k}: {k.encode('utf-8')} -> {v}: {v.encode('utf-8')}")
 
-    for k,v in RECOVER_CYRILLIC.items():
+    for k, v in RECOVER_CYRILLIC.items():
         print(f"{k}: {k.encode('utf-8')} -> {v}: {v.encode('utf-8')}")
