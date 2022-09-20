@@ -14,7 +14,7 @@ from transformers import (
     AutomaticSpeechRecognitionPipeline,
 )
 
-from misc_utils.beartypes import NumpyInt16Dim1
+from misc_utils.beartypes import NumpyInt16Dim1, NumpyFloat1D
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
@@ -121,9 +121,7 @@ class HfAsrPipelineFromLogitsInferencerDecoder(CachedData):
         self.asr_pipeline = self._prepare_asr_pipeline()
 
     @beartype
-    def predict(self, audio_array) -> dict:
-        audio_array = audio_array.astype(np.float)
-
+    def predict(self, audio_array: NumpyFloat1D) -> dict:
         prediction = self.asr_pipeline(
             audio_array,
             chunk_length_s=self.chunk_length_s,

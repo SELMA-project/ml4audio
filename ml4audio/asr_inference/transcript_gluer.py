@@ -24,7 +24,9 @@ class ASRStreamInferenceOutput:
     id: str
     ending_to_be_removed: str  # end of transcript that should be removed
     text: str
-    aligned_transcript: Optional[AlignedTranscript] = None # TODO: why is this optional?
+    aligned_transcript: Optional[
+        AlignedTranscript
+    ] = None  # TODO: why is this optional?
     end_of_message: bool = False
 
 

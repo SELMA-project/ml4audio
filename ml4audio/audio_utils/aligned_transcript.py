@@ -119,10 +119,16 @@ class AlignedTranscript:
 
 @dataclass
 class NeAlignedTranscript(AlignedTranscript):
+    # TODO(tilo): WTF see NonEmptyAlignedTranscript !!!
     letters: NeList[LetterIdx] = UNDEFINED
     sample_rate: int = UNDEFINED
 
     def slice_subsegment(self, abs_start: int, abs_end: int) -> "NeAlignedTranscript":
+        """
+        TODO: anti-pattern here! this insertion of a dummy space letter (" ")
+            is very use-case/situation specific, should not be done in a class!
+            -> too much coupling! this class is spanning to many contexts!
+        """
         letters = [
             x
             for x in self.letters

@@ -3,8 +3,9 @@ import pickle
 import sys
 from beartype import beartype
 
-from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import \
-    HFASRDecodeInferencer
+from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
+    HFASRDecodeInferencer,
+)
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWAV2VEC2_SAMPLE_RATE,
 )

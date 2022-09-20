@@ -3,8 +3,9 @@ from typing import Iterator, Iterable
 
 from beartype import beartype
 
-from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import \
-    HFASRDecodeInferencer
+from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
+    HFASRDecodeInferencer,
+)
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
 from ml4audio.audio_utils.overlap_array_chunker import AudioMessageChunk
 

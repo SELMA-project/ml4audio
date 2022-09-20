@@ -4,26 +4,37 @@
 3. glue transcripts -> buffering
 """
 from dataclasses import dataclass, field
-from typing import Iterator, Union, Optional, Iterable
+from typing import Iterator, Union, Optional, Iterable, Annotated
 
+import numpy as np
 from beartype import beartype
+from beartype.vale import Is
 from transformers import set_seed
 
-from ml4audio.asr_inference.asr_array_stream_inference import ASRMessage
-from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import \
-    HFASRDecodeInferencer
-from ml4audio.asr_inference.transcript_gluer import TranscriptGluer, \
-    ASRStreamInferenceOutput
-from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
+from misc_utils.beartypes import Numpy1D, NumpyInt16_1D, NeList
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import (
     UNDEFINED,
     _UNDEFINED,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+from ml4audio.asr_inference.asr_array_stream_inference import ASRMessage
+from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
+    HFASRDecodeInferencer,
+)
+from ml4audio.asr_inference.transcript_gluer import (
+    TranscriptGluer,
+    ASRStreamInferenceOutput,
+)
+from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
+from ml4audio.audio_utils.audio_io import (
+    convert_to_16bit_array,
+    break_array_into_chunks,
+)
 from ml4audio.audio_utils.overlap_array_chunker import (
     OverlapArrayChunker,
     AudioMessageChunk,
+    audio_messages_from_chunks,
 )
 
 set_seed(42)
@@ -66,6 +77,10 @@ class Aschinglupi(CachedData):
     def reset(self) -> None:
         self.audio_bufferer.reset()
         self.transcript_gluer.reset()
+
+    @property
+    def sample_rate(self) -> int:
+        return self.hf_asr_decoding_inferencer.sample_rate
 
     @property
     def name(self):
@@ -151,4 +166,50 @@ def gather_final_aligned_transcripts(
 
         if inpt.end_of_signal:
             aschinglupi.reset()
-            yield last_response
+            yield last_response.aligned_transcript
+
+
+@beartype
+def is_end_of_signal(am: AudioMessageChunk) -> bool:
+    return am.end_of_signal
+
+
+CompleteMessage = Annotated[
+    NeList[AudioMessageChunk], Is[lambda ams: is_end_of_signal(ams[-1])]
+]
+
+
+@beartype
+def calc_final_transcript(
+    inferencer: Aschinglupi,
+    audio_messages: CompleteMessage,
+) -> AlignedTranscript:
+    last_responses = list(gather_final_aligned_transcripts(inferencer, audio_messages))
+    assert len(last_responses) == 1, f"there can only be one final response"
+    return last_responses[0].aligned_transcript
+
+
+@beartype
+def aschinglupi_transcribe_chunks(
+    inferencer: Aschinglupi, id: str, chunks: Iterable[NumpyInt16_1D]
+) -> AlignedTranscript:
+    audio_messages = audio_messages_from_chunks(
+        signal_id=id,
+        chunks=chunks,
+    )
+    inferencer.reset()
+    at = calc_final_transcript(inferencer, audio_messages)
+    inferencer.reset()
+    return at
+
+
+@beartype
+def transcribe_audio_array(
+    inferencer: Aschinglupi, id: str, array: Numpy1D, chunk_dur: float = 8.0
+) -> AlignedTranscript:
+    if array.dtype is not np.int16:
+        array = convert_to_16bit_array(array)
+    chunks = break_array_into_chunks(array, int(inferencer.sample_rate * chunk_dur))
+
+    last_response = aschinglupi_transcribe_chunks(inferencer, id, chunks)
+    return last_response

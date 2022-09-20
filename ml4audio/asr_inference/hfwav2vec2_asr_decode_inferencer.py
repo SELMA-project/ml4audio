@@ -53,6 +53,10 @@ class HFASRDecodeInferencer(ASRAudioArrayInferencer):
     #     ).build()
 
     @property
+    def sample_rate(self) -> int:
+        return self.logits_inferencer.input_sample_rate
+
+    @property
     def vocab(self) -> list[str]:
         return self.logits_inferencer.vocab
 
