@@ -4,10 +4,10 @@ from typing import Annotated, Iterable
 
 import soundfile
 from beartype import beartype
-from beartype.abby import die_if_unbearable
+from beartype.door import die_if_unbearable
 from beartype.vale import Is
 
-from misc_utils.beartypes import NumpyFloat1DArray, NeList
+from misc_utils.beartypes import NumpyFloat1DArray, NeList, is_bearable
 from ml4audio.asr_inference.transcript_glueing import NonEmptyAlignedTranscript
 
 
@@ -48,33 +48,24 @@ def expand_segments(
     return s_e_times
 
 
+non_empty = lambda x: x[1] > x[0]
+start_non_negative = lambda x: x[0] >= 0
 StartEndIdx = Annotated[
     tuple[int, int],
-    (
-        Is[lambda x: x[1] > x[0]]
-        & Is[
-            lambda x: x[0] >= 0
-        ]  # force line-break, see: https://github.com/beartype/beartype/blob/305d73792de59d8f9918fabaab76203402ddb8c6/beartype/_util/func/utilfunccode.py#L348
-        & Is[lambda x: x[1] > 0]
-    ),
+    (Is[non_empty] & Is[start_non_negative]),
 ]
 
-NeStartEnd = Annotated[
+
+# naming lamdas cause it somehow helps beartype, see: https://github.com/beartype/beartype/blob/305d73792de59d8f9918fabaab76203402ddb8c6/beartype/_util/func/utilfunccode.py#L348
+StartEnd = Annotated[
     tuple[float, float],
-    (
-        Is[lambda x: x[1] > x[0]]
-        & Is[lambda x: x[0] >= 0]  # force line-break
-        & Is[lambda x: x[1] > 0]
-    ),
+    (Is[non_empty] & Is[start_non_negative]),
 ]
+
+valid_label = lambda x: len(x[2]) > 0
 StartEndLabel = Annotated[
     tuple[float, float, str],
-    (
-        Is[lambda x: x[1] > x[0]]
-        & Is[lambda x: x[0] >= 0]
-        & Is[lambda x: x[1] > 0]
-        & Is[lambda x: len(x[2]) > 0]
-    ),
+    (Is[non_empty] & Is[start_non_negative] & Is[valid_label]),
 ]
 StartEndLabels = NeList[StartEndLabel]
 
@@ -84,7 +75,7 @@ def expand_merge_segments(
     segments: NeList[tuple[float, float]],
     max_gap_dur: float = 0.2,
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
-) -> NeList[NeStartEnd]:
+) -> NeList[StartEnd]:
     exp_segs: list[tuple[float, float]] = []
     for start, end in segments:
         start -= expand_by
@@ -99,11 +90,11 @@ def expand_merge_segments(
 
         if start - prev_end < max_gap_dur:
             startend = prev_start, end
-            die_if_unbearable(startend, NeStartEnd)
+            die_if_unbearable(startend, StartEnd)
             exp_segs[-1] = startend
         else:
             startend = (start, end)
-            die_if_unbearable(startend, NeStartEnd)
+            die_if_unbearable(startend, StartEnd)
             exp_segs.append(startend)
 
     assert all((e > s for s, e in exp_segs))
@@ -113,7 +104,7 @@ def expand_merge_segments(
 @beartype
 def merge_short_segments(
     segments: NeList[tuple[float, float]], min_dur: float = 1.5
-) -> NeList[NeStartEnd]:
+) -> NeList[StartEnd]:
     GIVE_ME_NEW_START = "<GIVE_ME_NEW_START>"
 
     def buffer_segment(segs: Iterable[tuple[float, float]]):
@@ -181,7 +172,7 @@ def pause_segmented_idx(
 @beartype
 def pause_based_segmentation(
     at: NonEmptyAlignedTranscript, min_pause_dur=0.7, min_seg_dur=1.5
-) -> NeList[NeStartEnd]:
+) -> NeList[StartEnd]:
     s_e = pause_segmented_idx(at, min_pause_dur=min_pause_dur)
     timestamps = at.abs_timestamps
     monoton_increasing = all(
@@ -220,3 +211,6 @@ def write_segmentwise_wav_file_just_for_fun(
 # # pyannote Segment allows end<start -> wtf!
 # seg=Segment(start=1,end=0.5)
 # print(f"{seg.duration=},{seg=}")
+
+if __name__ == "__main__":
+    print(is_bearable((0.0, 1.0, "bo"), StartEndLabel))
