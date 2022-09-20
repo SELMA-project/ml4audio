@@ -2,7 +2,7 @@
 copypasted from: https://github.com/dertilo/speech-to-text
 """
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Iterable
 
 from misc_utils.beartypes import NeList
 from misc_utils.dataclass_utils import UNDEFINED
@@ -12,6 +12,17 @@ from misc_utils.dataclass_utils import UNDEFINED
 class LetterIdx:
     letter: str
     r_idx: int  # relative index in input sequence not towards logits!!
+
+
+def letter_to_words(letters: Iterable[LetterIdx]) -> Iterable[tuple[int, int, float]]:
+    loow = []  # letters of one word
+    for l in letters:
+        if l.letter == " ":
+            assert len(loow) > 0
+            yield loow[0].r_idx, loow[-1].r_idx, "".join([l.letter for l in loow])
+            loow = []
+        else:
+            loow.append(l)
 
 
 @dataclass

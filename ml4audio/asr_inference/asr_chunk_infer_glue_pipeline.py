@@ -129,22 +129,9 @@ class Aschinglupi(CachedData):
             glued_transcript = self.transcript_gluer.handle_message(message)
             yield glued_transcript
 
-    # @beartype
-    # async def _async_transcribe_audio_stream(
-    #     self, buffered_audio_g: AsyncIterable[AudioChunk]
-    # ) -> AsyncIterator[ASRMessage]:
-    #     async for datum in buffered_audio_g:
-    #         tr: AlignedTranscript = (
-    #             self.hf_asr_decoding_inferencer.transcribe_audio_array(
-    #                 datum.audio_array
-    #             )
-    #         )
-    #         tr.set_abs_pos_in_time(datum.frame_idx)
-    #         yield ASRMessage(
-    #             message_id=datum.message_id,
-    #             aligned_transcript=tr,
-    #             end_of_message=datum.end_of_signal,
-    #         )
+    @beartype
+    def transcribe_audio_array(self, array: Numpy1D) -> AlignedTranscript:
+        return transcribe_audio_array(self, array)
 
     @property
     def vocab(self) -> list[str]:
@@ -154,19 +141,20 @@ class Aschinglupi(CachedData):
 @beartype
 def gather_final_aligned_transcripts(
     aschinglupi: Aschinglupi, asr_input: Iterable[AudioMessageChunk]
-) -> Iterator[ASRStreamInferenceOutput]:
+) -> Iterator[AlignedTranscript]:
     """
     gather/accumulate intermediate transcripts until final is received
     """
-    last_response: ASRStreamInferenceOutput = None
+    last_response: Optional[AlignedTranscript] = None
 
     for inpt in asr_input:
         for t in aschinglupi.handle_inference_input(inpt):
-            last_response = t
+            last_response = t.aligned_transcript
 
         if inpt.end_of_signal:
+            assert last_response is not None
             aschinglupi.reset()
-            yield last_response.aligned_transcript
+            yield last_response
 
 
 @beartype
@@ -186,16 +174,18 @@ def calc_final_transcript(
 ) -> AlignedTranscript:
     last_responses = list(gather_final_aligned_transcripts(inferencer, audio_messages))
     assert len(last_responses) == 1, f"there can only be one final response"
-    return last_responses[0].aligned_transcript
+    return last_responses[0]
 
 
 @beartype
 def aschinglupi_transcribe_chunks(
-    inferencer: Aschinglupi, id: str, chunks: Iterable[NumpyInt16_1D]
+    inferencer: Aschinglupi, chunks: Iterable[NumpyInt16_1D]
 ) -> AlignedTranscript:
-    audio_messages = audio_messages_from_chunks(
-        signal_id=id,
-        chunks=chunks,
+    audio_messages = list(
+        audio_messages_from_chunks(
+            signal_id="nobody_cares",
+            chunks=chunks,
+        )
     )
     inferencer.reset()
     at = calc_final_transcript(inferencer, audio_messages)
@@ -205,11 +195,23 @@ def aschinglupi_transcribe_chunks(
 
 @beartype
 def transcribe_audio_array(
-    inferencer: Aschinglupi, id: str, array: Numpy1D, chunk_dur: float = 8.0
+    inferencer: Aschinglupi, array: Numpy1D, chunk_dur: float = 4.0
 ) -> AlignedTranscript:
     if array.dtype is not np.int16:
         array = convert_to_16bit_array(array)
     chunks = break_array_into_chunks(array, int(inferencer.sample_rate * chunk_dur))
-
-    last_response = aschinglupi_transcribe_chunks(inferencer, id, chunks)
+    last_response = aschinglupi_transcribe_chunks(inferencer, chunks)
     return last_response
+
+
+"""
+if __name__ == "__main__":
+    die_if_unbearable(
+        [
+            AudioMessageChunk(
+                "foo", 0, np.zeros((9,), dtype=np.int16), end_of_signal=True
+            )
+        ],
+        CompleteMessage,
+    )
+"""
