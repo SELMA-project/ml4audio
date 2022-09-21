@@ -1,7 +1,9 @@
+import json
 import os
 from typing import Any, Optional, Dict
 
 import uvicorn
+from beartype.door import is_bearable
 from fastapi import FastAPI, UploadFile, Form
 from misc_utils.dataclass_utils import (
     encode_dataclass,
@@ -31,14 +33,15 @@ SR = 16_000
 
 
 @app.post("/predict")
-async def upload_and_process_audio_file(
-    file: UploadFile, segments: list[tuple[float, float]] = Form()
-):
+async def upload_and_process_audio_file(file: UploadFile, segments: str = Form()):
     """
     TODO(tilo): cannot go with normal sync def method, cause:
     fastapi wants to run things in multiprocessing-processes -> therefore needs to pickle stuff
     some parts of nemo cannot be pickled: "_pickle.PicklingError: Can't pickle <class 'nemo.collections.common.parts.preprocessing.collections.SpeechLabelEntity'>"
     """
+    segments = json.loads(segments)
+    is_bearable(segments, list[list[float]])
+    segments: list[tuple[float, float]] = [(s, e) for s, e in segments]
     global inferencer
 
     audio = await read_uploaded_audio_file(file)

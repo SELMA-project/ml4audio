@@ -42,10 +42,12 @@ def test_speaker_clusterer_oracle_vad(
         model_name="ecapa_tdnn", metric="cosine"
     ).build()
     s_e_labels, _ = clusterer.predict(s_e_audio)
+    file_id = Path(audio_file).stem
+
     with NamedTemporaryFile(suffix=".rttm") as tmp_file:
         rttm_pred_file = tmp_file.name
         write_lines(
-            rttm_pred_file, format_rttm_lines(s_e_labels, file_id=Path(audio_file).stem)
+            rttm_pred_file, format_rttm_lines(s_e_labels, file_id=file_id)
         )
         miss_speaker, fa_speaker, sers, ders = speechbrain_DER(
             rttm_ref,
