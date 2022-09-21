@@ -1,7 +1,7 @@
 # see: https://github.com/docker/for-mac/issues/2155
 # global arg ->  must declare it before every FROM or it will be local
 ARG MODEL_IMAGE
-FROM ${MODEL_IMAGE} as model_image
+# FROM ${MODEL_IMAGE} as model_image
 
 FROM python:3.9-bullseye AS dependencies
 WORKDIR /code
@@ -53,7 +53,7 @@ RUN $PIP_INSTALL -r requirements.txt
 
 FROM dependencies AS build_models
 ENV CACHE_ROOT="/model"
-COPY --from=model_image . /model
+# COPY --from=model_image . /model
 COPY build_model_in_docker.py /code/build_model_in_docker.py
 RUN python /code/build_model_in_docker.py
 #
@@ -88,7 +88,7 @@ RUN apt-get update && \
 
 # maybe for better docker-caching copy from model-image here, this only works if build_models-stage does not modify the models!! does it? well it could!
 #COPY --from=model_image . /model
-COPY --from=build_models /model /model
+# COPY --from=build_models /model /model
 COPY --from=build_models /venv /venv
 COPY --from=build_models /root/.cache /root/.cache
 
