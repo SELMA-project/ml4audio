@@ -32,12 +32,34 @@ inferencer: Optional[SpeakerClusterer] = None
 SR = 16_000
 
 
+def _form_response(file, s_e_labels):
+    return {
+        "filename": file.filename,
+        "labeled_segments": [
+            {"start": s, "end": e, "label": l} for s, e, l in s_e_labels
+        ],
+    }
+
+
 @app.post("/predict")
 async def upload_and_process_audio_file(file: UploadFile, segments: str = Form()):
     """
     TODO(tilo): cannot go with normal sync def method, cause:
     fastapi wants to run things in multiprocessing-processes -> therefore needs to pickle stuff
     some parts of nemo cannot be pickled: "_pickle.PicklingError: Can't pickle <class 'nemo.collections.common.parts.preprocessing.collections.SpeechLabelEntity'>"
+
+    # use like this
+    f = open(audio_file, "rb")
+    files = {
+        "file": (f.name, f, "multipart/form-data"),
+        "segments": (
+            None,
+            json.dumps([(s, e) for s, e, _ in start_end_speaker]),
+            "application/json",
+        ),
+    }
+    port = 8001
+    r = requests.post(f"http://localhost:{port}/predict", files=files)
     """
     segments = json.loads(segments)
     is_bearable(segments, list[list[float]])
@@ -48,18 +70,24 @@ async def upload_and_process_audio_file(file: UploadFile, segments: str = Form()
 
     s_e_times = expand_merge_segments(segments, max_gap_dur=0.7, expand_by=0.1)
     s_e_times = merge_short_segments(s_e_times, min_dur=1.5)
-    print(f"got {len(s_e_times)} segments")
     s_e_audio = [((s, e), audio[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
     assert all((len(a) > 1000 for (s, e), a in s_e_audio))
 
     s_e_labels, _ = inferencer.predict(s_e_audio)
 
-    return {
-        "filename": file.filename,
-        "labeled_segments": [
-            {"start": s, "end": e, "label": l} for s, e, l in s_e_labels
-        ],
-    }
+    return _form_response(file, s_e_labels)
+
+
+@app.post("/predict_unsegmented")
+async def upload_and_process_audio_file_unsegmented(file: UploadFile):
+    """"""
+    global inferencer
+
+    audio = await read_uploaded_audio_file(file)
+    dur = float(len(audio)) / SR
+    s_e_labels, _ = inferencer.predict([((0.0, dur), audio)])
+
+    return _form_response(file, s_e_labels)
 
 
 @app.get("/get_inferencer_dataclass")
