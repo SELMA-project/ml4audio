@@ -74,7 +74,7 @@ StartEndLabels = NeList[StartEndLabel]
 @beartype
 def expand_merge_segments(
     segments: NeList[tuple[float, float]],
-    max_gap_dur: float = 0.2,
+    min_gap_dur: float = 0.2,  # shorter than this gets merged
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
 ) -> NeList[StartEnd]:
     exp_segs: list[tuple[float, float]] = []
@@ -89,7 +89,7 @@ def expand_merge_segments(
         else:
             prev_start, prev_end = None, -9999
 
-        if start - prev_end < max_gap_dur:
+        if start - prev_end < min_gap_dur:
             startend = prev_start, end
             die_if_unbearable(startend, StartEnd)
             exp_segs[-1] = startend
@@ -125,13 +125,13 @@ def merge_short_segments(
 
 @beartype
 def pause_segmented_idx(
-    at: NonEmptyAlignedTranscript, min_pause_dur: float = 0.5
+    timestamped_letters: NeList[tuple[str, float]], min_pause_dur: float = 0.5
 ) -> NeList[tuple[int, int]]:
     """
     indizes can be start == end
     """
-    timestamps = at.rel_timestamps
-    text = at.text
+    letters, timestamps = [list(x) for x in zip(*timestamped_letters)]
+    text = "".join(letters)
 
     def calc_pause(k):
         if text[k - 1] == " ":
@@ -157,30 +157,35 @@ def pause_segmented_idx(
             )
             for k in range(1, len(pause_segments))
         ]
-        + [(pause_segments[-1].end, len(at.letters) - 1)]
+        + [(pause_segments[-1].end, len(text) - 1)]
     )
     return segments
 
 
 @beartype
 def pause_based_segmentation(
-    at: NonEmptyAlignedTranscript, min_pause_dur=0.7, min_seg_dur=1.5
+    timestamped_letters: NeList[tuple[str, float]],
+    min_pause_dur=0.7,
+    min_seg_dur=1.5,
+    min_gap_dur=0.2,
+    expand_by=0.1,
 ) -> NeList[StartEnd]:
-    s_e = pause_segmented_idx(at, min_pause_dur=min_pause_dur)
-    timestamps = at.abs_timestamps
+    s_e = pause_segmented_idx(
+        timestamped_letters,
+        min_pause_dur=min_pause_dur,
+    )
+    _, timestamps = [list(x) for x in zip(*timestamped_letters)]
     monoton_increasing = all(
         (
-            abs(timestamps[k] - timestamps[k - 1]) > 0.0
+            abs(timestamps[k] - timestamps[k - 1]) >= 0.0
             for k in range(len(timestamps) - 1)
         )
     )
-    if not monoton_increasing:
-        print(
-            f"timestamps are not monoton_increasing!!!\nthis is not a big problem cause cause 'merge_short_segments' does something"
-        )
-    # s_e_times = expand_segments(s_e, timestamps)
+    assert monoton_increasing
     s_e_times = [(timestamps[s], timestamps[e]) for s, e in s_e]
-    s_e_times = expand_merge_segments(s_e_times, max_gap_dur=0.2, expand_by=0.1)
+    s_e_times = expand_merge_segments(
+        s_e_times, min_gap_dur=min_gap_dur, expand_by=expand_by
+    )
     s_e_times = merge_short_segments(s_e_times, min_dur=min_seg_dur)
     return s_e_times
 

@@ -103,8 +103,9 @@ def test_speaker_clusterer(
         letters=[LetterIdx(x["letter"], x["r_idx"]) for x in d.pop("letters")], **d
     )
     at.remove_unnecessary_spaces()
+    letters_times=[(l.letter, at.abs_timestamp(l)) for l in at.letters]
     s_e_times = pause_based_segmentation(
-        at, min_pause_dur=0.7, min_seg_dur=1.5, min_gap_dur=0.1, expand_by=0.1
+        letters_times, min_pause_dur=0.7, min_seg_dur=1.5, min_gap_dur=0.1, expand_by=0.1
     )
     # for (s, e), (st, et) in zip(s_e, s_e_times):
     #     print(
