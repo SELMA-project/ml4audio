@@ -1,7 +1,8 @@
 from misc_utils.beartypes import NumpyFloat1DArray
 from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import (
     Aschinglupi,
-    calc_final_transcript, CompleteMessage,
+    calc_final_transcript,
+    CompleteMessage,
 )
 from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
     HFASRDecodeInferencer,
@@ -78,7 +79,9 @@ def aschinglupi_infer_array(
     return aschinglupi_infer_messages(messages_g, model_name, target_sample_rate)
 
 
-def aschinglupi_infer_messages(asr_input:CompleteMessage, model_name: str, SR) -> AlignedTranscript:
+def aschinglupi_infer_messages(
+    asr_input: CompleteMessage, model_name: str, SR
+) -> AlignedTranscript:
     """
     only for debugging -> loads asr-model with every call!
     """
@@ -93,5 +96,5 @@ def aschinglupi_infer_messages(asr_input:CompleteMessage, model_name: str, SR) -
             min_step_size=int(step_dur * SR),
         ),
     ).build()
-    at=calc_final_transcript(streaming_asr,asr_input)
+    at = calc_final_transcript(streaming_asr, asr_input)
     return at

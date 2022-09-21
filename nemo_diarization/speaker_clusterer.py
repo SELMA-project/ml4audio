@@ -15,7 +15,8 @@ from misc_utils.beartypes import (
     NumpyFloat2DArray,
     NeNumpyFloat1DArray,
     NeList,
-    NumpyFloat2D, NumpyFloat1D,
+    NumpyFloat2D,
+    NumpyFloat1D,
 )
 from misc_utils.buildable import Buildable
 from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, StartEndLabels
