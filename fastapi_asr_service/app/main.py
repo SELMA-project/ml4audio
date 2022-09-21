@@ -98,16 +98,23 @@ async def upload_and_process_audio_file(file: UploadFile):
     audio = audio.astype(np.float)
     at: AlignedTranscript = asr_inferencer.transcribe_audio_array(audio)
     at.remove_unnecessary_spaces()
-    timestamps = at.abs_timestamps
     tokens = letter_to_words(at.letters)
-    hf_like_format = {
+    # TODO: rename chunks to tokens or whatever, rename timestamp to timespan ?
+
+    hf_format = {
         "text": at.text,
-        "words": [
-            {"text": token, "start_end": (timestamps[s], timestamps[e])}
-            for s, e, token in tokens
+        "chunks": [
+            {
+                "text": "".join([l.letter for l in letters]),
+                "timestamp": (
+                    at.abs_timestamp(letters[0]),
+                    at.abs_timestamp(letters[-1]),
+                ),
+            }
+            for letters in tokens
         ],
     }
-    return {"filename": file.filename} | hf_like_format
+    return {"filename": file.filename} | hf_format
 
 
 @app.get("/get_inferencer_dataclass")
