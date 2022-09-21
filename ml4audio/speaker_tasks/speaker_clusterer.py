@@ -20,7 +20,7 @@ from misc_utils.beartypes import (
 )
 from misc_utils.buildable import Buildable
 from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, StartEndLabels
-from nemo_diarization.speaker_embedding_utils import (
+from ml4audio.speaker_tasks.speaker_embedding_utils import (
     get_nemo_speaker_embeddings,
 )
 

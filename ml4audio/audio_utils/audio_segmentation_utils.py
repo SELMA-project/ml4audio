@@ -92,7 +92,7 @@ def pause_based_segmentation(
 ) -> NeList[StartEnd]:
     _, timestamps = [list(x) for x in zip(*timestamped_letters)]
     letter_duration = (
-        0.04  # heuristic -> 40ms is median of some transcript, sound plausible!
+        0.04  # heuristic -> 40ms is median of some transcript, sounds plausible!
     )
     s_e_times = [(ts, ts + letter_duration) for ts in timestamps]
     monoton_increasing = all(

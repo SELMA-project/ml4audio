@@ -3,10 +3,9 @@ import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-import pytest
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score
 
-from data_io.readwrite_files import write_lines, read_json, write_jsonl
+from data_io.readwrite_files import write_lines, read_json
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, LetterIdx
 from ml4audio.audio_utils.audio_io import (
@@ -15,8 +14,8 @@ from ml4audio.audio_utils.audio_io import (
 from ml4audio.audio_utils.audio_segmentation_utils import (
     pause_based_segmentation,
 )
-from nemo_diarization.speaker_clusterer import SpeakerClusterer
-from nemo_diarization.speaker_embedding_utils import (
+from ml4audio.speaker_tasks.speaker_clusterer import SpeakerClusterer
+from ml4audio.speaker_tasks.speaker_embedding_utils import (
     format_rttm_lines,
     read_sel_from_rttm,
     apply_labels_to_segments,
