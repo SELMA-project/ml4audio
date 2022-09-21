@@ -11,7 +11,10 @@ from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, LetterIdx
 from ml4audio.audio_utils.audio_io import (
     load_resample_with_nemo,
 )
-from nemo_diarization.audio_segmentation_utils import expand_segments, segment_by_pauses
+from ml4audio.audio_utils.audio_segmentation_utils import (
+    expand_segments,
+    pause_segmented_idx,
+)
 from nemo_diarization.speaker_clusterer import SpeakerClusterer
 from nemo_diarization.speaker_embedding_utils import (
     format_rttm_lines,
@@ -32,7 +35,7 @@ def test_speaker_clusterer_oracle_vad(
     array = load_resample_with_nemo(audio_file)
 
     s_e_audio = [
-        (s, e, array[round(s * SR) : round(e * SR)])
+        ((s, e), array[round(s * SR) : round(e * SR)])
         for s, e, speaker in start_end_speaker
     ]
 
@@ -98,7 +101,7 @@ def test_speaker_clusterer(
     )
     at.remove_unnecessary_spaces()
     # print(f"{at.text=}")
-    s_e = segment_by_pauses(at, min_pause_dur=0.7)
+    s_e = pause_segmented_idx(at, min_pause_dur=0.7)
     timestamps = at.abs_timestamps
     s_e_times = expand_segments(s_e, timestamps)
     for (s, e), (st, et) in zip(s_e, s_e_times):
@@ -107,11 +110,11 @@ def test_speaker_clusterer(
         )
     s_e_sp_ref = read_sel_from_rttm(rttm_ref)
     array = load_resample_with_nemo(audio_file)
-    s_e_audio = [(s, e, array[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
-    assert all((len(a) > 1000 for s, e, a in s_e_audio))
+    s_e_audio = [((s, e), array[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
+    assert all((len(a) > 1000 for (s, e), a in s_e_audio))
     clusterer: SpeakerClusterer = SpeakerClusterer(model_name="ecapa_tdnn").build()
     s_e_labels, _ = clusterer.predict(s_e_audio)
-    s_e_mapped_labels = clusterer._s_e_mapped_labels
+    s_e_mapped_labels = clusterer.cluster_sels
     labels_ref = apply_labels_to_segments(
         s_e_sp_ref, [(s, e) for s, e, _ in s_e_mapped_labels]
     )

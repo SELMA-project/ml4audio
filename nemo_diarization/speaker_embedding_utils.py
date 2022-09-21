@@ -20,7 +20,7 @@ from misc_utils.beartypes import (
     NumpyFloat2D,
 )
 from misc_utils.processing_utils import iterable_to_batches
-from nemo_diarization.audio_segmentation_utils import NeStartEnd, StartEndLabels
+from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, StartEndLabels
 
 DEVICE = "cuda"
 if not torch.cuda.is_available():
@@ -119,7 +119,7 @@ def apply_labels_to_segments(
 
 @beartype
 def get_nemo_speaker_embeddings(
-    labeled_segments: NeList[tuple[NumpyFloat1D, NeStartEnd, str]],
+    labeled_segments: NeList[tuple[NumpyFloat1D, StartEnd, str]],
     sample_rate: int,
     speaker_model,
     window=1.5,

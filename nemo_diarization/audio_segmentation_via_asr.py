@@ -1,7 +1,7 @@
 from misc_utils.beartypes import NumpyFloat1DArray
 from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import (
     Aschinglupi,
-    gather_final_aligned_transcripts,
+    calc_final_transcript, CompleteMessage,
 )
 from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
     HFASRDecodeInferencer,
@@ -14,7 +14,6 @@ from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer impor
 )
 from ml4audio.asr_inference.transcript_gluer import (
     TranscriptGluer,
-    ASRStreamInferenceOutput,
 )
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
 from ml4audio.audio_utils.audio_io import (
@@ -79,7 +78,7 @@ def aschinglupi_infer_array(
     return aschinglupi_infer_messages(messages_g, model_name, target_sample_rate)
 
 
-def aschinglupi_infer_messages(asr_input, model_name: str, SR) -> AlignedTranscript:
+def aschinglupi_infer_messages(asr_input:CompleteMessage, model_name: str, SR) -> AlignedTranscript:
     """
     only for debugging -> loads asr-model with every call!
     """
@@ -94,7 +93,5 @@ def aschinglupi_infer_messages(asr_input, model_name: str, SR) -> AlignedTranscr
             min_step_size=int(step_dur * SR),
         ),
     ).build()
-    outp: ASRStreamInferenceOutput = list(
-        gather_final_aligned_transcripts(streaming_asr, asr_input)
-    )[0]
-    return outp.aligned_transcript
+    at=calc_final_transcript(streaming_asr,asr_input)
+    return at

@@ -12,15 +12,13 @@ from nemo.collections.asr.parts.utils.speaker_utils import (
 from pytorch_lightning import seed_everything
 
 from misc_utils.beartypes import (
-    NumpyFloat1DArray,
     NumpyFloat2DArray,
     NeNumpyFloat1DArray,
     NeList,
-    NeNumpyFloat2DArray,
     NumpyFloat2D, NumpyFloat1D,
 )
 from misc_utils.buildable import Buildable
-from nemo_diarization.audio_segmentation_utils import NeStartEnd, StartEndLabels
+from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, StartEndLabels
 from nemo_diarization.speaker_embedding_utils import (
     get_nemo_speaker_embeddings,
 )
@@ -50,7 +48,7 @@ class SpeakerClusterer(Buildable):
     @beartype
     def predict(
         self,
-        s_e_audio: list[tuple[NeStartEnd, NumpyFloat1D]],
+        s_e_audio: list[tuple[StartEnd, NumpyFloat1D]],
         ref_labels: Optional[NeList[str]] = None,
     ) -> tuple[list[tuple[float, float, str]], Optional[list[str]]]:
 
@@ -74,7 +72,7 @@ class SpeakerClusterer(Buildable):
     @beartype
     def _calc_raw_labels(
         self,
-        s_e_audio: NeList[tuple[NeStartEnd, NumpyFloat1D]],
+        s_e_audio: NeList[tuple[StartEnd, NumpyFloat1D]],
         ref_labels: Optional[list[str]],
     ):
         if ref_labels:
@@ -109,9 +107,9 @@ class SpeakerClusterer(Buildable):
     @beartype
     def _extract_embeddings(
         self,
-        s_e_audio: NeList[tuple[NeStartEnd, NeNumpyFloat1DArray]],
+        s_e_audio: NeList[tuple[StartEnd, NeNumpyFloat1DArray]],
         ref_labels: Optional[NeList[str]],
-    ) -> tuple[NumpyFloat2D, NeList[NeStartEnd], NeList[str]]:
+    ) -> tuple[NumpyFloat2D, NeList[StartEnd], NeList[str]]:
         SR = 16_000
         labeled_segments = [
             (a, startend, l) for (startend, a), l in zip(s_e_audio, ref_labels)
