@@ -3,17 +3,17 @@ import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+import pytest
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score
 
-from data_io.readwrite_files import write_lines, read_json
+from data_io.readwrite_files import write_lines, read_json, write_jsonl
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, LetterIdx
 from ml4audio.audio_utils.audio_io import (
     load_resample_with_nemo,
 )
 from ml4audio.audio_utils.audio_segmentation_utils import (
-    expand_segments,
-    pause_segmented_idx,
+    pause_based_segmentation,
 )
 from nemo_diarization.speaker_clusterer import SpeakerClusterer
 from nemo_diarization.speaker_embedding_utils import (
@@ -39,7 +39,9 @@ def test_speaker_clusterer_oracle_vad(
         for s, e, speaker in start_end_speaker
     ]
 
-    clusterer: SpeakerClusterer = SpeakerClusterer(model_name="ecapa_tdnn").build()
+    clusterer: SpeakerClusterer = SpeakerClusterer(
+        model_name="ecapa_tdnn", metric="cosine"
+    ).build()
     s_e_labels, _ = clusterer.predict(s_e_audio)
     with NamedTemporaryFile(suffix=".rttm") as tmp_file:
         rttm_pred_file = tmp_file.name
@@ -56,7 +58,8 @@ def test_speaker_clusterer_oracle_vad(
         print(f"{(miss_speaker, fa_speaker, sers, ders)=}")
 
     speaker_confusion = float(sers[0])
-    assert speaker_confusion < 2.1, speaker_confusion
+    print(f"{speaker_confusion=}")
+    assert speaker_confusion < 2.0, speaker_confusion
 
 
 TEST_RESOURCES = "tests/resources"
@@ -100,19 +103,20 @@ def test_speaker_clusterer(
         letters=[LetterIdx(x["letter"], x["r_idx"]) for x in d.pop("letters")], **d
     )
     at.remove_unnecessary_spaces()
-    # print(f"{at.text=}")
-    s_e = pause_segmented_idx(at, min_pause_dur=0.7)
-    timestamps = at.abs_timestamps
-    s_e_times = expand_segments(s_e, timestamps)
-    for (s, e), (st, et) in zip(s_e, s_e_times):
-        print(
-            f"{timestamps[s]}->{timestamps[e]}\t{st}->{et}\t{et - st}\t{at.text[s:(e + 1)]}"
-        )
+    s_e_times = pause_based_segmentation(
+        at, min_pause_dur=0.7, min_seg_dur=1.5, min_gap_dur=0.1, expand_by=0.1
+    )
+    # for (s, e), (st, et) in zip(s_e, s_e_times):
+    #     print(
+    #         f"{timestamps[s]}->{timestamps[e]}\t{st}->{et}\t{et - st}\t{at.text[s:(e + 1)]}"
+    #     )
     s_e_sp_ref = read_sel_from_rttm(rttm_ref)
     array = load_resample_with_nemo(audio_file)
     s_e_audio = [((s, e), array[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
     assert all((len(a) > 1000 for (s, e), a in s_e_audio))
-    clusterer: SpeakerClusterer = SpeakerClusterer(model_name="ecapa_tdnn").build()
+    clusterer: SpeakerClusterer = SpeakerClusterer(
+        model_name="ecapa_tdnn", metric="cosine"
+    ).build()
     s_e_labels, _ = clusterer.predict(s_e_audio)
     s_e_mapped_labels = clusterer.cluster_sels
     labels_ref = apply_labels_to_segments(
@@ -123,8 +127,8 @@ def test_speaker_clusterer(
         adjusted_rand_score(labels_ref, labels_pred),
         adjusted_mutual_info_score(labels_ref, labels_pred),
     )
-    expected_rand_score = 0.9880002978471785
-    expected_mutinfo_score = 0.9697478261936556
+    expected_rand_score = 0.98
+    expected_mutinfo_score = 0.96
     print(f"{rand_score=}~={expected_rand_score=}")
     print(f"{mutual_info_score=}~={expected_mutinfo_score=}")
 
@@ -150,8 +154,9 @@ def test_speaker_clusterer(
     print(f"{(miss_speaker, fa_speaker, sers, ders)=}")
     speaker_confusion = float(sers[0])
     diarization_error_rate = float(ders[0])
-    assert speaker_confusion < 2.0, speaker_confusion
-    assert diarization_error_rate < 18.0, diarization_error_rate
+    print(f"{speaker_confusion=},{diarization_error_rate=}")
+    assert speaker_confusion < 0.06, speaker_confusion
+    assert diarization_error_rate < 15.0, diarization_error_rate
 
 
 """
