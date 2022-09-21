@@ -14,12 +14,12 @@ class LetterIdx:
     r_idx: int  # relative index in input sequence not towards logits!!
 
 
-def letter_to_words(letters: Iterable[LetterIdx]) -> Iterable[tuple[int, int, float]]:
-    loow = []  # letters of one word
+def letter_to_words(letters: Iterable[LetterIdx]) -> Iterable[list[LetterIdx]]:
+    loow:list[LetterIdx] = []  # letters of one word
     for l in letters:
         if l.letter == " ":
             assert len(loow) > 0
-            yield loow[0].r_idx, loow[-1].r_idx, "".join([l.letter for l in loow])
+            yield loow
             loow = []
         else:
             loow.append(l)

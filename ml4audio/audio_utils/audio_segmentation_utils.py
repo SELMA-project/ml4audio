@@ -61,6 +61,7 @@ StartEnd = Annotated[
     tuple[float, float],
     (Is[non_empty] & Is[start_non_negative]),
 ]
+TimeSpan = StartEnd  # rename?
 
 valid_label = lambda x: len(x[2]) > 0
 StartEndLabel = Annotated[
@@ -147,14 +148,6 @@ def pause_segmented_idx(
         for start, end, pause_dur in start_end_pausedur
         if pause_dur > min_pause_dur
     ]
-    # pauses_dur = [
-    #     (
-    #         f"{at.abs_timestamps[s]:.1f}",
-    #         at.text[(s - 5) : (e + 5)],
-    #         at.text[s : (e + 1)],
-    #     )
-    #     for s, e in pause_segments
-    # ]
     segments = (
         [(0, pause_segments[0].start)]
         + [
