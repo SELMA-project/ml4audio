@@ -1,13 +1,11 @@
 # pylint: skip-file
-import logging
 import os
-from tempfile import NamedTemporaryFile
 from typing import Any, Optional, Dict
 
 import numpy as np
 import uvicorn
 from beartype import beartype
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI, UploadFile
 
 from fastapi_asr_service.app.fastapi_asr_service_utils import (
     load_asr_inferencer,
@@ -19,7 +17,8 @@ from misc_utils.dataclass_utils import (
 )
 from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import Aschinglupi
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, letter_to_words
-from ml4audio.audio_utils.audio_io import ffmpeg_torch_load
+from ml4audio.service_utils.fastapi_utils import read_uploaded_audio_file, \
+    get_full_model_config
 from nemo_vad.nemo_offline_vad import NemoOfflineVAD
 
 DEBUG = os.environ.get("DEBUG", "False").lower() != "false"
@@ -63,12 +62,12 @@ def cut_away_noise(array: NumpyFloat1D) -> NumpyFloat1D:
     start_ends, probas = vad.predict(array)
     if len(start_ends) == 0:
         # assuming that VAD fugedup so fallback to no-vad
-        contat_array = array
+        noise_free_array = array
     else:
-        contat_array = np.concatenate(
+        noise_free_array = np.concatenate(
             [array[round(s * SR) : round(e * SR)] for s, e in start_ends], axis=0
         )
-    return contat_array
+    return noise_free_array
 
 
 @app.post("/transcribe")
@@ -80,22 +79,9 @@ async def upload_and_process_audio_file(file: UploadFile):
     """
     global asr_inferencer
 
-    if not file:
-        raise HTTPException(status_code=400, detail="Audio bytes expected")
+    audio = await read_uploaded_audio_file(file)
 
-    def save_file(filename, data):
-        with open(filename, "wb") as f:
-            f.write(data)
-
-    with NamedTemporaryFile(delete=False, suffix=".wav") as tmp_original:
-        # data_bytes = file.file.read() # if in synchronous context otherwise just file
-        data_bytes = await file.read()  # if in Asynchronous context
-        save_file(tmp_original.name, data_bytes)
-
-        raw_audio = ffmpeg_torch_load(tmp_original.name, sample_rate=SR).numpy()
-    audio = cut_away_noise(raw_audio)
-    print(f"{len(raw_audio)=},{len(audio)=}")
-    audio = audio.astype(np.float)
+    audio = cut_away_noise(audio)
     at: AlignedTranscript = asr_inferencer.transcribe_audio_array(audio)
     at.remove_unnecessary_spaces()
     tokens = letter_to_words(at.letters)
@@ -153,19 +139,7 @@ def get_model_config() -> Dict[str, Any]:
 def get_model_config() -> Dict[str, Any]:
     global asr_inferencer
     if asr_inferencer is not None:
-        d = encode_dataclass(
-            asr_inferencer,
-            skip_keys=[
-                "_id_",
-                "_target_",
-                # "finetune_master",
-                "cache_base",
-                "cache_dir",
-                "prefix",
-                "use_hash_suffix",
-                # "lm_data",
-            ],
-        )
+        d = get_full_model_config(asr_inferencer)
     else:
         d = {"response": "no model loaded yet!"}
     return d

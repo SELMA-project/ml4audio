@@ -94,7 +94,6 @@ def pause_based_segmentation(
     letter_duration = (
         0.04  # heuristic -> 40ms is median of some transcript, sounds plausible!
     )
-    s_e_times = [(ts, ts + letter_duration) for ts in timestamps]
     monoton_increasing = all(
         (
             abs(timestamps[k] - timestamps[k - 1]) >= 0.0
@@ -102,6 +101,7 @@ def pause_based_segmentation(
         )
     )
     assert monoton_increasing
+    s_e_times = [(ts, ts + letter_duration) for ts in timestamps]
     s_e_times = expand_merge_segments(
         s_e_times, max_gap_dur=max_gap_dur, expand_by=expand_by
     )
