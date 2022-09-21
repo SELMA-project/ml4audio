@@ -7,11 +7,10 @@ from misc_utils.beartypes import NumpyFloat1D
 from misc_utils.dataclass_utils import encode_dataclass
 
 from ml4audio.audio_utils.audio_io import ffmpeg_torch_load
-from speaker_clustering_service.app.main import SR
 
 
 @beartype
-async def read_uploaded_audio_file(file:UploadFile)->NumpyFloat1D:
+async def read_uploaded_audio_file(file: UploadFile, SR: int = 16000) -> NumpyFloat1D:
     if not file:
         raise HTTPException(status_code=400, detail="Audio bytes expected")
 

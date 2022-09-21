@@ -19,4 +19,5 @@ nemo_toolkit[asr]==1.11.0
 wandb # WTF!! nemo wants it!!
 numpy==1.22.0 # see: https://github.com/scikit-learn-contrib/hdbscan/issues/457
 hdbscan==0.8.28
+joblib==1.1.0
 umap_learn==0.5.3
