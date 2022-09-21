@@ -4,7 +4,6 @@ ml4audio@git+https://github.com/SELMA-project/ml4audio@main#egg=ml4audio
 python-levenshtein
 beartype==0.11.0
 numba==0.53.1
-numpy
 librosa
 
 fastapi #==0.78.0
@@ -18,3 +17,6 @@ uvicorn[standard]
 omegaconf
 nemo_toolkit[asr]==1.11.0
 wandb # WTF!! nemo wants it!!
+numpy==1.22.0 # see: https://github.com/scikit-learn-contrib/hdbscan/issues/457
+hdbscan==0.8.28
+umap_learn==0.5.3

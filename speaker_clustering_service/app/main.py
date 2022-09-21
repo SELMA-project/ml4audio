@@ -12,8 +12,10 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
     merge_short_segments,
 )
 from ml4audio.speaker_tasks.speaker_clusterer import SpeakerClusterer
-from ml4audio.service_utils.fastapi_utils import read_uploaded_audio_file, \
-    get_full_model_config
+from ml4audio.service_utils.fastapi_utils import (
+    read_uploaded_audio_file,
+    get_full_model_config,
+)
 
 DEBUG = os.environ.get("DEBUG", "False").lower() != "false"
 if DEBUG:
