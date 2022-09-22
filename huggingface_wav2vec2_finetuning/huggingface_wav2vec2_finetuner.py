@@ -483,7 +483,8 @@ class HFWav2vec2Finetuner(CachedData):
 
             trainer.log_metrics("eval", metrics)
             trainer.save_metrics("eval", metrics)
-        wandb.finish()
+        if wandb is not None:
+            wandb.finish()
 
 
 def main():
