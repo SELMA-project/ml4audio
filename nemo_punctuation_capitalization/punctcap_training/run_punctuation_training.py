@@ -33,7 +33,7 @@ from nemo_punctuation_capitalization.punctcap_training.punctuation_tatoeba_data 
 class NemoTrainedPunctuationCapitalizationModel(CachedData):
     data: Union[_UNDEFINED, NepucaData] = UNDEFINED
     base_model: str = "bert-base-multilingual-uncased"
-    pretrained_model: Optional[int] = None
+    pretrained_model: Optional[str] = None
     do_training: bool = True
     cache_base: PrefixSuffix = field(
         default_factory=lambda: PrefixSuffix("cache_root", "NEMO_PUNCTCAP_MODELS")
@@ -41,7 +41,8 @@ class NemoTrainedPunctuationCapitalizationModel(CachedData):
 
     @property
     def name(self):
-        return f"{self.data.name}"
+        pm=Path(self.pretrained_model).stem if self.pretrained_model is not None else ""
+        return f"{self.data.name}-{Path(self.base_model).stem}{pm}"
 
     def _build_cache(self):
         process = subprocess.Popen(
@@ -138,11 +139,11 @@ def prep_wiki_text_corpus(lang_code):
 
 
 def train_punctcap(
-    text_corpus,
+    text_corpus, # type: TextCorpus
     base_model="bert-base-multilingual-uncased",
     limit=110_000,
     dev_size=10_000,
-    pretrained_model=None,
+    pretrained_model:Optional[str]=None,
     do_training=True,
 ):
 
@@ -208,32 +209,34 @@ if __name__ == "__main__":
     BASE_PATHES["raw_data"] = PrefixSuffix("cache_root", "RAW_DATA")
     BASE_PATHES["processed_data"] = PrefixSuffix("cache_root", "PROCESSED_DATA")
 
-    wandb.init(project="asr-inference", name="punctcap_training")
+    wandb.init(project="nemo-punctcap", name="punctcap_training")
 
     # nemo_nlp.modules.get_pretrained_lm_models_list()
     lang_codes = TatoebaLanguages().build()
     print(list(lang_codes))
     # lang_codes = ["por", "eng", "deu", "fra", "spa", "ita", "rus", "lit"]
     lang = "rus"
-    # tugtekins_russian_model = f"{base_path}/data/PUNCTUATION/RU.nemo"
-    # train_punctcap(
-    #     text_corpus=MixedCorpus(
-    #         name=f"wiki_lenta-random",
-    #         corpora=BuildableList(
-    #             [
-    #                 TatoebaWikipediaData(
-    #                     raw_data=TatoebaMonolingualData(
-    #                         base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
-    #                         file_name=f"{lang}.tar",
-    #                     )
-    #                 ),
-    #                 LentaData(),
-    #             ]
-    #         ),
-    #     ),
-    #     pretrained_model=tugtekins_russian_model,
-    #     do_training=False,
-    # )
+    tugtekins_russian_model = f"{base_path}/data/PUNCTUATION/RU.nemo"
+    train_punctcap(
+        text_corpus=MixedCorpus(
+            name=f"wiki_lenta_random",
+            corpora=BuildableList(
+                [
+                    TatoebaWikipediaData(
+                        raw_data=TatoebaMonolingualData(
+                            base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
+                            file_name=f"{lang}.tar",
+                        )
+                    ),
+                    LentaData(),
+                ]
+            ),
+        ),
+        pretrained_model=tugtekins_russian_model,
+        do_training=False,
+        limit=11_000_000,
+        dev_size=1000_000
+    )
     # train_punctcap(
     #     text_corpus=MixedCorpus(
     #         name=f"wiki_lenta_random",
@@ -250,25 +253,27 @@ if __name__ == "__main__":
     #         ),
     #     ),
     #     do_training=True,
-    #     limit=110_000,
-    #     dev_size=10_000
+    #     limit=1_100_000,
+    #     dev_size=100_000
+    #
     # )
-    for lang in ["por", "eng", "deu", "fra", "spa", "ita", "lit"]:  #
-        train_punctcap(
-            text_corpus=MixedCorpus(
-                name=f"wiki-{lang}",
-                corpora=BuildableList(
-                    [
-                        TatoebaWikipediaData(
-                            raw_data=TatoebaMonolingualData(
-                                base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
-                                file_name=f"{lang}.tar",
-                            )
-                        ),
-                    ]
-                ),
-            ),
-            do_training=True,
-            limit=1_100_000,
-            dev_size=100_000,
-        )
+    # languages = ["por", "eng", "deu", "fra", "spa", "ita", "lit"]
+    # for lang in ["rus"]:  #
+    #     train_punctcap(
+    #         text_corpus=MixedCorpus(
+    #             name=f"wiki-{lang}",
+    #             corpora=BuildableList(
+    #                 [
+    #                     TatoebaWikipediaData(
+    #                         raw_data=TatoebaMonolingualData(
+    #                             base_url="https://object.pouta.csc.fi/Tatoeba-Challenge-v2020-07-28",
+    #                             file_name=f"{lang}.tar",
+    #                         )
+    #                     ),
+    #                 ]
+    #             ),
+    #         ),
+    #         do_training=True,
+    #         limit=1_100_000,
+    #         dev_size=100_000,
+    #     )

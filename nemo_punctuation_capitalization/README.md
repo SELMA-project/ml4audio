@@ -44,14 +44,6 @@ predicting: 614it [00:06, 99.03it/s]                                            
 cer=0.03203761707236361
 
 ```
-* evaluation on test_ard_2018 does look rather bad!
-```commandline
-ref: griff genommen letztes Jahr, und diese Maßnahme ist jetzt weitgehend abgeschl 
-hyp: griff genommen. Letztes Jahr und diese Maßnahme ist jetzt weitgehend abgeschl
-
-ref: usfront bleibt nämlich noch. Im November zweitausendsechzehn loderten hier di 
-hyp: usfront bleibt nämlich noch im November. Zweitausendsechzehn loderten hier di 
-```
 * nemo training repots
 ```commandline
 Epoch 0: 100%|██████████| 10224/10224 [12:21<00:00, 13.80it/s, loss=0.216, lr=1.69e-8]

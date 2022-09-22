@@ -56,14 +56,15 @@ def remove_punctuation(word: str) -> str:
     return re.sub("[" + all_punct_marks + "]", "", word)
 
 
+@beartype
 def generate_token_labels(
     lines: Iterable[str], punct_marks: str
-) -> Iterator[tuple[str, str]]:
+) -> Iterator[tuple[str, str, str]]:
     for line in tqdm(lines, desc="preparing text label files"):
         line = line.split()  # TODO: thats very simple!
-        for o_word in line:
-            label = o_word[-1] if o_word[-1] in punct_marks else "O"
-            word = remove_punctuation(o_word)
+        for original_word in line:
+            label = original_word[-1] if original_word[-1] in punct_marks else "O"
+            word = remove_punctuation(original_word)
             if len(word) > 0:
                 if word[0].isupper():
                     label += "U"
@@ -71,16 +72,15 @@ def generate_token_labels(
                     label += "O"
 
                 word = word.lower()
-                yield o_word, word, label
+                yield original_word, word, label
 
 
 @beartype
 def create_text_and_labels(
     output_dir: str,
-    lines: Iterable[str],
+    word_target_label: Iterable[list[tuple[str, str, str]]],
     file_suffix: str,
     max_seq_len=128,
-    punct_marks: str = ",.?",
 ):
     """
     based on: # based on: "create_text_and_labels" from https://github.com/NVIDIA/NeMo/blob/main/examples/nlp/token_classification/data/get_tatoeba_data.py
@@ -109,18 +109,20 @@ def create_text_and_labels(
     with open(text_file, mode="wb") as text_f, open(
         labels_file, "wb"
     ) as labels_f, open(original_file, "wb") as original_f:
-        g = generate_token_labels(lines, punct_marks)
-        batches_g = iterable_to_batches(g, batch_size=max_seq_len)
-        for words_tokens_labels in tqdm(batches_g, desc="write text labels files"):
-            o_words, tokens, labels = [list(x) for x in zip(*words_tokens_labels)]
-            assert len(tokens) <= max_seq_len
+        for words_tokens_labels in tqdm(
+            word_target_label, desc="write text labels files"
+        ):
+            original_word, target_workds, labels = [
+                list(x) for x in zip(*words_tokens_labels)
+            ]
+            assert len(target_workds) <= max_seq_len
             assert len(labels) <= max_seq_len
-            assert len(labels) == len(tokens)
-            s = " ".join(tokens).strip() + "\n"
+            assert len(labels) == len(target_workds)
+            s = " ".join(target_workds).strip() + "\n"
             text_f.write(s.encode("utf-8"))
             s = " ".join(labels).strip() + "\n"
             labels_f.write(s.encode("utf-8"))
-            s = " ".join(o_words).strip() + "\n"
+            s = " ".join(original_word).strip() + "\n"
             original_f.write(s.encode("utf-8"))
 
 
@@ -160,6 +162,7 @@ class NepucaSplit(CachedData):
 class NepucaData(CachedData):
     train_dev_data: Union[_UNDEFINED, NepucaSplit] = UNDEFINED
     max_seq_len: int = 64
+    punct_marks: str = ",.?"
     cache_base: PrefixSuffix = field(
         default_factory=lambda: PrefixSuffix(
             "processed_data", "PUNCTUATION_CAPITALIZATION"
@@ -174,18 +177,26 @@ class NepucaData(CachedData):
     def name(self):
         return self.train_dev_data.name
 
+    def _prepare_punctcap_phrases(
+        self,
+        lines: Iterable[str],
+    ) -> Iterator[list[tuple[str, str, str]]]:
+        g = generate_token_labels(lines, self.punct_marks)
+        batches_g = iterable_to_batches(g, batch_size=self.max_seq_len)
+        return batches_g
+
     def _build_cache(self):
         os.makedirs(self.data_dir, exist_ok=True)
 
         create_text_and_labels(
             self.data_dir,
-            read_lines(self.train_dev_data.train_file),
+            self._prepare_punctcap_phrases(read_lines(self.train_dev_data.train_file)),
             max_seq_len=self.max_seq_len,
             file_suffix="train.txt",
         )
         create_text_and_labels(
             self.data_dir,
-            read_lines(self.train_dev_data.dev_file),
+            self._prepare_punctcap_phrases(read_lines(self.train_dev_data.dev_file)),
             max_seq_len=self.max_seq_len,
             file_suffix="dev.txt",
         )
