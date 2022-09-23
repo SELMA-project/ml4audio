@@ -6,6 +6,7 @@ import soundfile
 from beartype import beartype
 from beartype.door import die_if_unbearable
 from beartype.vale import Is
+from tqdm import tqdm
 
 from misc_utils.beartypes import NumpyFloat1DArray, NeList, is_bearable
 from ml4audio.asr_inference.transcript_glueing import NonEmptyAlignedTranscript
@@ -34,22 +35,35 @@ StartEndLabel = Annotated[
 StartEndLabels = NeList[StartEndLabel]
 
 
+def is_non_overlapping(seq: NeList[StartEnd]) -> bool:
+    return all((seq[k - 1][1] <= seq[k][0] for k in range(1, len(seq))))
+
+
+NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
+
+
+def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
+    return all(seq[k - 1][0] <= seq[k][0] for k in range(1, len(seq)))
+
+
 @beartype
 def expand_merge_segments(
-    segments: NeList[StartEnd],
+    segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
     max_gap_dur: float = 0.2,  # gap within a segment -> shorter than this gets merged
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
 ) -> NeList[StartEnd]:
     exp_segs: list[tuple[float, float]] = []
     prev_start: int = -9999
     prev_end: int = -9999
-    for start, end in segments:
+    for start, end in tqdm(segments, f"expand_merge_segments"):
         start -= expand_by
         end += expand_by
 
         is_expandable = len(exp_segs) > 0 and start - prev_end < max_gap_dur
         if is_expandable:
             startend = prev_start, end
+            if not is_bearable(startend, StartEnd):
+                print(f"{startend=}")
             die_if_unbearable(startend, StartEnd)
             exp_segs[-1] = startend
         else:
@@ -94,14 +108,12 @@ def pause_based_segmentation(
     letter_duration = (
         0.04  # heuristic -> 40ms is median of some transcript, sounds plausible!
     )
-    monoton_increasing = all(
-        (
-            abs(timestamps[k] - timestamps[k - 1]) >= 0.0
-            for k in range(len(timestamps) - 1)
-        )
+    timestamps = sorted(timestamps)  # god dammit!
+    weakly_monoton_increasing = all(
+        (timestamps[k + 1] - timestamps[k] >= 0.0 for k in range(len(timestamps) - 1))
     )
-    assert monoton_increasing
-    s_e_times = [(ts, ts + letter_duration) for ts in timestamps]
+    assert weakly_monoton_increasing
+    s_e_times = [(ts, ts + letter_duration) for k, ts in enumerate(timestamps)]
     s_e_times = expand_merge_segments(
         s_e_times, max_gap_dur=max_gap_dur, expand_by=expand_by
     )
