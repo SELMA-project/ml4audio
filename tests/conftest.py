@@ -26,7 +26,7 @@ from ml4audio.audio_utils.overlap_array_chunker import (
     messages_from_chunks,
 )
 from ml4audio.text_processing.ctc_decoding import GreedyDecoder
-from ml4audio.text_processing.metrics_calculation import calc_cer
+from ml4audio.text_processing.asr_metrics import calc_cer
 
 filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
 

@@ -13,8 +13,11 @@ import os
 import re
 import subprocess
 from pathlib import Path
+from typing import Annotated
 
 import numpy as np
+from beartype import beartype
+from beartype.vale import Is
 
 FILE_IDS = re.compile(r"(?<=Speaker Diarization for).+(?=\*\*\*)")
 SCORED_SPEAKER_TIME = re.compile(r"(?<=SCORED SPEAKER TIME =)[\d.]+")
@@ -35,10 +38,12 @@ def rectify(arr):
 
     return arr
 
+RttmFile=Annotated[str,Is[lambda f:os.path.isfile(f)],Is[lambda f:f.endswith(".rttm")]]
 
+@beartype
 def speechbrain_DER(
-    ref_rttm,
-    sys_rttm,
+    ref_rttm:RttmFile,
+    sys_rttm:RttmFile,
     ignore_overlap=False,
     collar=0.25,
     individual_file_scores=False,

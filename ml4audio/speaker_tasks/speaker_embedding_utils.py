@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from random import shuffle
 from typing import Union
 
@@ -5,6 +6,8 @@ import numpy as np
 import torch
 from beartype import beartype
 from matplotlib import pyplot as plt
+
+from nemo.collections.asr.models import EncDecSpeakerLabelModel
 from nemo.collections.asr.parts.utils.speaker_utils import (
     get_subsegments,
     embedding_normalize,
@@ -115,14 +118,34 @@ def apply_labels_to_segments(
     return labels
 
 
+@dataclass
+class SubSegment:
+    """
+    sub-segment of a segments that starts at offset
+    """
+
+    offset: float
+    start_end: StartEnd
+    audio_array: NumpyFloat1D
+    label: str
+
+    @property
+    def start(self):
+        return self.start_end[0]
+
+    @property
+    def end(self):
+        return self.start_end[1]
+
+
 @beartype
 def get_nemo_speaker_embeddings(
     labeled_segments: NeList[tuple[NumpyFloat1D, StartEnd, str]],
     sample_rate: int,
-    speaker_model,
-    window=1.5,
-    shift=0.75,
-    batch_size=1,
+    speaker_model: EncDecSpeakerLabelModel,
+    window: float = 1.5,
+    shift: float = 0.75,
+    batch_size: int = 1,
 ) -> tuple[NumpyFloat2D, StartEndLabels]:
     """
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/speaker_tasks/recognition/extract_speaker_embeddings.py
@@ -130,14 +153,13 @@ def get_nemo_speaker_embeddings(
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/models/clustering_diarizer.py#L329
     """
     assert batch_size == 1, "only batch size 1 is supported"
-    SR = sample_rate
+    SR: int = sample_rate
     speaker_model = speaker_model.to(DEVICE)
     speaker_model.eval()
 
-    all_embs = []
     assert all((len(a) > 0 for a, _, _ in labeled_segments))
-    ss_start_dur_segment_label = [
-        (start, s, d, audio_segment, label)
+    sub_segs = [
+        SubSegment(start, (s, s + d), audio_segment, label)
         for audio_segment, (start, end), label in labeled_segments
         for s, d in get_subsegments(
             offset=0.0, window=window, shift=shift, duration=len(audio_segment) / SR
@@ -145,11 +167,29 @@ def get_nemo_speaker_embeddings(
     ]
     overlapchunks_labels = [
         (
-            slice_me_nice(s, d, audio_segment, SR),
-            label,
+            slice_me_nice(ss.start_end, ss.audio_array, SR),  #
+            ss.label,
         )
-        for ss, s, d, audio_segment, label in ss_start_dur_segment_label
+        for ss in sub_segs
     ]
+    all_embs = embed_normalize_audio_chunks_with_nemo(
+        speaker_model, overlapchunks_labels, batch_size
+    )
+    start_dur_label = [
+        (float(ss.offset + ss.start), float(ss.offset + ss.end), ss.label)
+        for ss in sub_segs
+    ]
+    assert len(all_embs) == len(start_dur_label)
+    return all_embs, start_dur_label
+
+
+@beartype
+def embed_normalize_audio_chunks_with_nemo(
+    speaker_model: EncDecSpeakerLabelModel,
+    overlapchunks_labels: NeList[tuple[NumpyFloat1D, str]],
+    batch_size: int,
+) -> NumpyFloat2D:
+    all_embs = []
     for test_batch in tqdm(
         iterable_to_batches(overlapchunks_labels, batch_size=batch_size)
     ):
@@ -170,21 +210,15 @@ def get_nemo_speaker_embeddings(
             embs = embs.view(-1, emb_shape)
             all_embs.extend(embs.cpu().detach().numpy())
         del test_batch
-
-    all_embs = np.asarray(all_embs)
-    all_embs = embedding_normalize(all_embs)
-    start_dur_label = [
-        (float(ss + s), float(ss + s + d), l)
-        for ss, s, d, _, l in ss_start_dur_segment_label
-    ]
-    assert len(all_embs) == len(start_dur_label)
-    return all_embs, start_dur_label
+    all_embs_norm = embedding_normalize(np.asarray(all_embs))
+    return all_embs_norm
 
 
 @beartype
-def slice_me_nice(start: float, duration: float, segment, SR: int):
+def slice_me_nice(startend: StartEnd, segment: NumpyFloat1D, SR: int) -> NumpyFloat1D:
+    start, end = startend
     ffrom = max(0, round(start * SR))
-    tto = min(len(segment) - 1, round((start + duration) * SR))
+    tto = min(len(segment) - 1, round(end * SR))
     sliced = segment[ffrom:tto]
     assert len(sliced) > 0
     return sliced
@@ -213,7 +247,7 @@ def save_umap_to_png(embedding: NumpyFloat2DArray, labels: list[str], png_file: 
         print(f"{l}: {len(idx)}")
         cluster_data = embedding[idx, :]
         c, m = color_markers[k % len(color_markers)]
-        sc = plt.scatter(
+        _sc = plt.scatter(
             cluster_data[:, 0],
             cluster_data[:, 1],
             # c=c,

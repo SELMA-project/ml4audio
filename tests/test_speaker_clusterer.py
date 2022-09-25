@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+import pytest
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score
 
 from data_io.readwrite_files import write_lines, read_json
@@ -20,13 +21,13 @@ from ml4audio.speaker_tasks.speaker_embedding_utils import (
     read_sel_from_rttm,
     apply_labels_to_segments,
 )
-from nemo_diarization.speechbrain_der import speechbrain_DER
+from ml4audio.speaker_tasks.speechbrain_der import speechbrain_DER
 
 
 # @pytest.mark.skip
 def test_speaker_clusterer_oracle_vad(
-    rttm_ref="nemo_diarization/tests/resources/oLnl1D6owYA_ref.rttm",
-    audio_file="nemo_diarization/tests/resources/oLnl1D6owYA.opus",
+    rttm_ref="tests/resources/oLnl1D6owYA_ref.rttm",
+    audio_file="tests/resources/oLnl1D6owYA.opus",
 ):
 
     SR = 16_000
@@ -84,11 +85,11 @@ BASE_PATHES["cache_root"] = cache_root
 BASE_PATHES["am_models"] = PrefixSuffix("cache_root", "AM_MODELS")
 BASE_PATHES["asr_inference"] = PrefixSuffix("cache_root", "ASR_INFERENCE")
 
-# @pytest.mark.skip
+@pytest.mark.skip
 def test_speaker_clusterer(
-    rttm_ref="nemo_diarization/tests/resources/oLnl1D6owYA_ref.rttm",
-    audio_file="nemo_diarization/tests/resources/oLnl1D6owYA.opus",
-    aligned_transcript_file="nemo_diarization/tests/resources/aligned_transcript.json",
+    rttm_ref="tests/resources/oLnl1D6owYA_ref.rttm",
+    audio_file="tests/resources/oLnl1D6owYA.opus",
+    aligned_transcript_file="tests/resources/aligned_transcript.json",
 ):
     # at = asr_infer(
     #     audio_file, model_name="jonatasgrosman/wav2vec2-large-xlsr-53-english"
