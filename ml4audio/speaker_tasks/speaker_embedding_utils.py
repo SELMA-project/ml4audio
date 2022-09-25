@@ -22,9 +22,7 @@ from misc_utils.beartypes import (
 from misc_utils.processing_utils import iterable_to_batches
 from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, StartEndLabels
 
-DEVICE = "cuda"
-if not torch.cuda.is_available():
-    DEVICE = "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 try:
@@ -124,7 +122,6 @@ def get_nemo_speaker_embeddings(
     speaker_model,
     window=1.5,
     shift=0.75,
-    expand_by=1.0,
     batch_size=1,
 ) -> tuple[NumpyFloat2D, StartEndLabels]:
     """
@@ -140,19 +137,18 @@ def get_nemo_speaker_embeddings(
     all_embs = []
     assert all((len(a) > 0 for a, _, _ in labeled_segments))
     ss_start_dur_segment_label = [
-        (start, s, d, segment, label)
-        for segment, (start, end), label in labeled_segments
+        (start, s, d, audio_segment, label)
+        for audio_segment, (start, end), label in labeled_segments
         for s, d in get_subsegments(
-            offset=0.0, window=window, shift=shift, duration=len(segment) / SR
+            offset=0.0, window=window, shift=shift, duration=len(audio_segment) / SR
         )
     ]
-    expand_half = expand_by / 2  # tilo: this was just my stupid idea to try things out
     overlapchunks_labels = [
         (
-            slice_me_nice(SR, d, expand_half, s, segment),
+            slice_me_nice(s, d, audio_segment, SR),
             label,
         )
-        for ss, s, d, segment, label in ss_start_dur_segment_label
+        for ss, s, d, audio_segment, label in ss_start_dur_segment_label
     ]
     for test_batch in tqdm(
         iterable_to_batches(overlapchunks_labels, batch_size=batch_size)
@@ -185,12 +181,11 @@ def get_nemo_speaker_embeddings(
     return all_embs, start_dur_label
 
 
-def slice_me_nice(SR, d, expand_half, s, segment):
-    sliced = segment[
-        max(0, round((s - expand_half) * SR)) : min(
-            len(segment) - 1, round((s + d + expand_half) * SR)
-        )
-    ]
+@beartype
+def slice_me_nice(start: float, duration: float, segment, SR: int):
+    ffrom = max(0, round(start * SR))
+    tto = min(len(segment) - 1, round((start + duration) * SR))
+    sliced = segment[ffrom:tto]
     assert len(sliced) > 0
     return sliced
 

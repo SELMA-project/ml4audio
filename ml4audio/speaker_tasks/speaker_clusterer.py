@@ -1,9 +1,29 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+# https://github.com/scikit-learn-contrib/hdbscan/issues/457#issuecomment-1006344406
+# strange error: numpy.core._exceptions._UFuncNoLoopError: ufunc 'correct_alternative_cosine' did not contain a loop with signature matching types  <class 'numpy.dtype[float32]'> -> None
+# strange solution: https://github.com/lmcinnes/pynndescent/issues/163#issuecomment-1025082538
+import numba
+import numpy as np
+import pynndescent
+
+@numba.njit(fastmath=True)
+def correct_alternative_cosine(ds):
+    result = np.empty_like(ds)
+    for i in range(ds.shape[0]):
+        result[i] = 1.0 - np.power(2.0, ds[i])
+    return result
+
+pynn_dist_fns_fda = pynndescent.distances.fast_distance_alternatives
+pynn_dist_fns_fda["cosine"]["correction"] = correct_alternative_cosine
+pynn_dist_fns_fda["dot"]["correction"] = correct_alternative_cosine
+# </end_of_strange_solution>
+
 import hdbscan
 import umap
 from beartype import beartype
+
 from nemo.collections.asr.models import EncDecSpeakerLabelModel
 from nemo.collections.asr.parts.utils.speaker_utils import (
     get_contiguous_stamps,
@@ -121,7 +141,6 @@ class SpeakerClusterer(Buildable):
             speaker_model=self._speaker_model,
             window=self.window,
             shift=self.step_dur,
-            expand_by=0.0,
             batch_size=1,
         )
         start_ends = [(s, e) for s, e, _ in s_e_mapped_labels]
