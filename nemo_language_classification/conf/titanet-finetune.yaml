@@ -1,4 +1,4 @@
-name: &name "TitaNet-Finetune"
+name: &name "titanet-finetune-lang-clf"
 sample_rate: &sample_rate 16000
 
 init_from_pretrained_model:
@@ -12,8 +12,9 @@ model:
     manifest_filepath: ???
     sample_rate: 16000
     labels: null
-    batch_size: 64
+    batch_size: 4
     shuffle: True
+    num_workers: 10
     is_tarred: False
     tarred_audio_filepaths: null
     tarred_shard_strategy: "scatter"
@@ -29,8 +30,18 @@ model:
     manifest_filepath: ???
     sample_rate: 16000
     labels: null
-    batch_size: 128
+    num_workers: 4
+    batch_size: 4
     shuffle: False
+
+#  test_ds:
+#    manifest_filepath: ???
+#    sample_rate: 16000
+#    labels: null
+#    num_workers: 4
+#    batch_size: 1
+#    shuffle: False
+#    embedding_dir: '.'
 
   model_defaults:
     filters: 1024
@@ -140,19 +151,23 @@ model:
 
 trainer:
   devices: 1 # number of gpus (original titanet-large was trained on 4 nodes with 8 gpus each)
-  max_epochs: 10
-  max_steps: -1 # computed at runtime if not set
+  max_epochs: 1
+  max_steps: 10000 # computed at runtime if not set
   num_nodes: 1
   accelerator: gpu
   strategy: ddp
   deterministic: True
   enable_checkpointing: False
   logger: False
-  log_every_n_steps: 1  # Interval of logging.
+  log_every_n_steps: 100  # Interval of logging.
   val_check_interval: 1.0  # Set to 0.25 to check 4 times per epoch, or an int for number of iterations
 
 exp_manager:
   exp_dir: null
   name: *name
-  create_tensorboard_logger: True
+  create_tensorboard_logger: False
+  create_wandb_logger: True
   create_checkpoint_callback: True
+  wandb_logger_kwargs:
+    name: *name
+    project: "nemo-lang-clf"
