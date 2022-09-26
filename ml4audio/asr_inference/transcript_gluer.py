@@ -8,7 +8,10 @@ from beartype import beartype
 
 from misc_utils.buildable import Buildable
 from ml4audio.asr_inference.asr_array_stream_inference import ASRMessage
-from ml4audio.asr_inference.transcript_glueing import glue_left_right_update_hyp_buffer
+from ml4audio.asr_inference.transcript_glueing import (
+    glue_left_right_update_hyp_buffer,
+    NonEmptyAlignedTranscript,
+)
 from ml4audio.audio_utils.aligned_transcript import (
     AlignedTranscript,
     NeAlignedTranscript,
@@ -24,9 +27,7 @@ class ASRStreamInferenceOutput:
     id: str
     ending_to_be_removed: str  # end of transcript that should be removed
     text: str
-    aligned_transcript: Optional[
-        AlignedTranscript
-    ] = None  # TODO: why is this optional?
+    aligned_transcript: AlignedTranscript  # TODO: why WAS this optional?
     end_of_message: bool = False
 
 
@@ -41,7 +42,7 @@ class TranscriptGluer(Buildable):
 
     """
 
-    _hyp_buffer: Optional[NeAlignedTranscript] = field(
+    _hyp_buffer: Optional[NonEmptyAlignedTranscript] = field(
         init=False, repr=False, default=None
     )
     seqmatcher: Optional[difflib.SequenceMatcher] = field(
@@ -55,19 +56,11 @@ class TranscriptGluer(Buildable):
         pass
 
     def reset(self) -> None:
-        self._hyp_buffer: Optional[NeAlignedTranscript] = None
+        self._hyp_buffer: Optional[NonEmptyAlignedTranscript] = None
 
     def _build_self(self):
         self.reset()
         self.seqmatcher = difflib.SequenceMatcher()
-
-    def process(
-        self, input_it: Iterator[ASRMessage]
-    ) -> Iterator[ASRStreamInferenceOutput]:
-        raise NotImplementedError("TODO: remove this!")
-        self.reset()
-        for inp in input_it:
-            yield from self.handle_message(inp)
 
     @beartype
     def handle_message(self, inp: ASRMessage) -> ASRStreamInferenceOutput:
@@ -79,6 +72,7 @@ class TranscriptGluer(Buildable):
             aligned_transcript=self._hyp_buffer,
             end_of_message=inp.end_of_message,
         )
+        assert self._hyp_buffer is not None
         # if inp.end_of_message: TODO: resetting here breaks the AsrStreamingPostASRSegmentingExecutor
         #     self.reset()
         return output
@@ -88,14 +82,25 @@ class TranscriptGluer(Buildable):
         def is_fine(x: AlignedTranscript):
             return len(x.text.replace(" ", "")) > 0
 
-        if is_fine(inp.aligned_transcript):
+        if is_fine(
+            inp.aligned_transcript
+        ):  # TODO: message can be fine and end_of_message at same time!
             is_very_start_of_stream = inp.aligned_transcript.frame_id == 0
             do_overwrite_everything = (
                 is_very_start_of_stream or self._hyp_buffer is None
             )
             if do_overwrite_everything:
-                ending_to_be_removed, new_suffix = self._overwrite_everything(
-                    inp, is_very_start_of_stream
+                ending_to_be_removed = self._get_ending_to_be_removed(
+                    self._hyp_buffer, inp
+                )
+
+                self._hyp_buffer = inp.aligned_transcript
+
+                text = inp.aligned_transcript.text
+                new_suffix = (
+                    " " + text
+                    if not is_very_start_of_stream and len(text.replace(" ", "")) > 0
+                    else text
                 )
             else:
                 assert self._hyp_buffer is not None
@@ -122,26 +127,16 @@ class TranscriptGluer(Buildable):
         else:
             ending_to_be_removed = ""
             new_suffix = ""
-            # if DEBUG:
-            #     print(f"NOT end_of_message and NOT is_fine!!! {inp=}")
+
+        input_not_fine_but_final = self._hyp_buffer is None
+        if input_not_fine_but_final:
+            self._hyp_buffer = inp.aligned_transcript
         return ending_to_be_removed, new_suffix
 
-    @beartype
-    def _overwrite_everything(
-        self, inp: ASRMessage, is_very_start_of_stream: bool
-    ) -> Tuple[str, str]:
-        if self._hyp_buffer is not None:
-            ending_to_be_removed = self._hyp_buffer.text
+    def _get_ending_to_be_removed(self, hyp_buffer, inp):
+        if hyp_buffer is not None:
+            ending_to_be_removed = hyp_buffer.text
             assert len(ending_to_be_removed) > 0, inp.aligned_transcript.text
         else:
             ending_to_be_removed = ""
-        self._hyp_buffer = inp.aligned_transcript
-
-        text = inp.aligned_transcript.text
-        text = (
-            " " + text
-            if not is_very_start_of_stream and len(text.replace(" ", "")) > 0
-            else text
-        )
-
-        return ending_to_be_removed, text
+        return ending_to_be_removed

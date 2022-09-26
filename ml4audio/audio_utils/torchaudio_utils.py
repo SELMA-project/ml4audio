@@ -74,8 +74,10 @@ def _parse_duration_for_torchaudio_load(
     elif isinstance(duration, float):
         assert sample_rate is not None
         num_frames = round(duration * sample_rate)
-    else:
+    elif isinstance(duration, int):
         num_frames = duration
+    else:
+        raise AssertionError()
     return num_frames
 
 

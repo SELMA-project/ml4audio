@@ -1,16 +1,12 @@
 import os
-from collections import namedtuple
-from typing import Annotated, Iterable
+from typing import Annotated, Iterable, Union
 
 import soundfile
 from beartype import beartype
-from beartype.door import die_if_unbearable
+from beartype.door import die_if_unbearable, is_bearable
 from beartype.vale import Is
-from tqdm import tqdm
 
-from misc_utils.beartypes import NumpyFloat1DArray, NeList, is_bearable
-from ml4audio.asr_inference.transcript_glueing import NonEmptyAlignedTranscript
-
+from misc_utils.beartypes import NumpyFloat1DArray, NeList
 
 non_empty = lambda x: x[1] > x[0]
 start_non_negative = lambda x: x[0] >= 0
@@ -55,15 +51,13 @@ def expand_merge_segments(
     exp_segs: list[tuple[float, float]] = []
     prev_start: int = -9999
     prev_end: int = -9999
-    for start, end in tqdm(segments, f"expand_merge_segments"):
+    for start, end in segments:
         start -= expand_by
         end += expand_by
 
         is_expandable = len(exp_segs) > 0 and start - prev_end < max_gap_dur
         if is_expandable:
             startend = prev_start, end
-            if not is_bearable(startend, StartEnd):
-                print(f"{startend=}")
             die_if_unbearable(startend, StartEnd)
             exp_segs[-1] = startend
         else:
@@ -80,10 +74,10 @@ def expand_merge_segments(
 def merge_short_segments(
     segments: NeList[tuple[float, float]], min_dur: float = 1.5
 ) -> NeList[StartEnd]:
-    GIVE_ME_NEW_START = "<GIVE_ME_NEW_START>"
+    GIVE_ME_NEW_START = -1
 
     def buffer_segment(segs: Iterable[tuple[float, float]]):
-        buffer_start = GIVE_ME_NEW_START
+        buffer_start: float = GIVE_ME_NEW_START
         for start, end in segs:
             if buffer_start == GIVE_ME_NEW_START:
                 buffer_start = start
@@ -125,7 +119,7 @@ def pause_based_segmentation(
 def write_segmentwise_wav_file_just_for_fun(
     start_end_speaker: list[tuple[float, float, str]],
     array: NumpyFloat1DArray,
-    SR=16000,
+    SR: int = 16000,
 ):
     output_dir = "segments_wavs"
     os.makedirs(output_dir, exist_ok=True)

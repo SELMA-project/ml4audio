@@ -127,6 +127,7 @@ class Aschinglupi(CachedData):
                 end_of_message=chunk.end_of_signal,
             )
             glued_transcript = self.transcript_gluer.handle_message(message)
+            assert glued_transcript.aligned_transcript is not None
             yield glued_transcript
 
     @beartype
