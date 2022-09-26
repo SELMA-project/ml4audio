@@ -3,37 +3,51 @@ import os
 import sys
 from beartype import beartype
 
-from misc_utils.beartypes import TorchTensorFloat2D, TorchTensorInt
+from misc_utils.beartypes import (
+    TorchTensorFloat2D,
+    TorchTensorInt,
+    NeDict,
+    NumpyFloat2DArray,
+    NumpyFloat1DArray,
+    NumpyInt16Dim1,
+)
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Any
 
 import torch
+
+from misc_utils.buildable import Buildable
 from nemo.collections.asr.models import EncDecSpeakerLabelModel
 from nemo.utils import logging
 import numpy as np
 from tqdm import tqdm
 
 from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM, read_audio_chunks_from_file
-from nemo_language_classification.common import LangClf
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 @dataclass
-class NemoLangClf(LangClf):
+class NemoLangClf(Buildable):
     model_file: str
 
-    def init(self):
+    def _build_self(self) -> Any:
         self.model = load_EncDecSpeakerLabelModel(self.model_file)
         self.model.eval()
+        self.model.to(device)
 
+    @beartype
     @torch.no_grad()
-    def predict(self, audio_array: np.ndarray) -> Dict[str, float]:
+    def predict(self, audio_array: NumpyInt16Dim1) -> NeDict[str, float]:
         labels = list(self.model.cfg.train_ds.labels)
-        sig, sig_len = preprocess_signal(audio_array)
-        logits, _ = self.model.forward(input_signal=sig, input_signal_length=sig_len)
+        sig, sig_len = prepare_audio_signal(audio_array)
+        logits, _ = self.model.forward(
+            input_signal=sig.to(device), input_signal_length=sig_len.to(device)
+        )
 
         probs = torch.softmax(logits, dim=-1).squeeze()
-        label2proba = {k: float(p.numpy()) for k, p in zip(labels, probs)}
+        label2proba = {k: float(p.cpu().numpy()) for k, p in zip(labels, probs)}
         # class_idx = np.argmax(probs)
         # class_label = labels[class_idx]
         return label2proba
@@ -58,15 +72,17 @@ def load_EncDecSpeakerLabelModel(pretrained_model: str) -> EncDecSpeakerLabelMod
     return model
 
 
-def preprocess_signal(
-    signal: np.ndarray,
+@beartype
+def prepare_audio_signal(
+    signal: NumpyInt16Dim1,
 ) -> tuple[TorchTensorFloat2D, TorchTensorInt]:
     signal = signal.squeeze()
     assert signal.dtype == np.int16
     signal = signal.astype(np.float32) / MAX_16_BIT_PCM
+    size_tensor = torch.as_tensor([signal.size], dtype=torch.int64)
     return (
         torch.as_tensor(signal, dtype=torch.float32).unsqueeze(0),
-        torch.as_tensor([signal.size], dtype=torch.int64),
+        size_tensor,
     )
 
 
@@ -74,7 +90,7 @@ if __name__ == "__main__":
     mdl = NemoLangClf(
         model_file=f"{os.environ['BASE_PATH']}/results/TRAINING/LANG_CLF/debug/SpeakerNet/2021-07-23_10-14-04/checkpoints/SpeakerNet--val_loss=6.84-epoch=1-last.ckpt"
     )
-    mdl.init()
+    mdl.build()
     input_sample_rate = 16000
     frame_duration = 4.0
 

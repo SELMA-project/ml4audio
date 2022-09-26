@@ -10,4 +10,6 @@ export PYTHONPATH=${PWD}
 export HF_DATASETS_CACHE=${BASE_PATH}/data/huggingface_cache/datasets
 source secrets.env
 python nemo_language_classification/finetune_lang_clf.py
+
+
 ```

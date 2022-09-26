@@ -4,6 +4,8 @@ from itertools import groupby
 from random import shuffle
 from typing import List
 
+from beartype import beartype
+
 from data_io.readwrite_files import write_jsonl, read_jsonl
 
 OTHER = "OTHER"
@@ -19,7 +21,7 @@ def fix_path(d):
     d["audio_filepath"] = f"{os.environ['HF_DATASETS_CACHE']}/{audio_filepath_tail}"
     return d
 
-
+@beartype
 def create_subset_manifest(
     base_manifest: str,
     only_these_labels: list[str],
