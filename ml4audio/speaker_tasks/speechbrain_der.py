@@ -38,12 +38,16 @@ def rectify(arr):
 
     return arr
 
-RttmFile=Annotated[str,Is[lambda f:os.path.isfile(f)],Is[lambda f:f.endswith(".rttm")]]
+
+RttmFile = Annotated[
+    str, Is[lambda f: os.path.isfile(f)], Is[lambda f: f.endswith(".rttm")]
+]
+
 
 @beartype
 def speechbrain_DER(
-    ref_rttm:RttmFile,
-    sys_rttm:RttmFile,
+    ref_rttm: RttmFile,
+    sys_rttm: RttmFile,
     ignore_overlap=False,
     collar=0.25,
     individual_file_scores=False,
