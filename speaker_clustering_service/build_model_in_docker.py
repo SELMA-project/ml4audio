@@ -4,7 +4,7 @@ from misc_utils.dataclass_utils import (
     to_dict,
 )
 
-from ml4audio.speaker_tasks.speaker_clusterer import SpeakerClusterer
+from ml4audio.speaker_tasks.speaker_clusterer import UmascanSpeakerClusterer
 
 if __name__ == "__main__":
     """
@@ -12,5 +12,5 @@ if __name__ == "__main__":
     it also downloads the model, some where to .cache folder
     """
 
-    inferencer = SpeakerClusterer(model_name="ecapa_tdnn", metric="cosine").build()
+    inferencer = UmascanSpeakerClusterer(model_name="ecapa_tdnn", metric="cosine").build()
     pprint(to_dict(inferencer))

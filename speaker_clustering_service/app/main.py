@@ -13,7 +13,7 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
     expand_merge_segments,
     merge_short_segments,
 )
-from ml4audio.speaker_tasks.speaker_clusterer import SpeakerClusterer
+from ml4audio.speaker_tasks.speaker_clusterer import UmascanSpeakerClusterer
 from ml4audio.service_utils.fastapi_utils import (
     read_uploaded_audio_file,
     get_full_model_config,
@@ -26,7 +26,7 @@ if DEBUG:
 
 app = FastAPI(debug=DEBUG)
 
-inferencer: Optional[SpeakerClusterer] = None
+inferencer: Optional[UmascanSpeakerClusterer] = None
 
 
 SR = 16_000
@@ -114,7 +114,7 @@ def get_model_config() -> Dict[str, Any]:
 @app.on_event("startup")
 def startup_event():
     global inferencer
-    inferencer = SpeakerClusterer(model_name="ecapa_tdnn", metric="cosine").build()
+    inferencer = UmascanSpeakerClusterer(model_name="ecapa_tdnn", metric="cosine").build()
 
 
 if __name__ == "__main__":
