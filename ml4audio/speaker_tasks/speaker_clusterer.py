@@ -8,6 +8,8 @@ import numba
 import numpy as np
 import pynndescent
 
+from ml4audio.audio_utils.nemo_utils import load_EncDecSpeakerLabelModel
+
 
 @numba.njit(fastmath=True)
 def correct_alternative_cosine(ds):
@@ -47,6 +49,7 @@ from ml4audio.speaker_tasks.speaker_embedding_utils import (
 )
 
 seed_everything(42)
+StartEndLabel = tuple[float, float, str]  # TODO: why not using TimeSpan here?
 
 
 @dataclass
@@ -62,6 +65,7 @@ class UmascanSpeakerClusterer(Buildable):
     ▒▄████▀▀
 
     """
+
     model_name: str
     window: float = 1.5
     step_dur: float = 0.75
@@ -75,16 +79,14 @@ class UmascanSpeakerClusterer(Buildable):
     )  # segments which are used for clustering, labeled given by clustering-algorithm, one could want to investigate those after running predict
 
     def _build_self(self) -> Any:
-        self._speaker_model = EncDecSpeakerLabelModel.from_pretrained(
-            model_name=self.model_name
-        )
+        self._speaker_model = load_EncDecSpeakerLabelModel(self.model_name)
 
     @beartype
     def predict(
         self,
         s_e_audio: list[tuple[StartEnd, NumpyFloat1D]],
         ref_labels: Optional[NeList[str]] = None,
-    ) -> tuple[list[tuple[float, float, str]], Optional[list[str]]]:
+    ) -> tuple[list[StartEndLabel], Optional[list[str]]]:
 
         self.cluster_sels, ref_sels_projected_to_cluster_sels = self._calc_raw_labels(
             s_e_audio, ref_labels
@@ -107,7 +109,7 @@ class UmascanSpeakerClusterer(Buildable):
     def _calc_raw_labels(
         self,
         s_e_audio: NeList[tuple[StartEnd, NumpyFloat1D]],
-        ref_labels: Optional[list[str]]=None,
+        ref_labels: Optional[list[str]] = None,
     ):
         if ref_labels is not None:
             assert len(ref_labels) == len(s_e_audio)
@@ -154,7 +156,7 @@ class UmascanSpeakerClusterer(Buildable):
             speaker_model=self._speaker_model,
             window=self.window,
             shift=self.step_dur,
-            batch_size=1,
+            batch_size=1,  # TODO: whatabout higher batch-sizes?
         )
         start_ends = [(s, e) for s, e, _ in s_e_mapped_labels]
         mapped_ref_labels = [l for s, e, l in s_e_mapped_labels]

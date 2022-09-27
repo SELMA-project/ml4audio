@@ -1,29 +1,25 @@
 import os
 
-import sys
 from beartype import beartype
 
 from misc_utils.beartypes import (
     TorchTensorFloat2D,
     TorchTensorInt,
     NeDict,
-    NumpyFloat2DArray,
-    NumpyFloat1DArray,
     NumpyInt16Dim1,
 )
 
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Any
 
 import torch
 
 from misc_utils.buildable import Buildable
-from nemo.collections.asr.models import EncDecSpeakerLabelModel
-from nemo.utils import logging
 import numpy as np
 from tqdm import tqdm
 
 from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM, read_audio_chunks_from_file
+from ml4audio.audio_utils.nemo_utils import load_EncDecSpeakerLabelModel
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -51,25 +47,6 @@ class NemoLangClf(Buildable):
         # class_idx = np.argmax(probs)
         # class_label = labels[class_idx]
         return label2proba
-
-
-@beartype
-def load_EncDecSpeakerLabelModel(pretrained_model: str) -> EncDecSpeakerLabelModel:
-    """
-    based on: https://github.com/NVIDIA/NeMo/blob/ddd87197e94ca23ae54e641dc7784e64c00a43d6/examples/speaker_tasks/recognition/speaker_reco_finetune.py#L63
-    """
-    if pretrained_model.endswith(".nemo"):
-        logging.info(f"Using local speaker model from {pretrained_model}")
-        model = EncDecSpeakerLabelModel.restore_from(restore_path=pretrained_model)
-    elif pretrained_model.endswith(".ckpt"):
-        logging.info(f"Using local speaker model from checkpoint {pretrained_model}")
-        model = EncDecSpeakerLabelModel.load_from_checkpoint(
-            checkpoint_path=pretrained_model
-        )
-    else:
-        logging.info("Using pretrained speaker recognition model from NGC")
-        model = EncDecSpeakerLabelModel.from_pretrained(model_name=pretrained_model)
-    return model
 
 
 @beartype
