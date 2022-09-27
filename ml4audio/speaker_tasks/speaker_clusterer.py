@@ -50,7 +50,18 @@ seed_everything(42)
 
 
 @dataclass
-class SpeakerClusterer(Buildable):
+class UmascanSpeakerClusterer(Buildable):
+    """
+    UmascanSpeakerClusterer ->Umap+HDBSCAN NeMo Embeddings Speaker Clusterer
+    nick-name: umaspeclu
+
+    ░▄▄▄▄░
+    ▀▀▄██►
+    ▀▀███►
+    ░▀███►░█►
+    ▒▄████▀▀
+
+    """
     model_name: str
     window: float = 1.5
     step_dur: float = 0.75
@@ -96,9 +107,9 @@ class SpeakerClusterer(Buildable):
     def _calc_raw_labels(
         self,
         s_e_audio: NeList[tuple[StartEnd, NumpyFloat1D]],
-        ref_labels: Optional[list[str]],
+        ref_labels: Optional[list[str]]=None,
     ):
-        if ref_labels:
+        if ref_labels is not None:
             assert len(ref_labels) == len(s_e_audio)
         else:
             ref_labels = ["dummy" for _ in range(len(s_e_audio))]
@@ -131,7 +142,7 @@ class SpeakerClusterer(Buildable):
     def _extract_embeddings(
         self,
         s_e_audio: NeList[tuple[StartEnd, NeNumpyFloat1DArray]],
-        ref_labels: Optional[NeList[str]],
+        ref_labels: NeList[str],
     ) -> tuple[NumpyFloat2D, NeList[StartEnd], NeList[str]]:
         SR = 16_000
         labeled_segments = [

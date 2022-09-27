@@ -15,7 +15,7 @@ from ml4audio.audio_utils.audio_io import (
 from ml4audio.audio_utils.audio_segmentation_utils import (
     pause_based_segmentation,
 )
-from ml4audio.speaker_tasks.speaker_clusterer import SpeakerClusterer
+from ml4audio.speaker_tasks.speaker_clusterer import UmascanSpeakerClusterer
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
     format_rttm_lines,
     read_sel_from_rttm,
@@ -39,7 +39,7 @@ def test_speaker_clusterer_oracle_vad(
         for s, e, speaker in start_end_speaker
     ]
 
-    clusterer: SpeakerClusterer = SpeakerClusterer(
+    clusterer: UmascanSpeakerClusterer = UmascanSpeakerClusterer(
         model_name="ecapa_tdnn", metric="cosine"
     ).build()
     s_e_labels, _ = clusterer.predict(s_e_audio)
@@ -85,7 +85,7 @@ BASE_PATHES["cache_root"] = cache_root
 BASE_PATHES["am_models"] = PrefixSuffix("cache_root", "AM_MODELS")
 BASE_PATHES["asr_inference"] = PrefixSuffix("cache_root", "ASR_INFERENCE")
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_speaker_clusterer(
     rttm_ref="tests/resources/oLnl1D6owYA_ref.rttm",
     audio_file="tests/resources/oLnl1D6owYA.opus",
@@ -119,7 +119,7 @@ def test_speaker_clusterer(
     array = load_resample_with_nemo(audio_file)
     s_e_audio = [((s, e), array[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
     assert all((len(a) > 1000 for (s, e), a in s_e_audio))
-    clusterer: SpeakerClusterer = SpeakerClusterer(
+    clusterer: UmascanSpeakerClusterer = UmascanSpeakerClusterer(
         model_name="ecapa_tdnn", metric="cosine"
     ).build()
     s_e_labels, _ = clusterer.predict(s_e_audio)
