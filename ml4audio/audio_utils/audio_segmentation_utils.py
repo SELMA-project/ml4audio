@@ -41,17 +41,46 @@ NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
     return all(seq[k - 1][0] <= seq[k][0] for k in range(1, len(seq)))
 
+@beartype
+def get_contiguous_stamps(stamps)->Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]]:
+    """
+    based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py
+    """
+    lines = deepcopy(stamps)
+    contiguous_stamps = []
+    for i in range(len(lines) - 1):
+        start, end, speaker = lines[i].split()
+        next_start, next_end, next_speaker = lines[i + 1].split()
+        if float(end) > float(next_start):
+            avg = str((float(next_start) + float(end)) / 2.0)
+            lines[i + 1] = " ".join([avg, next_end, next_speaker])
+            contiguous_stamps.append(start + " " + avg + " " + speaker)
+        else:
+            contiguous_stamps.append(start + " " + end + " " + speaker)
+    start, end, speaker = lines[-1].split()
+    contiguous_stamps.append(start + " " + end + " " + speaker)
+    return contiguous_stamps
+
+
+@beartype
+def expand_segments(
+    segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
+    expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
+) -> Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]]:
+    raw_expaned = [(start - expand_by, end + expand_by) for start, end in segments]
+    return get_contiguous_stamps(raw_expaned)
+
 
 @beartype
 def expand_merge_segments(
     segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
     max_gap_dur: float = 0.2,  # gap within a segment -> shorter than this gets merged
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
-) -> NeList[StartEnd]:
+) -> Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]]:
     exp_segs: list[tuple[float, float]] = []
     prev_start: int = -9999
     prev_end: int = -9999
-    for start, end in segments:
+    for start, end in expand_segments(segments, expand_by):
         start -= expand_by
         end += expand_by
 
@@ -77,14 +106,14 @@ def merge_short_segments(
     GIVE_ME_NEW_START = -1
 
     def buffer_segment(segs: Iterable[tuple[float, float]]):
-        buffer_start: float = GIVE_ME_NEW_START
+        previous_start: float = GIVE_ME_NEW_START
         for start, end in segs:
-            if buffer_start == GIVE_ME_NEW_START:
-                buffer_start = start
+            if previous_start == GIVE_ME_NEW_START:
+                previous_start = start
 
-            if end - buffer_start > min_dur:
-                yield buffer_start, end
-                buffer_start = GIVE_ME_NEW_START
+            if end - previous_start > min_dur:
+                yield previous_start, end
+                previous_start = GIVE_ME_NEW_START
 
     min_dur_segs = list(buffer_segment(segments))
     assert all((e - s > min_dur for s, e in min_dur_segs))
