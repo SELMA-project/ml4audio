@@ -101,8 +101,8 @@ class UmascanSpeakerClusterer(Buildable):
         lines = [" ".join([str(s), str(e), l]) for s, e, l in self.cluster_sels]
         a = get_contiguous_stamps(lines)
         lines = merge_stamps(a)
-        s_e_labels = [l.split(" ") for l in lines]
-        s_e_labels = [(float(s), float(e), l) for s, e, l in s_e_labels]
+        s_e_labels_rw = [l.split(" ") for l in lines]
+        s_e_labels = [(float(s), float(e), l) for s, e, l in s_e_labels_rw]
         return s_e_labels, ref_sels_projected_to_cluster_sels
 
     @beartype

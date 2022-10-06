@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Optional, Union, Iterator, Any
+from typing import Optional, Union, Iterator, Any, Annotated
 
 import librosa
 import numpy as np
 from beartype import beartype
+from beartype.vale import Is
 from numpy.typing import NDArray
 
 from ml4audio.audio_utils.audio_data_models import FileLikeAudioDatum
@@ -308,12 +309,18 @@ def normalize_audio_array(array: Numpy1DArray) -> NumpyFloat1DArray:
 
 
 @beartype
-def ffmpeg_torch_load(file: str, sample_rate=16000) -> TorchTensor1D:
+def ffmpeg_torch_load(
+    file: Annotated[str, Is[lambda f: os.path.isfile(f)]], sample_rate:int=16000
+) -> TorchTensor1D:
     """
     TODO: this is super ugly, why cant I load with librosa? which or another ffmpeg wrapper
     """
-    name = Path(file).stem
-    with NamedTemporaryFile(prefix=name, suffix=".wav", delete=True) as tmp_wav:
+    # name = Path(file).stem
+    with NamedTemporaryFile(
+        # prefix=name.replace(" ", "_"),
+        suffix=".wav",
+        delete=True,
+    ) as tmp_wav:
 
         cmd = f'ffmpeg -i "{file}" -ac 1 -ar {sample_rate} {tmp_wav.name} -y'
         o, e = exec_command(cmd)
