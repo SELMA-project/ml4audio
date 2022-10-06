@@ -7,6 +7,7 @@ from typing import Any, Optional
 import numba
 import numpy as np
 import pynndescent
+from beartype.door import is_bearable
 
 from ml4audio.audio_utils.nemo_utils import load_EncDecSpeakerLabelModel
 
@@ -43,7 +44,11 @@ from misc_utils.beartypes import (
     NumpyFloat1D,
 )
 from misc_utils.buildable import Buildable
-from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, StartEndLabels
+from ml4audio.audio_utils.audio_segmentation_utils import (
+    StartEnd,
+    StartEndLabels,
+    NonOverlSegs,
+)
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
     get_nemo_speaker_embeddings,
 )
@@ -103,6 +108,7 @@ class UmascanSpeakerClusterer(Buildable):
         lines = merge_stamps(a)
         s_e_labels_rw = [l.split(" ") for l in lines]
         s_e_labels = [(float(s), float(e), l) for s, e, l in s_e_labels_rw]
+        assert is_bearable([(s, e) for s, e, _ in s_e_labels], NonOverlSegs)
         return s_e_labels, ref_sels_projected_to_cluster_sels
 
     @beartype

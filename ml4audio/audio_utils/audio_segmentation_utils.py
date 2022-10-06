@@ -31,9 +31,14 @@ StartEndLabel = Annotated[
 StartEndLabels = NeList[StartEndLabel]
 
 
-def is_non_overlapping(seq: NeList[StartEnd]) -> bool:
+# purposefully not type-hint here!
+def is_non_overlapping(seq) -> bool:
     return all((seq[k - 1][1] <= seq[k][0] for k in range(1, len(seq))))
 
+StartEndLabelNonOverlap = Annotated[
+    StartEndLabels,
+    Is[is_non_overlapping],
+]
 
 NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 
@@ -41,32 +46,64 @@ NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
     return all(seq[k - 1][0] <= seq[k][0] for k in range(1, len(seq)))
 
+
 @beartype
-def get_contiguous_stamps(stamps)->Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]]:
+def groups_to_merge_segments_of_same_label(
+    start_end_label: NeList[StartEndLabel], max_gap_dur: float
+) -> NeList[NeList[int]]:
+    initial_group = [0]
+    mergable_groupds = [initial_group]
+    for k in range(len(start_end_label) - 1):
+        start, end, label = start_end_label[k]
+        next_start, next_end, next_label = start_end_label[k + 1]
+        if label == next_label and next_start - end < max_gap_dur:
+            mergable_groupds[-1].append(k + 1)
+        else:
+            new_group = [k + 1]
+            mergable_groupds.append(new_group)
+
+    return mergable_groupds
+
+
+@beartype
+def merge_segments_labelaware(
+    start_end_label: NeList[StartEndLabel], max_gap_dur: float
+) -> StartEndLabelNonOverlap:
+    groups = groups_to_merge_segments_of_same_label(start_end_label, max_gap_dur)
+
+    def merge_segment(first: int, last: int):
+        group_start = start_end_label[first][0]
+        group_end = start_end_label[last][1]
+        group_label = start_end_label[first][2]
+        return group_start, group_end, group_label
+
+    merged = [merge_segment(gr[0], gr[-1]) for gr in groups]
+    return merged
+
+
+@beartype
+def get_contiguous_stamps(
+    start_ends: NeList[StartEnd],
+) -> NonOverlSegs:
     """
     based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py
     """
-    lines = deepcopy(stamps)
-    contiguous_stamps = []
-    for i in range(len(lines) - 1):
-        start, end, speaker = lines[i].split()
-        next_start, next_end, next_speaker = lines[i + 1].split()
-        if float(end) > float(next_start):
-            avg = str((float(next_start) + float(end)) / 2.0)
-            lines[i + 1] = " ".join([avg, next_end, next_speaker])
-            contiguous_stamps.append(start + " " + avg + " " + speaker)
-        else:
-            contiguous_stamps.append(start + " " + end + " " + speaker)
-    start, end, speaker = lines[-1].split()
-    contiguous_stamps.append(start + " " + end + " " + speaker)
-    return contiguous_stamps
+    contiguous_stamps = [[s, e] for s, e in start_ends]
+    for i in range(len(start_ends) - 1):
+        start, end = start_ends[i]
+        next_start, next_end = start_ends[i + 1]
+        if end > next_start:
+            avg = (next_start + end) / 2.0
+            contiguous_stamps[i][1] = avg
+            contiguous_stamps[i + 1][0] = avg
+    return [tuple(x) for x in contiguous_stamps]
 
 
 @beartype
 def expand_segments(
     segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
-) -> Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]]:
+) -> NonOverlSegs:
     raw_expaned = [(start - expand_by, end + expand_by) for start, end in segments]
     return get_contiguous_stamps(raw_expaned)
 
@@ -76,13 +113,13 @@ def expand_merge_segments(
     segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
     max_gap_dur: float = 0.2,  # gap within a segment -> shorter than this gets merged
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
-) -> Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]]:
+) -> Annotated[
+    NeList[StartEnd], Is[is_non_overlapping] & Is[is_weakly_monoton_increasing]
+]:
     exp_segs: list[tuple[float, float]] = []
     prev_start: int = -9999
     prev_end: int = -9999
     for start, end in expand_segments(segments, expand_by):
-        start -= expand_by
-        end += expand_by
 
         is_expandable = len(exp_segs) > 0 and start - prev_end < max_gap_dur
         if is_expandable:
