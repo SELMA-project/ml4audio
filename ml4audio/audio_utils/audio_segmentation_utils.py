@@ -35,6 +35,7 @@ StartEndLabels = NeList[StartEndLabel]
 def is_non_overlapping(seq) -> bool:
     return all((seq[k - 1][1] <= seq[k][0] for k in range(1, len(seq))))
 
+
 StartEndLabelNonOverlap = Annotated[
     StartEndLabels,
     Is[is_non_overlapping],
@@ -96,7 +97,10 @@ def get_contiguous_stamps(
             avg = (next_start + end) / 2.0
             contiguous_stamps[i][1] = avg
             contiguous_stamps[i + 1][0] = avg
-    return [tuple(x) for x in contiguous_stamps]
+    non_overlapping_start_ends = [tuple(x) for x in contiguous_stamps]
+
+    assert len(non_overlapping_start_ends) == len(start_ends)
+    return non_overlapping_start_ends
 
 
 @beartype
@@ -106,6 +110,24 @@ def expand_segments(
 ) -> NonOverlSegs:
     raw_expaned = [(start - expand_by, end + expand_by) for start, end in segments]
     return get_contiguous_stamps(raw_expaned)
+
+
+@beartype
+def expand_merge_segments_labelaware(
+    start_end_labels: Annotated[
+        NeList[StartEndLabel], Is[is_weakly_monoton_increasing]
+    ],
+    expand_by: float,
+    max_gap_dur: float,
+) -> StartEndLabelNonOverlap:
+    s_e_exp = expand_segments(
+        [(s, e) for s, e, _ in start_end_labels], expand_by=expand_by
+    )
+    s_e_labels = merge_segments_labelaware(
+        [(s, e, l) for (s, e), (_, _, l) in zip(s_e_exp, start_end_labels)],
+        max_gap_dur=max_gap_dur,
+    )
+    return s_e_labels
 
 
 @beartype
