@@ -120,6 +120,9 @@ def expand_merge_segments_labelaware(
     expand_by: float,
     max_gap_dur: float,
 ) -> StartEndLabelNonOverlap:
+    """
+    used for post-clustering resegmentation
+    """
     s_e_exp = expand_segments(
         [(s, e) for s, e, _ in start_end_labels], expand_by=expand_by
     )

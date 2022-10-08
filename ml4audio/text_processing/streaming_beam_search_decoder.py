@@ -346,6 +346,9 @@ class StreamingBeamSearchDecoderCTC(BeamSearchDecoderCTC):
 
 @dataclass
 class ChunkedPyctcDecoder(HFCTCDecoder):
+    """
+    TODO: what is this good for? who is using it? -> looks like Work in Progress, not much more than a idea!
+    """
 
     lm_weight: Union[_UNDEFINED, float] = UNDEFINED
     beta: Union[_UNDEFINED, float] = UNDEFINED

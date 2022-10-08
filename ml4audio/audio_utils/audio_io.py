@@ -310,7 +310,8 @@ def normalize_audio_array(array: Numpy1DArray) -> NumpyFloat1DArray:
 
 @beartype
 def ffmpeg_torch_load(
-    file: Annotated[str, Is[lambda f: os.path.isfile(f)]], sample_rate:int=16000
+    file: Annotated[str, Is[lambda f: os.path.isfile(f)]],
+    target_sample_rate: int = 16000,
 ) -> TorchTensor1D:
     """
     TODO: this is super ugly, why cant I load with librosa? which or another ffmpeg wrapper
@@ -322,11 +323,11 @@ def ffmpeg_torch_load(
         delete=True,
     ) as tmp_wav:
 
-        cmd = f'ffmpeg -i "{file}" -ac 1 -ar {sample_rate} {tmp_wav.name} -y'
+        cmd = f'ffmpeg -i "{file}" -ac 1 -ar {target_sample_rate} {tmp_wav.name} -y'
         o, e = exec_command(cmd)
 
         audio = load_resample_with_torch(
             data_source=tmp_wav.name,
-            target_sample_rate=sample_rate,
+            target_sample_rate=target_sample_rate,
         )
     return audio

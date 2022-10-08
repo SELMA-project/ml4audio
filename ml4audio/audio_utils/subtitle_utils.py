@@ -19,11 +19,27 @@ except ImportError:
 class SubtitleBlock:
     start: int  # in ms
     end: int  # in ms
-    name_texts: list[Tuple[str, str]]
+    name_texts: list[tuple[str, str]]
 
     @property
     def names(self):
         return [n for n, _ in self.name_texts]
+
+    # TODO(tilo): who wants this from_dict_letters?
+    # @classmethod
+    # def from_dict_letters(cls, dictletter: Dict[str, List[LetterIdx]]):
+    #     first_index = list(dictletter.values())[0][0].r_idx
+    #     start = make_time(ms=round(1000 * first_index / TARGET_SAMPLE_RATE))
+    #     last_index = list(dictletter.values())[0][-1].r_idx
+    #     end = make_time(ms=round(1000 * last_index / TARGET_SAMPLE_RATE))
+    #     return cls(
+    #         start,
+    #         end,
+    #         [
+    #             (name, "".join((l.letter for l in letters)))
+    #             for name, letters in dictletter.items()
+    #         ],
+    #     )
 
 
 @dataclass
@@ -31,8 +47,9 @@ class StyleConfig:
     fontsize: float = 20.0
 
 
+@beartype
 def create_ass_file(
-    subtitle_blocks: list[SubtitleBlock], ass_file, styles: dict[str, StyleConfig]
+    subtitle_blocks: list[SubtitleBlock], ass_file: str, styles: dict[str, StyleConfig]
 ):
     subs = SSAFile()
     colors = [Color(255, 255, 255), Color(0, 255, 255), Color(255, 255, 100)]

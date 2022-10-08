@@ -1,16 +1,21 @@
 from tempfile import NamedTemporaryFile
+from typing import Union
 
 import numpy as np
 from beartype import beartype
 from fastapi import UploadFile, HTTPException
+from starlette.datastructures import UploadFile as starlette_UploadFile
+
 from misc_utils.beartypes import NumpyFloat1D, NumpyFloat32_1D
 from misc_utils.dataclass_utils import encode_dataclass
 
 from ml4audio.audio_utils.audio_io import ffmpeg_torch_load
 
 
+_UploadFile=Union[UploadFile,starlette_UploadFile]
+
 @beartype
-async def read_uploaded_audio_file(file, SR: int = 16000) -> NumpyFloat32_1D:
+async def read_uploaded_audio_file(file:_UploadFile, SR: int = 16000) -> NumpyFloat32_1D:
     # TODO: cannot typehint from fastapi import UploadFile cause it hands in UploadFile from starlette!
 
     if not file:
@@ -25,7 +30,7 @@ async def read_uploaded_audio_file(file, SR: int = 16000) -> NumpyFloat32_1D:
         data_bytes = await file.read()  # if in Asynchronous context
         save_file(tmp_original.name, data_bytes)
 
-        raw_audio = ffmpeg_torch_load(tmp_original.name, sample_rate=SR).numpy()
+        raw_audio = ffmpeg_torch_load(tmp_original.name, target_sample_rate=SR).numpy()
     audio = raw_audio.astype(np.float32)
     return audio
 
