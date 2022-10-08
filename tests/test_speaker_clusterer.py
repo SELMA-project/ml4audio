@@ -3,7 +3,6 @@ import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-import pytest
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score
 
 from data_io.readwrite_files import write_lines, read_json
@@ -14,6 +13,7 @@ from ml4audio.audio_utils.audio_io import (
 )
 from ml4audio.audio_utils.audio_segmentation_utils import (
     pause_based_segmentation,
+    expand_merge_segments_labelaware,
 )
 from ml4audio.speaker_tasks.speaker_clusterer import UmascanSpeakerClusterer
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
@@ -47,9 +47,7 @@ def test_speaker_clusterer_oracle_vad(
 
     with NamedTemporaryFile(suffix=".rttm") as tmp_file:
         rttm_pred_file = tmp_file.name
-        write_lines(
-            rttm_pred_file, format_rttm_lines(s_e_labels, file_id=file_id)
-        )
+        write_lines(rttm_pred_file, format_rttm_lines(s_e_labels, file_id=file_id))
         miss_speaker, fa_speaker, sers, ders = speechbrain_DER(
             rttm_ref,
             rttm_pred_file,
@@ -122,7 +120,10 @@ def test_speaker_clusterer(
     clusterer: UmascanSpeakerClusterer = UmascanSpeakerClusterer(
         model_name="ecapa_tdnn", metric="cosine"
     ).build()
-    s_e_labels, _ = clusterer.predict(s_e_audio)
+    s_e_labels_raw, _ = clusterer.predict(s_e_audio)
+    s_e_labels = expand_merge_segments_labelaware(s_e_labels_raw,expand_by=0.1,max_gap_dur=0.1)
+    print(f"{len(s_e_labels_raw)=}, {len(s_e_labels)=}")
+
     s_e_mapped_labels = clusterer.cluster_sels
     labels_ref = apply_labels_to_segments(
         s_e_sp_ref, [(s, e) for s, e, _ in s_e_mapped_labels]

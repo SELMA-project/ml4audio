@@ -2,8 +2,8 @@ import icdiff
 import numpy as np
 
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
+from ml4audio.text_processing.asr_metrics import calc_cer
 from ml4audio.text_processing.ctc_decoding import GreedyDecoder
-from ml4audio.text_processing.metrics_calculation import calc_cer
 
 TARGET_SAMPLE_RATE = 16000
 

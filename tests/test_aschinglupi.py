@@ -15,11 +15,11 @@ from ml4audio.audio_utils.overlap_array_chunker import (
     audio_messages_from_file,
     OverlapArrayChunker,
 )
+from ml4audio.text_processing.asr_metrics import calc_cer
 from ml4audio.text_processing.asr_text_normalization import (
     normalize_filter_text,
     Casing,
 )
-from ml4audio.text_processing.metrics_calculation import calc_cer
 from ml4audio.text_processing.pretty_diff import smithwaterman_aligned_icdiff
 
 BASE_PATHES["asr_inference"] = get_test_cache_base()

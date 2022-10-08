@@ -4,30 +4,9 @@ import shutil
 import kenlm
 import numpy as np
 import pytest
-import torch
-
 from data_io.readwrite_files import read_lines
-from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
-from ml4audio.text_processing.lm_model_for_pyctcdecode import (
-    KenLMForPyCTCDecodeFromArpa,
-    KenLMForPyCTCDecodeFromArpaCorpus,
-    KenLMForPyCTCDecode,
-)
-from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
 from misc_utils.buildable import BuildableList
 from misc_utils.prefix_suffix import PrefixSuffix
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
-from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
-from ml4audio.text_processing.streaming_beam_search_decoder import (
-    StreamingBeamSearchDecoderCTC,
-    IncrBeam,
-)
-from ml4audio.text_processing.word_based_text_corpus import (
-    WordBasedLMCorpus,
-    RglobRawCorpus,
-)
-from conftest import get_test_vocab, TEST_RESOURCES, load_hfwav2vec2_base_tokenizer
-from conftest import assert_transcript_cer
 from pyctcdecode import BeamSearchDecoderCTC, Alphabet, LanguageModel
 from pyctcdecode.constants import (
     DEFAULT_BEAM_WIDTH,
@@ -36,8 +15,23 @@ from pyctcdecode.constants import (
     DEFAULT_PRUNE_BEAMS,
     DEFAULT_HOTWORD_WEIGHT,
 )
-from pyctcdecode.decoder import OutputBeam
 from pyctcdecode.language_model import HotwordScorer
+
+from conftest import get_test_vocab, TEST_RESOURCES, load_hfwav2vec2_base_tokenizer, \
+    assert_transcript_cer
+from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
+from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
+from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
+from ml4audio.text_processing.lm_model_for_pyctcdecode import (
+    KenLMForPyCTCDecodeFromArpa,
+    KenLMForPyCTCDecodeFromArpaCorpus,
+    KenLMForPyCTCDecode,
+)
+from ml4audio.text_processing.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
+from ml4audio.text_processing.word_based_text_corpus import (
+    WordBasedLMCorpus,
+    RglobRawCorpus,
+)
 
 TARGET_SAMPLE_RATE = 16000
 

@@ -11,23 +11,28 @@ from ml4audio.audio_utils.audio_io import load_and_resample_16bit_PCM
 from ml4audio.text_processing.asr_metrics import calc_cer
 
 
+
 @pytest.mark.parametrize(
-    "wav2vec2_base_greedy,max_CER",
+    "asr_decode_inferencer,max_CER",
     [
         (16_000, 0.0),  # WTF! this model reaches 0% CER! overfitted?
         (8_000, 0.01),
         (4_000, 0.11),
     ],
-    indirect=["wav2vec2_base_greedy"],
+    indirect=["asr_decode_inferencer"],
 )
 def test_HFASRDecodeInferencer(
-    wav2vec2_base_greedy: HFASRDecodeInferencer,
+    asr_decode_inferencer: HFASRDecodeInferencer,
     librispeech_audio_file,
     librispeech_ref,
     max_CER,
 ):
+    """
+    TODO: how much sense do these tests that depend on external data make?
+        -> model gets downloaded from hf-hub
+    """
 
-    expected_sample_rate = wav2vec2_base_greedy.logits_inferencer.input_sample_rate
+    expected_sample_rate = asr_decode_inferencer.logits_inferencer.input_sample_rate
     audio_array = load_and_resample_16bit_PCM(
         librispeech_audio_file, expected_sample_rate
     )
@@ -40,7 +45,7 @@ def test_HFASRDecodeInferencer(
     # write_lines("vocab.txt",target_dictionary)
 
     start_time = time()
-    transcript: AlignedTranscript = wav2vec2_base_greedy.transcribe_audio_array(
+    transcript: AlignedTranscript = asr_decode_inferencer.transcribe_audio_array(
         audio_array.squeeze()
     )
     inference_duration = time() - start_time

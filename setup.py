@@ -22,7 +22,7 @@ setup(
     version="0.1",
     author="Tilo Himmelsbach",
     author_email="dertilo@gmail.com",
-    packages=find_packages(exclude=["fastapi_asr_service"]),
+    packages=find_packages(include=["ml4audio"]),
     license="MIT License",
     long_description=readme,
     install_requires=install_requires,

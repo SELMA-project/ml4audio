@@ -17,6 +17,7 @@ from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer impor
     HFWav2Vec2LogitsInferencer,
 )
 from ml4audio.audio_utils.overlap_array_chunker import AudioMessageChunk
+from ml4audio.text_processing.asr_metrics import calc_cer
 from ml4audio.text_processing.ctc_decoding import (
     AlignedBeams,
     LogitAlignedTranscript,
@@ -24,7 +25,6 @@ from ml4audio.text_processing.ctc_decoding import (
 from ml4audio.text_processing.lm_model_for_pyctcdecode import (
     KenLMForPyCTCDecodeFromArpa,
 )
-from ml4audio.text_processing.metrics_calculation import calc_cer
 from ml4audio.audio_utils.audio_io import (
     load_resample_with_nemo,
 )
