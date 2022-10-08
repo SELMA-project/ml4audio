@@ -17,6 +17,7 @@ from misc_utils.dataclass_utils import (
 )
 from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import Aschinglupi
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, letter_to_words
+from ml4audio.audio_utils.nemo_utils import nemo_offline_vad_to_cut_away_noise
 from ml4audio.service_utils.fastapi_utils import read_uploaded_audio_file, \
     get_full_model_config
 from nemo_vad.nemo_offline_vad import NemoOfflineVAD
@@ -56,20 +57,6 @@ def userfriendly_inferencer_dict(inferencer):
 SR = 16_000
 
 
-@beartype
-def cut_away_noise(array: NumpyFloat1D) -> NumpyFloat1D:
-    global vad
-    start_ends, probas = vad.predict(array)
-    if len(start_ends) == 0:
-        # assuming that VAD fugedup so fallback to no-vad
-        noise_free_array = array
-    else:
-        noise_free_array = np.concatenate(
-            [array[round(s * SR) : round(e * SR)] for s, e in start_ends], axis=0
-        )
-    return noise_free_array
-
-
 @app.post("/transcribe")
 async def upload_and_process_audio_file(file: UploadFile):
     """
@@ -77,11 +64,12 @@ async def upload_and_process_audio_file(file: UploadFile):
     fastapi wants to run things in multiprocessing-processes -> therefore needs to pickle stuff
     some parts of nemo cannot be pickled: "_pickle.PicklingError: Can't pickle <class 'nemo.collections.common.parts.preprocessing.collections.SpeechLabelEntity'>"
     """
-    global asr_inferencer
+    global asr_inferencer, vad
+
 
     audio = await read_uploaded_audio_file(file)
 
-    audio = cut_away_noise(audio)
+    audio = nemo_offline_vad_to_cut_away_noise(vad, audio)
     at: AlignedTranscript = asr_inferencer.transcribe_audio_array(audio)
     at.remove_unnecessary_spaces()
     tokens = letter_to_words(at.letters)
