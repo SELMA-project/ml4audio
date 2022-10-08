@@ -29,7 +29,7 @@ from ml4audio.audio_utils.audio_segmentation_utils import StartEnd
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def create_manifest(data_dir, audio_file):
+def create_manifest(manifest_file:str, audio_file):
     meta = {
         "audio_filepath": audio_file,
         "offset": 0,
@@ -39,7 +39,7 @@ def create_manifest(data_dir, audio_file):
         # "rttm_filepath": rttm_file,
         "uem_filepath": None,
     }
-    with open(f"{data_dir}/vad_manifest.json", "w") as fp:
+    with open(manifest_file, "w") as fp:
         json.dump(meta, fp)
         fp.write("\n")
 
@@ -59,8 +59,8 @@ def nemo_offline_vad_infer(
     assert os.path.isfile(audio_file)
 
     data_dir = f"{tmpdir}"
-    create_manifest(data_dir, audio_file)  # TODO: use tmpfile!
     manifest_vad_input = f"{data_dir}/vad_manifest.json"
+    create_manifest(manifest_vad_input, audio_file)  # TODO: use tmpfile!
 
     key_meta_map = {}
     with open(manifest_vad_input, "r") as manifest:

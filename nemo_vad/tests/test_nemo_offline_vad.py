@@ -32,12 +32,47 @@ def vad_assertions(start_ends: list[tuple[float, float]]):
     assert np.allclose(ends, ends_exp, atol=1e-2)
 
 
+# for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
+default_vad_config = {
+    "name": "vad_inference_postprocessing",
+    "dataset": None,
+    "num_workers": 0,
+    "sample_rate": 16000,
+    "gen_seg_table": True,
+    "write_to_manifest": True,
+    "prepare_manifest": {"auto_split": True, "split_duration": 400},
+    "vad": {
+        "model_path": "vad_marblenet",
+        "parameters": {
+            "normalize_audio": False,
+            "window_length_in_sec": 0.15,
+            "shift_length_in_sec": 0.01,
+            "smoothing": "median",
+            "overlap": 0.875,
+            "postprocessing": {
+                "onset": 0.4,
+                "offset": 0.7,  # TODO(tilo): makes no sense to me
+                "pad_onset": 0.05,
+                "pad_offset": -0.1,
+                "min_duration_on": 0.2,
+                "min_duration_off": 0.2,
+                "filter_speech_first": True,
+            },
+        },
+    },
+    "prepared_manifest_vad_input": None,
+    "frame_out_dir": "vad_frame",
+    "smoothing_out_dir": None,
+    "table_out_dir": None,
+    "out_manifest_filepath": None,
+}
+
+
 def test_nemo_offline_vad(
     audio_file="tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav",
-    config_yaml="nemo_vad/tests/vad_test_config.yaml",
 ):
     audio = load_resample_with_soundfile(audio_file)
-    cfg = OmegaConf.load(config_yaml)
+    cfg = OmegaConf.create(default_vad_config)
     vad = NemoOfflineVAD(cfg)
     vad.build()
     start_ends, _ = vad.predict(audio)
