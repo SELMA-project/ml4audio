@@ -10,7 +10,7 @@ import torch
 from beartype import beartype
 from omegaconf import DictConfig
 
-from misc_utils.beartypes import NumpyFloat1DArray
+from misc_utils.beartypes import NumpyFloat1D, NeList
 from misc_utils.buildable import Buildable
 from nemo.collections.asr.models import EncDecClassificationModel
 from nemo.collections.asr.parts.utils.vad_utils import (
@@ -23,6 +23,8 @@ from nemo.collections.asr.parts.utils.vad_utils import (
     generate_vad_segment_table_per_tensor,
 )
 from nemo.utils import logging
+
+from ml4audio.audio_utils.audio_segmentation_utils import StartEnd
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -42,13 +44,13 @@ def create_manifest(data_dir, audio_file):
         fp.write("\n")
 
 
-StartEnds = list[tuple[float, float]]
+StartEnds = NeList[StartEnd]
 StartEndsVADProbas = tuple[StartEnds, list[float]]
 
 
 @beartype
 def nemo_offline_vad_infer(
-    cfg: DictConfig, vad_model: EncDecClassificationModel, audio_file: str
+    cfg: DictConfig, vad_model: EncDecClassificationModel, audio_file: str, tmpdir: str
 ) -> StartEndsVADProbas:
     """
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/speech_classification/vad_infer.py
@@ -56,7 +58,7 @@ def nemo_offline_vad_infer(
     """
     assert os.path.isfile(audio_file)
 
-    data_dir = "./"
+    data_dir = f"{tmpdir}"
     create_manifest(data_dir, audio_file)  # TODO: use tmpfile!
     manifest_vad_input = f"{data_dir}/vad_manifest.json"
 
@@ -104,9 +106,9 @@ def nemo_offline_vad_infer(
         }
     )
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        cfg.frame_out_dir = tmpdir
-    return vad_inference_part(cfg, manifest_vad_input, vad_model)
+    cfg.frame_out_dir = tmpdir
+    start_end, probas = vad_inference_part(cfg, manifest_vad_input, vad_model)
+    return start_end, probas
 
 
 @beartype
@@ -177,8 +179,14 @@ class NemoOfflineVAD(Buildable):
         self.vad_model = vad_model
 
     @beartype
-    def predict(self, audio: NumpyFloat1DArray) -> StartEndsVADProbas:
-        with tempfile.NamedTemporaryFile(suffix=".wav") as tmpfile:
+    def predict(self, audio: NumpyFloat1D) -> StartEndsVADProbas:
+        with tempfile.NamedTemporaryFile(
+            suffix=".wav"
+        ) as tmpfile, tempfile.TemporaryDirectory(
+            prefix="nemo_wants_to_write_many_files"
+        ) as tmpdir:
             soundfile.write(tmpfile.name, audio, samplerate=16000)
-            pred = nemo_offline_vad_infer(self.cfg, self.vad_model, tmpfile.name)
+            pred = nemo_offline_vad_infer(
+                self.cfg, self.vad_model, tmpfile.name, tmpdir
+            )
         return pred
