@@ -1,14 +1,14 @@
 import json
 import os
 import tempfile
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Union
 
 import numpy as np
 import soundfile
 import torch
 from beartype import beartype
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from misc_utils.beartypes import NumpyFloat1D, NeList
 from misc_utils.buildable import Buildable
@@ -29,7 +29,7 @@ from ml4audio.audio_utils.audio_segmentation_utils import StartEnd
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def create_manifest(manifest_file:str, audio_file):
+def create_manifest(manifest_file: str, audio_file):
     meta = {
         "audio_filepath": audio_file,
         "offset": 0,
@@ -169,11 +169,50 @@ def vad_inference_part(cfg, manifest_vad_input, vad_model) -> StartEndsVADProbas
 
 @dataclass
 class NemoOfflineVAD(Buildable):
-    cfg: DictConfig
+    # for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
+
+    cfg: Union[dict, DictConfig] = field(
+        default_factory=lambda: {
+            "name": "vad_inference_postprocessing",
+            "dataset": None,
+            "num_workers": 0,
+            "sample_rate": 16000,
+            "gen_seg_table": True,
+            "write_to_manifest": True,
+            "prepare_manifest": {"auto_split": True, "split_duration": 400},
+            "vad": {
+                "model_path": "vad_marblenet",
+                "parameters": {
+                    "normalize_audio": False,
+                    "window_length_in_sec": 0.15,
+                    "shift_length_in_sec": 0.01,
+                    "smoothing": "median",
+                    "overlap": 0.875,
+                    "postprocessing": {
+                        "onset": 0.4,
+                        "offset": 0.7,  # TODO(tilo): makes no sense to me
+                        "pad_onset": 0.05,
+                        "pad_offset": -0.1,
+                        "min_duration_on": 0.2,
+                        "min_duration_off": 0.2,
+                        "filter_speech_first": True,
+                    },
+                },
+            },
+            "prepared_manifest_vad_input": None,
+            "frame_out_dir": "vad_frame",
+            "smoothing_out_dir": None,
+            "table_out_dir": None,
+            "out_manifest_filepath": None,
+        }
+    )
 
     def _build_self(self) -> Any:
-        # torch.set_grad_enabled(False)
-        vad_model = init_vad_model(self.cfg.vad.model_path)
+        self.dictcfg = (
+            OmegaConf.create(self.cfg) if isinstance(self.cfg, dict) else self.cfg
+        )
+
+        vad_model = init_vad_model(self.dictcfg.vad.model_path)
         vad_model = vad_model.to(device)
         vad_model.eval()
         self.vad_model = vad_model
@@ -187,6 +226,6 @@ class NemoOfflineVAD(Buildable):
         ) as tmpdir:
             soundfile.write(tmpfile.name, audio, samplerate=16000)
             pred = nemo_offline_vad_infer(
-                self.cfg, self.vad_model, tmpfile.name, tmpdir
+                self.dictcfg, self.vad_model, tmpfile.name, tmpdir
             )
         return pred

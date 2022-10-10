@@ -72,8 +72,7 @@ def test_nemo_offline_vad(
     audio_file="tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav",
 ):
     audio = load_resample_with_soundfile(audio_file)
-    cfg = OmegaConf.create(default_vad_config)
-    vad = NemoOfflineVAD(cfg)
+    vad = NemoOfflineVAD(default_vad_config)
     vad.build()
     start_ends, _ = vad.predict(audio)
     vad_assertions(start_ends)
