@@ -24,8 +24,9 @@ def load_asr_inferencer():
     inferencer.build()
     return inferencer
 
+# for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
 
-default_vad_config = {
+DEFAULT_NEMO_VAD_CONFIG = {
     "name": "vad_inference_postprocessing",
     "dataset": None,
     "num_workers": 0,
@@ -61,7 +62,7 @@ default_vad_config = {
 
 
 def load_vad_inferencer() -> NemoOfflineVAD:
-    cfg = OmegaConf.create(default_vad_config)
+    cfg = OmegaConf.create(DEFAULT_NEMO_VAD_CONFIG)
     cfg.vad.parameters.window_length_in_sec = 0.15
     cfg.vad.parameters.postprocessing.onset = 0.1
     cfg.vad.parameters.postprocessing.offset = 0.05

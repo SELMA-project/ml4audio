@@ -47,6 +47,10 @@ RUN echo "$CACHEBUST"
 COPY requirements.txt requirements.txt
 RUN $PIP_INSTALL -r requirements.txt
 
+# pruning venv
+RUN rm -rf /venv/lib/python3.9/site-packages/sklearn/ensemble
+RUN rm -rf /venv/lib/python3.9/site-packages/pynini.libs
+
 # ==================================================================
 #                   BUILD MODELS - stage
 # ------------------------------------------------------------------
@@ -59,9 +63,8 @@ COPY app/fastapi_asr_service_utils.py /code/fastapi_asr_service/app/fastapi_asr_
 COPY app/vad_inference_postprocessing.yaml /code/app/vad_inference_postprocessing.yaml
 COPY app/vad_multilingual_marblenet.nemo /code/app/vad_multilingual_marblenet.nemo
 RUN python /code/build_model_in_docker.py
-#
-RUN rm -rf /venv/lib/python3.9/site-packages/sklearn/ensemble
-RUN rm -rf /venv/lib/python3.9/site-packages/pynini.libs
+
+# pruning .cache
 RUN rm -rf /root/.cache/pip
 RUN rm -rf /root/.cache/matplotlib
 
