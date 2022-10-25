@@ -2,12 +2,13 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import Any, Union, Annotated
 
 import numpy as np
 import soundfile
 import torch
 from beartype import beartype
+from beartype.vale import Is
 from omegaconf import DictConfig, OmegaConf
 
 from misc_utils.beartypes import NumpyFloat1D, NeList
@@ -24,9 +25,13 @@ from nemo.collections.asr.parts.utils.vad_utils import (
 )
 from nemo.utils import logging
 
-from ml4audio.audio_utils.audio_segmentation_utils import StartEnd
+from ml4audio.audio_utils.audio_segmentation_utils import (
+    StartEnd,
+    is_weakly_monoton_increasing,
+)
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = "cpu"  # TODO!
 
 
 def create_manifest(manifest_file: str, audio_file):
@@ -44,8 +49,9 @@ def create_manifest(manifest_file: str, audio_file):
         fp.write("\n")
 
 
-StartEnds = NeList[StartEnd]
-StartEndsVADProbas = tuple[StartEnds, list[float]]
+VoiceSegments = Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]]
+
+StartEndsVADProbas = tuple[VoiceSegments, list[float]]
 
 
 @beartype
@@ -167,44 +173,47 @@ def vad_inference_part(cfg, manifest_vad_input, vad_model) -> StartEndsVADProbas
     return [(p[0], p[1]) for p in preds], vad_probas
 
 
+DEFAULT_NEMO_VAD_CONFIG = {
+    "name": "vad_inference_postprocessing",
+    "dataset": None,
+    "num_workers": 0,
+    "sample_rate": 16000,
+    "gen_seg_table": True,
+    "write_to_manifest": True,
+    "prepare_manifest": {"auto_split": True, "split_duration": 400},
+    "vad": {
+        "model_path": "vad_marblenet",
+        "parameters": {
+            "normalize_audio": False,
+            "window_length_in_sec": 0.15,
+            "shift_length_in_sec": 0.01,
+            "smoothing": "median",
+            "overlap": 0.875,
+            "postprocessing": {
+                "onset": 0.4,
+                "offset": 0.7,  # TODO(tilo): makes no sense to me
+                "pad_onset": 0.05,
+                "pad_offset": -0.1,
+                "min_duration_on": 0.2,
+                "min_duration_off": 0.2,
+                "filter_speech_first": True,
+            },
+        },
+    },
+    "prepared_manifest_vad_input": None,
+    "frame_out_dir": "vad_frame",
+    "smoothing_out_dir": None,
+    "table_out_dir": None,
+    "out_manifest_filepath": None,
+}
+
+
 @dataclass
 class NemoOfflineVAD(Buildable):
     # for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
 
     cfg: Union[dict, DictConfig] = field(
-        default_factory=lambda: {
-            "name": "vad_inference_postprocessing",
-            "dataset": None,
-            "num_workers": 0,
-            "sample_rate": 16000,
-            "gen_seg_table": True,
-            "write_to_manifest": True,
-            "prepare_manifest": {"auto_split": True, "split_duration": 400},
-            "vad": {
-                "model_path": "vad_marblenet",
-                "parameters": {
-                    "normalize_audio": False,
-                    "window_length_in_sec": 0.15,
-                    "shift_length_in_sec": 0.01,
-                    "smoothing": "median",
-                    "overlap": 0.875,
-                    "postprocessing": {
-                        "onset": 0.4,
-                        "offset": 0.7,  # TODO(tilo): makes no sense to me
-                        "pad_onset": 0.05,
-                        "pad_offset": -0.1,
-                        "min_duration_on": 0.2,
-                        "min_duration_off": 0.2,
-                        "filter_speech_first": True,
-                    },
-                },
-            },
-            "prepared_manifest_vad_input": None,
-            "frame_out_dir": "vad_frame",
-            "smoothing_out_dir": None,
-            "table_out_dir": None,
-            "out_manifest_filepath": None,
-        }
+        default_factory=lambda: DEFAULT_NEMO_VAD_CONFIG
     )
 
     def _build_self(self) -> Any:
