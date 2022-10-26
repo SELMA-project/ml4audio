@@ -311,8 +311,14 @@ def normalize_audio_array(array: Numpy1DArray) -> NumpyFloat1DArray:
     return norm_samples
 
 
+Seconds = float
+
+
 @beartype
-def ffmpeg_load_audio_from_bytes(audio_bytes: bytes, sr: int = 16_000) -> NumpyFloat1D:
+def ffmpeg_load_audio_from_bytes(
+    audio_bytes: bytes,
+    sr: int = 16_000,
+) -> NumpyFloat1D:
     """
     based on: https://github.com/openai/whisper/blob/d18e9ea5dd2ca57c697e8e55f9e654f06ede25d0/whisper/audio.py#L22
     """
@@ -328,11 +334,67 @@ def ffmpeg_load_audio_from_bytes(audio_bytes: bytes, sr: int = 16_000) -> NumpyF
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
 
 
-@beartype
-def ffmpeg_load_audio_from_file(audio_file: File, sr: int = 16_000) -> NumpyFloat1D:
+def _trimmed_input(
+    inpt,
+    start: Optional[Seconds] = None,
+    end: Optional[Seconds] = None,
+):
+    """
+    TODO(tilo): shit this is NOT working!
+            I have the feeling of rewriting the wheel! this start/stop trimming should already be implemented in someones lib
+    """
+    if start and end:
+        trimmed_input = inpt.trim(start=start, end=end)
+    elif start:
+        trimmed_input = inpt.trim(start=start)
+    elif end:
+        trimmed_input = inpt.trim(end=end)
+    else:
+        trimmed_input = inpt
+    return trimmed_input
 
-    with open(audio_file, "rb") as f:
-        array = ffmpeg_load_audio_from_bytes(f.read(), sr)
+
+@beartype
+def ffmpeg_load_audio_from_file(
+    audio_file: File,
+    sr: int = 16_000,
+    # start: Optional[Seconds] = None,
+    # end: Optional[Seconds] = None,
+) -> NumpyFloat1D:
+    """
+    based on: https://github.com/openai/whisper/blob/d18e9ea5dd2ca57c697e8e55f9e654f06ede25d0/whisper/audio.py#L22
+    """
+    try:
+        # TODO: vf seems to be working!
+        "ffmpeg -i audiomonolith/tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav -vf trim=1.11:2.22 -f s16le -ac 1 -acodec pcm_s16le -ar 1600 test.wav"
+        cmd = ffmpeg.input(audio_file, threads=0).output(
+            "-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr
+        )
+        out, _ = cmd.run(
+            cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True
+        )
+    except ffmpeg.Error as e:
+        raise RuntimeError(
+            f"Failed to load audio: {e.stderr.decode()},{' '.join(cmd.get_args())=}"
+        ) from e
+
+    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+
+
+@beartype
+def ffmpeg_load_trim(
+    audio_file: File,
+    sr: int = 16_000,
+    start: Optional[Seconds] = None,
+    end: Optional[Seconds] = None,
+) -> NumpyFloat1D:
+    array = ffmpeg_load_audio_from_file(audio_file, sr)
+    if start and end:
+        array = array[round(start * sr) : round(end * sr)]
+    elif start:
+        array = array[round(start * sr) :]
+    elif end:
+        array = array[: round(end * sr)]
 
     return array
 
