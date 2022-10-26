@@ -6,6 +6,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Optional, Union, Iterator, Any, Annotated
 
+import ffmpeg
 import librosa
 import numpy as np
 from beartype import beartype
@@ -22,6 +23,8 @@ from misc_utils.beartypes import (
     NumpyInt16Dim1,
     Numpy1DArray,
     TorchTensor1D,
+    NumpyFloat1D,
+    File,
 )
 from misc_utils.processing_utils import exec_command
 from misc_utils.utils import get_val_from_nested_dict, NOT_EXISTING
@@ -306,6 +309,32 @@ def normalize_audio_array(array: Numpy1DArray) -> NumpyFloat1DArray:
     else:
         norm_samples = array
     return norm_samples
+
+
+@beartype
+def ffmpeg_load_audio_from_bytes(audio_bytes: bytes, sr: int = 16_000) -> NumpyFloat1D:
+    """
+    based on: https://github.com/openai/whisper/blob/d18e9ea5dd2ca57c697e8e55f9e654f06ede25d0/whisper/audio.py#L22
+    """
+    try:
+        out, _ = (
+            ffmpeg.input("pipe:", threads=0)
+            .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
+            .run(capture_stdout=True, capture_stderr=True, input=audio_bytes)
+        )
+    except ffmpeg.Error as e:
+        raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+
+    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+
+
+@beartype
+def ffmpeg_load_audio_from_file(audio_file: File, sr: int = 16_000) -> NumpyFloat1D:
+
+    with open(audio_file, "rb") as f:
+        array = ffmpeg_load_audio_from_bytes(f.read(), sr)
+
+    return array
 
 
 @beartype
