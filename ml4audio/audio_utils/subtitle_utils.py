@@ -1,19 +1,20 @@
 import re
 from dataclasses import dataclass
-from typing import List, Tuple, Dict
 
 from beartype import beartype
 from webvtt import WebVTT, Caption
 
 from misc_utils.dataclass_utils import deserialize_dataclass
 from misc_utils.utils import iterable_to_chunks
-from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
+from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, LetterIdx
 
 try:
+    from pysubs2.time import make_time
     from pysubs2 import SSAFile, Color, SSAEvent
 except ImportError:
     pass
 
+TARGET_SAMPLE_RATE=16_000
 
 @dataclass
 class SubtitleBlock:
@@ -26,20 +27,20 @@ class SubtitleBlock:
         return [n for n, _ in self.name_texts]
 
     # TODO(tilo): who wants this from_dict_letters?
-    # @classmethod
-    # def from_dict_letters(cls, dictletter: Dict[str, List[LetterIdx]]):
-    #     first_index = list(dictletter.values())[0][0].r_idx
-    #     start = make_time(ms=round(1000 * first_index / TARGET_SAMPLE_RATE))
-    #     last_index = list(dictletter.values())[0][-1].r_idx
-    #     end = make_time(ms=round(1000 * last_index / TARGET_SAMPLE_RATE))
-    #     return cls(
-    #         start,
-    #         end,
-    #         [
-    #             (name, "".join((l.letter for l in letters)))
-    #             for name, letters in dictletter.items()
-    #         ],
-    #     )
+    @classmethod
+    def from_dict_letters(cls, dictletter: dict[str, list[LetterIdx]]):
+        first_index = list(dictletter.values())[0][0].r_idx
+        start = make_time(ms=round(1000 * first_index / TARGET_SAMPLE_RATE))
+        last_index = list(dictletter.values())[0][-1].r_idx
+        end = make_time(ms=round(1000 * last_index / TARGET_SAMPLE_RATE))
+        return cls(
+            start,
+            end,
+            [
+                (name, "".join((l.letter for l in letters)))
+                for name, letters in dictletter.items()
+            ],
+        )
 
 
 @dataclass
@@ -101,7 +102,7 @@ class TranslatedSubtitleBlock:
     start: float
     end: float
 
-
+@beartype
 def write_webvtt(
     blocks: list[TranslatedSubtitleBlock],
     vtt_file: str,
@@ -113,6 +114,21 @@ def write_webvtt(
             ms_to_HMSf(round(block.start * 1000)),
             ms_to_HMSf(round(block.end * 1000)),
             get_subtitles(block),
+        )
+        vtt.captions.append(caption)
+    vtt.save(vtt_file)
+
+@beartype
+def write_webvtt_file(
+    start_end_text: list[tuple[float, float, str]],
+    vtt_file: str,
+):
+    vtt = WebVTT()
+    for s,e,t in start_end_text:
+        caption = Caption(
+            ms_to_HMSf(round(s * 1000)),
+            ms_to_HMSf(round(e * 1000)),
+            t,
         )
         vtt.captions.append(caption)
     vtt.save(vtt_file)

@@ -87,7 +87,7 @@ def get_contiguous_stamps(
     start_ends: NeList[StartEnd],
 ) -> NonOverlSegs:
     """
-    based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py
+    based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py#L230
     """
     contiguous_stamps = [[s, e] for s, e in start_ends]
     for i in range(len(start_ends) - 1):

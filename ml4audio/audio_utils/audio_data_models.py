@@ -29,7 +29,7 @@ IdText = tuple[NeStr, NeStr]
 @dataclass
 class StableDatum:
     """
-    pure semantic class just to remind that implementation serves as interface, should ideally not change
+    TODO: remove this completely!
     """
 
     pass
