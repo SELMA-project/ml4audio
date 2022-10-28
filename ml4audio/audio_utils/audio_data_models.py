@@ -135,11 +135,15 @@ class SegmentCorpus(Iterable[SegmentAnnotation], FillUndefined):
 class TranscriptCorpus(Iterable[TranscriptAnnotation], FillUndefined):
     """
     this serves as Interface
-    TODO: what was the difference between id and segmentcorpus_id?
+    id: ... of this Corpus of Annotations (here Transcripts)
+    segmentcorpus_id: ... of what is being annotated
     """
 
     id: Union[_UNDEFINED, NeStr] = UNDEFINED
     segmentcorpus_id: Union[_UNDEFINED, NeStr] = UNDEFINED
+
+    def __post_init__(self):
+        assert self.id != self.segmentcorpus_id, f"you cannot annotate yourself!"
 
     @abstractmethod
     def __iter__(self) -> Iterator[TranscriptAnnotation]:
