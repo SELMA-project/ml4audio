@@ -1,4 +1,5 @@
 import os
+from collections import namedtuple
 from typing import Annotated, Iterable, Union
 
 import soundfile
@@ -82,6 +83,13 @@ def merge_segments_labelaware(
     return merged
 
 
+Span = namedtuple("Span", ["start", "end"])
+
+
+def is_overlapping(span: Span, next_span: Span):
+    return span.end > next_span.start
+
+
 @beartype
 def get_contiguous_stamps(
     start_ends: NeList[StartEnd],
@@ -89,17 +97,18 @@ def get_contiguous_stamps(
     """
     based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py#L230
     """
-    contiguous_stamps = [[s, e] for s, e in start_ends]
-    for i in range(len(start_ends) - 1):
-        start, end = start_ends[i]
-        next_start, next_end = start_ends[i + 1]
-        if end > next_start:
-            avg = (next_start + end) / 2.0
-            contiguous_stamps[i][1] = avg
-            contiguous_stamps[i + 1][0] = avg
-    non_overlapping_start_ends = [tuple(x) for x in contiguous_stamps]
+    cont_spans = [Span(s, e) for s, e in start_ends]
 
-    assert len(non_overlapping_start_ends) == len(start_ends)
+    overlapping_idx = filter(
+        lambda i: is_overlapping(cont_spans[i], cont_spans[i + 1]),
+        range(len(start_ends) - 1),
+    )
+    for i in overlapping_idx:
+        avg = (cont_spans[i].start + cont_spans[i + 1].end) / 2.0
+        cont_spans[i][1] = avg
+        cont_spans[i + 1][0] = avg
+    non_overlapping_start_ends = [tuple(x) for x in cont_spans]
+
     return non_overlapping_start_ends
 
 
