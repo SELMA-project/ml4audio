@@ -2,9 +2,18 @@ import json
 import os
 import shutil
 from abc import abstractmethod
+
+# >> start of dataclass-patch
+# TODO: WTF! when py-file run from __main__ the dataclass_patch needs explicit call to work!
+from misc_utils.beartyped_dataclass_patch import (
+    beartype_all_dataclasses_of_this_files_parent,
+)
+
+beartype_all_dataclasses_of_this_files_parent(__file__)
+# << end of dataclass-patch
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, ClassVar, Annotated, Optional
+from typing import Union, ClassVar, Annotated, Optional, Any
 
 import librosa
 import numpy as np
@@ -13,7 +22,7 @@ from beartype import beartype
 from beartype.vale import IsAttr, IsEqual
 from numpy import floating, int16
 from numpy.typing import NDArray
-from transformers import set_seed
+from transformers import set_seed, AutoModel
 
 from data_io.readwrite_files import read_file
 from misc_utils.beartypes import (
@@ -24,6 +33,7 @@ from misc_utils.beartypes import (
     NeStr,
 )
 from misc_utils.buildable import Buildable
+from misc_utils.buildable_data import BuildableData, SlugStr
 from misc_utils.cached_data import CachedData
 from misc_utils.cached_data_specific import CachedList
 from misc_utils.dataclass_utils import (
@@ -80,6 +90,9 @@ def _export_model_files_from_checkpoint_dir(model_name_or_path: str, model_dir: 
 
 @dataclass
 class HfCheckpoint(CachedData):
+    # TODO: I want to replace this by HfModelFromCheckpoint
+        # but need to think about __post_init__
+        # and name parameter, which is more strict in HfModelFromCheckpoint
     name: Union[_UNDEFINED, NeStr] = UNDEFINED
     model_name_or_path: Optional[NeStr] = None
 
@@ -110,6 +123,35 @@ class HfCheckpoint(CachedData):
             self.model_name_or_path = self.name
         self.name = self.name.replace("/", "_")
         assert len(self.name) > 0
+
+
+@dataclass
+class HfModelFromCheckpoint(BuildableData):
+    name: Optional[SlugStr] = None
+    model_name_or_path: Optional[NeStr] = None
+
+    base_dir: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["am_models"])
+
+    @property
+    def _is_data_valid(self) -> bool:
+        is_valid = all(
+            (
+                os.path.isfile(f"{self.data_dir}/{file}")
+                for file in ["pytorch_model.bin", "config.json"]
+            )
+        )
+        print(f"{is_valid=}")
+        return is_valid
+
+    def _build_data(self) -> Any:
+
+        if os.path.isdir(self.model_name_or_path):
+            _export_model_files_from_checkpoint_dir(
+                self.model_name_or_path, self.model_dir
+            )
+        else:
+            model = AutoModel.from_pretrained(self.model_name_or_path)
+            model.save_pretrained(f"{self.data_dir}")
 
 
 @dataclass
@@ -334,3 +376,17 @@ class VocabFromASRLogitsInferencerVolatile(Buildable, list[str]):
         #     vocab.append("<s>")
         self.extend(vocab)
         return vocab
+
+
+
+if __name__ == "__main__":
+
+    base_path = os.environ["BASE_PATH"]
+    cache_root = f"{base_path}/data/cache"
+    BASE_PATHES["cache_root"] = cache_root
+    BASE_PATHES["am_models"] = PrefixSuffix("cache_root", "AM_MODELS")
+
+    HfModelFromCheckpoint(
+        name="mpoyraz-wav2vec2-xls-r-300m-cv8-turkish",
+        model_name_or_path="mpoyraz/wav2vec2-xls-r-300m-cv8-turkish",
+    ).build()
