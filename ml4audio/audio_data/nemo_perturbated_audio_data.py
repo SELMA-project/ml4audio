@@ -16,7 +16,12 @@ from nemo.collections.asr.parts.preprocessing import (
 )
 from tqdm import tqdm
 
-from ml4audio.audio_utils.audio_data_models import AudioData, IdArray
+from ml4audio.audio_utils.audio_data_models import (
+    AudioData,
+    IdArray,
+    GotAudioSegments,
+    AudioSegment, GotOverallDuration,
+)
 from ml4audio.audio_data.nemo_perturbation import (
     apply_nemo_perturbations_with_retry,
     ProbaPerturbationDC,
@@ -37,7 +42,7 @@ from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 
 
 @dataclass
-class NemoPerturbatedAudioData(CachedData, AudioData):
+class NemoPerturbatedAudioData(CachedData, AudioData, GotAudioSegments,GotOverallDuration):
     """
     for benchmarking not for training
     """
@@ -47,6 +52,7 @@ class NemoPerturbatedAudioData(CachedData, AudioData):
     perturbation_name: Union[_UNDEFINED, str] = UNDEFINED
     augmentor: Optional[AudioAugmentor] = field(init=False, repr=False)
     limit: Optional[int] = None
+    overall_duration:float=field(init=False)
 
     cache_base: PrefixSuffix = field(
         default_factory=lambda: BASE_PATHES["processed_data"]
@@ -85,14 +91,25 @@ class NemoPerturbatedAudioData(CachedData, AudioData):
                 self.sample_rate,
             ).numpy()
 
+        duration = len(array) / self.sample_rate
+        self.overall_duration+=duration
         assert (
-            len(array) / self.sample_rate >= 0.1
+                duration >= 0.1
         ), f"{eid=} with {array.shape=} is not valid audio-signal"
         sf.write(
             processed_audio_file,
             array,
             samplerate=self.sample_rate,  # see SoxPerturbations
         )
+
+    def _post_build_setup(self):
+        self.audio_segments = [
+            AudioSegment(
+                parent_id=p.stem,
+                audio_file=str(p),
+            )
+            for p in Path(self.prefix_cache_dir(f"wavs")).glob("*.wav")
+        ]
 
     def __iter__(self) -> Iterator[tuple[str, NumpyFloat1DArray]]:
         for p in Path(self.prefix_cache_dir("wavs")).glob("*.wav"):

@@ -26,7 +26,6 @@ IdInt16Array = tuple[NeStr, NumpyInt16Dim1]
 IdText = tuple[NeStr, NeStr]
 
 
-
 @dataclass
 class FileLikeAudioDatum:
     id: str
@@ -80,7 +79,7 @@ class StandAloneAlignmentSpanAnnotation(AlignmentSpanAnnotation):
 class SegmentAnnotation:
     # TODO: remove this, use AudioSegment
     id: str
-    audio_id: str # this should actually be a parent_id! cause we can also sub-segment segments!
+    audio_id: str  # this should actually be a parent_id! cause we can also sub-segment segments!
     start: float = 0.0  # in sec
     end: Optional[float] = None  # TODO!!!
 
@@ -101,6 +100,7 @@ SegmentId = NeStr
 
 Id = NeStr
 
+
 @dataclass
 class AudioSegment:
     """
@@ -110,6 +110,7 @@ class AudioSegment:
     start,end should always be "absolut", there is no offset!
 
     """
+
     parent_id: SegmentId
     audio_file: NeStr  # TODO: rename to audio-source
 
@@ -147,6 +148,11 @@ class GotTranscripts:
         o = cls()
         o.transcripts = obj
         return o
+
+
+@dataclass
+class GotOverallDuration:
+    overall_duration: float
 
 
 @dataclass
@@ -198,6 +204,7 @@ class TranscriptCorpus(Iterable[TranscriptAnnotation], FillUndefined):
 
 @dataclass
 class AudioData(Iterable[IdArray], FillUndefined):
+    # TODO: remove!
     sample_rate: int = UNDEFINED
 
     @property
@@ -207,6 +214,16 @@ class AudioData(Iterable[IdArray], FillUndefined):
 
     @abstractmethod
     def __iter__(self) -> Iterator[IdArray]:
+        raise NotImplementedError
+
+
+@dataclass
+class AudioFileData(GotAudioSegments, GotOverallDuration):
+    overall_duration: float = field(init=False)
+
+    @property
+    @abstractmethod
+    def name(self):
         raise NotImplementedError
 
 
