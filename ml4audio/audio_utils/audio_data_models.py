@@ -26,17 +26,9 @@ IdInt16Array = tuple[NeStr, NumpyInt16Dim1]
 IdText = tuple[NeStr, NeStr]
 
 
-@dataclass
-class StableDatum:
-    """
-    TODO: remove this completely!
-    """
-
-    pass
-
 
 @dataclass
-class FileLikeAudioDatum(StableDatum):
+class FileLikeAudioDatum:
     id: str
     audio_source: Any  # BytesIO, ExFileObject
     format: str
@@ -52,7 +44,7 @@ class AudioFile(FileLikeAudioDatum):
 
 
 @dataclass
-class TranscriptAnnotation(StableDatum):
+class TranscriptAnnotation:
     segment_id: str  # rename to utterance_id ?
     text: str
 
@@ -84,20 +76,11 @@ class StandAloneAlignmentSpanAnnotation(AlignmentSpanAnnotation):
     id_seq_b: str
 
 
-# TODO: remove SequenceAlignment
-# @dataclass
-# class SequenceAlignment:
-#     id_seq_a: str
-#     id_seq_b: str
-#     alignments: list[AlignmentSpan]
-#
-#
-
-
 @dataclass
-class SegmentAnnotation(StableDatum):
+class SegmentAnnotation:
+    # TODO: remove this, use AudioSegment
     id: str
-    audio_id: str
+    audio_id: str # this should actually be a parent_id! cause we can also sub-segment segments!
     start: float = 0.0  # in sec
     end: Optional[float] = None  # TODO!!!
 
@@ -110,6 +93,69 @@ class SegmentAnnotation(StableDatum):
             return self.end - self.start
         else:
             return None
+
+
+Seconds = float
+AudioSourceId = NeStr
+SegmentId = NeStr
+
+Id = NeStr
+
+@dataclass
+class AudioSegment:
+    """
+    it really needs to keep two references:
+     * one to the (parent)-segment that is getting segmented
+     * one to the audio_source
+    start,end should always be "absolut", there is no offset!
+
+    """
+    parent_id: SegmentId
+    audio_file: NeStr  # TODO: rename to audio-source
+
+    id_suffix: Optional[NeStr] = None
+    start: Optional[Seconds] = None  # should be absolut!
+    end: Optional[Seconds] = None
+
+    @property
+    def audio_source_id(self) -> NeStr:
+        return self.audio_file
+
+    @property
+    def id(self) -> SegmentId:
+        suffix = self.id_suffix
+        return f"{self.parent_id}-{suffix}" if suffix else self.parent_id
+
+
+@dataclass
+class GotAudioSegments:
+    audio_segments: Iterable[AudioSegment] = field(init=False)
+
+    @staticmethod
+    def from_obj(audio_segments: Iterable[AudioSegment]):
+        o = GotAudioSegments()
+        o.audio_segments = audio_segments
+        return o
+
+
+@dataclass
+class GotTranscripts:
+    transcripts: Iterable[TranscriptAnnotation] = field(init=False)
+
+    @classmethod
+    def from_obj(cls, obj: Iterable[TranscriptAnnotation]):
+        o = cls()
+        o.transcripts = obj
+        return o
+
+
+@dataclass
+class GotSegmentsTranscripts(GotAudioSegments, GotTranscripts):
+    """
+    SegTra==SegmentsTranscripts
+    """
+
+    pass
 
 
 @dataclass
