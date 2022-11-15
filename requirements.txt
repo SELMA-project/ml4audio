@@ -9,5 +9,5 @@ numba==0.53.1 # somehow this version cannot be bumped
 transformers
 jiwer==2.5.1
 # for turkish see: https://emre.github.io/unicode_tr/
-unicode_tr
+unicode_tr==0.6.1
 beartype==0.11.0
