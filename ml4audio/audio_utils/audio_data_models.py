@@ -13,6 +13,7 @@ from misc_utils.beartypes import (
     NeStr,
     NumpyInt16Dim1,
 )
+from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import FillUndefined, _UNDEFINED, UNDEFINED
 from misc_utils.utils import Singleton
 
@@ -271,3 +272,10 @@ class FileLikeAudioCorpus(Iterable[FileLikeAudioDatum], FillUndefined):
     @abstractmethod
     def __iter__(self) -> Iterator[FileLikeAudioDatum]:
         raise NotImplementedError
+
+
+@dataclass
+class IterableProcessor(Buildable):
+    @abstractmethod
+    def process(self, inputs: Iterable) -> Iterator:
+        raise NotImplemented

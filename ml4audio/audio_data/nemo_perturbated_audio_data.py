@@ -11,25 +11,8 @@ from typing import (
 import soundfile as sf
 import torch
 from beartype import beartype
-from nemo.collections.asr.parts.preprocessing import (
-    AudioAugmentor,
-)
 from tqdm import tqdm
 
-from ml4audio.audio_utils.audio_data_models import (
-    AudioData,
-    IdArray,
-    GotAudioSegments,
-    AudioSegment, GotOverallDuration,
-)
-from ml4audio.audio_data.nemo_perturbation import (
-    apply_nemo_perturbations_with_retry,
-    ProbaPerturbationDC,
-)
-from ml4audio.audio_utils.audio_io import (
-    normalize_audio_array,
-)
-from ml4audio.audio_utils.torchaudio_utils import torchaudio_resample, torchaudio_load
 from misc_utils.beartypes import (
     NumpyFloat1DArray,
 )
@@ -39,10 +22,27 @@ from misc_utils.dataclass_utils import (
     UNDEFINED,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
+from ml4audio.audio_data.nemo_perturbation import (
+    apply_nemo_perturbations_with_retry,
+    ProbaPerturbationDC,
+)
+from ml4audio.audio_utils.audio_data_models import (
+    AudioData,
+    IdArray,
+    AudioSegment,
+    AudioFileData,
+)
+from ml4audio.audio_utils.audio_io import (
+    normalize_audio_array,
+)
+from ml4audio.audio_utils.torchaudio_utils import torchaudio_resample, torchaudio_load
+from nemo.collections.asr.parts.preprocessing import (
+    AudioAugmentor,
+)
 
 
 @dataclass
-class NemoPerturbatedAudioData(CachedData, AudioData, GotAudioSegments,GotOverallDuration):
+class NemoPerturbatedAudioData(CachedData, AudioData, AudioFileData):
     """
     for benchmarking not for training
     """
@@ -52,7 +52,7 @@ class NemoPerturbatedAudioData(CachedData, AudioData, GotAudioSegments,GotOveral
     perturbation_name: Union[_UNDEFINED, str] = UNDEFINED
     augmentor: Optional[AudioAugmentor] = field(init=False, repr=False)
     limit: Optional[int] = None
-    overall_duration:float=field(init=False)
+    overall_duration: float = field(init=False, default=0.0)
 
     cache_base: PrefixSuffix = field(
         default_factory=lambda: BASE_PATHES["processed_data"]
@@ -75,6 +75,7 @@ class NemoPerturbatedAudioData(CachedData, AudioData, GotAudioSegments,GotOveral
             desc=f"augmenting/perturbating {self.raw_data.name}",
         ):
             self.process(id_array)
+        assert self.overall_duration > 0
 
     @beartype
     def process(self, id_array: IdArray):
@@ -92,10 +93,8 @@ class NemoPerturbatedAudioData(CachedData, AudioData, GotAudioSegments,GotOveral
             ).numpy()
 
         duration = len(array) / self.sample_rate
-        self.overall_duration+=duration
-        assert (
-                duration >= 0.1
-        ), f"{eid=} with {array.shape=} is not valid audio-signal"
+        self.overall_duration += duration
+        assert duration >= 0.1, f"{eid=} with {array.shape=} is not valid audio-signal"
         sf.write(
             processed_audio_file,
             array,

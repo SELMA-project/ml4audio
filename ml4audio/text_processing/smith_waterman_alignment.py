@@ -5,6 +5,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from pprint import pprint
 from typing import Generator, Optional, Tuple, Iterator
 
 from beartype import beartype
@@ -489,13 +490,16 @@ def align_group(a: str, b: str, max_num_chars=60, eps="_") -> list[list[Alignmen
 
 
 if __name__ == "__main__":
-    mode = "space"
+    mode = "char"
 
     ref = "I'd think the cat is black"
     hyp = "d hee cad i blac"
 
-    ref = "eEe d e dd EeE eeee dd"
-    hyp = "Ii eEe e EeE iii eeee"
+    ref = "im jahr neunzehn hundert zwölf bis ende"
+    hyp = "im ja 19 100 zwölf bis ende"
+    #
+    # ref = "eEe d e dd EeE eeee dd"
+    # hyp = "Ii eEe e EeE iii eeee"
 
     verbose = 3
     eps = "_"  # "…"
@@ -521,6 +525,7 @@ if __name__ == "__main__":
     hyp_tok = tokenize_fun(hyp)
     ref_tok = tokenize_fun(ref)
     alignments = padded_smith_waterman_alignments(ref_tok, hyp_tok, eps)
+    pprint(alignments)
     edts: list[str] = [
         a.get_padded_edt(hyp_tok, ref_tok, token_sep) for a in alignments
     ]

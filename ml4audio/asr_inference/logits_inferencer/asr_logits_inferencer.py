@@ -91,8 +91,8 @@ def _export_model_files_from_checkpoint_dir(model_name_or_path: str, model_dir: 
 @dataclass
 class HfCheckpoint(CachedData):
     # TODO: I want to replace this by HfModelFromCheckpoint
-        # but need to think about __post_init__
-        # and name parameter, which is more strict in HfModelFromCheckpoint
+    # but need to think about __post_init__
+    # and name parameter, which is more strict in HfModelFromCheckpoint
     name: Union[_UNDEFINED, NeStr] = UNDEFINED
     model_name_or_path: Optional[NeStr] = None
 
@@ -140,7 +140,6 @@ class HfModelFromCheckpoint(BuildableData):
                 for file in ["pytorch_model.bin", "config.json"]
             )
         )
-        print(f"{is_valid=}")
         return is_valid
 
     def _build_data(self) -> Any:
@@ -151,7 +150,7 @@ class HfModelFromCheckpoint(BuildableData):
             )
         else:
             model = AutoModel.from_pretrained(self.model_name_or_path)
-            model.save_pretrained(f"{self.data_dir}")
+            model.save_pretrained(self.data_dir)
 
 
 @dataclass
@@ -378,15 +377,18 @@ class VocabFromASRLogitsInferencerVolatile(Buildable, list[str]):
         return vocab
 
 
-
-if __name__ == "__main__":
-
-    base_path = os.environ["BASE_PATH"]
-    cache_root = f"{base_path}/data/cache"
-    BASE_PATHES["cache_root"] = cache_root
-    BASE_PATHES["am_models"] = PrefixSuffix("cache_root", "AM_MODELS")
-
-    HfModelFromCheckpoint(
-        name="mpoyraz-wav2vec2-xls-r-300m-cv8-turkish",
-        model_name_or_path="mpoyraz/wav2vec2-xls-r-300m-cv8-turkish",
-    ).build()
+#
+#
+# if __name__ == "__main__":
+#
+#     base_path = os.environ["BASE_PATH"]
+#     cache_root = f"{base_path}/data/cache"
+#     BASE_PATHES["cache_root"] = cache_root
+#     BASE_PATHES["am_models"] = PrefixSuffix("cache_root", "AM_MODELS")
+#
+#     model=HfModelFromCheckpoint(
+#         name="mpoyraz-wav2vec2-xls-r-300m-cv8-turkish",
+#         model_name_or_path="mpoyraz/wav2vec2-xls-r-300m-cv8-turkish",
+#     )
+#     model=DockerImageAsVolumeWrapper(model)
+#     print(f"{model.build()=}")

@@ -142,14 +142,17 @@ def expand_merge_segments_labelaware(
     return s_e_labels
 
 
+NonOverlappingMonotonIncreasingSegments = Annotated[
+    NeList[StartEnd], Is[is_non_overlapping] & Is[is_weakly_monoton_increasing]
+]
+
+
 @beartype
 def expand_merge_segments(
     segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
     max_gap_dur: float = 0.2,  # gap within a segment -> shorter than this gets merged
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
-) -> Annotated[
-    NeList[StartEnd], Is[is_non_overlapping] & Is[is_weakly_monoton_increasing]
-]:
+) -> NonOverlappingMonotonIncreasingSegments:
     exp_segs: list[tuple[float, float]] = []
     prev_start: int = -9999
     prev_end: int = -9999

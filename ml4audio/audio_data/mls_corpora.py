@@ -34,6 +34,7 @@ class MLSTarGzTranscripts(TarGzTranscripts):
     def build_transcript_file_name(self, member_name: str) -> str:
         return member_name
 
+
 @dataclass
 class MLSIterableDataset(TarGzASRCorpus):
     def audiofile_to_id(self, member_name: str) -> str:

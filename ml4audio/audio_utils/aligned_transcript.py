@@ -12,7 +12,8 @@ from misc_utils.dataclass_utils import UNDEFINED
 @dataclass
 class LetterIdx:
     letter: str
-    r_idx: int  #TODO: rename to audio_frame_idx
+    r_idx: int  # TODO: rename to audio_frame_idx
+
 
 def letter_to_words(letters: Iterable[LetterIdx]) -> Iterable[list[LetterIdx]]:
     loow: list[LetterIdx] = []  # letters of one word
@@ -36,7 +37,7 @@ class AlignedTranscript:
 
     letters: list[LetterIdx]
     sample_rate: int
-    offset: int = 0 # TODO: rename to audio_frame_offset
+    offset: int = 0  # TODO: rename to audio_frame_offset
 
     logits_score: Optional[float] = None  # TODO: who needs this?
     lm_score: Optional[float] = None

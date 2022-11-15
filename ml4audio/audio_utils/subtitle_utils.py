@@ -14,7 +14,8 @@ try:
 except ImportError:
     pass
 
-TARGET_SAMPLE_RATE=16_000
+TARGET_SAMPLE_RATE = 16_000
+
 
 @dataclass
 class SubtitleBlock:
@@ -102,6 +103,7 @@ class TranslatedSubtitleBlock:
     start: float
     end: float
 
+
 @beartype
 def write_webvtt(
     blocks: list[TranslatedSubtitleBlock],
@@ -118,13 +120,14 @@ def write_webvtt(
         vtt.captions.append(caption)
     vtt.save(vtt_file)
 
+
 @beartype
 def write_webvtt_file(
     start_end_text: list[tuple[float, float, str]],
     vtt_file: str,
 ):
     vtt = WebVTT()
-    for s,e,t in start_end_text:
+    for s, e, t in start_end_text:
         caption = Caption(
             ms_to_HMSf(round(s * 1000)),
             ms_to_HMSf(round(e * 1000)),

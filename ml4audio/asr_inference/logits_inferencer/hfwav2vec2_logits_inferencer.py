@@ -1,5 +1,5 @@
 from dataclasses import field, dataclass
-from typing import Union, List, Optional
+from typing import Union, Optional
 
 import numpy as np
 import torch
@@ -21,7 +21,7 @@ from misc_utils.beartypes import (
 HFWAV2VEC2_SAMPLE_RATE = 16_000  # TODO: somewhen this might be model dependent!
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 RAW_SPEECH = Union[
-    np.ndarray, List[float], List[np.ndarray], List[List[float]]
+    np.ndarray, list[float], list[np.ndarray], list[list[float]]
 ]  # see: transformers/models/wav2vec2/feature_extraction_wav2vec2.py
 
 
