@@ -11,7 +11,6 @@ from ml4audio.audio_utils.audio_io import load_and_resample_16bit_PCM
 from ml4audio.text_processing.asr_metrics import calc_cer
 
 
-
 @pytest.mark.parametrize(
     "asr_decode_inferencer,max_CER",
     [

@@ -30,6 +30,7 @@ tn = TranscriptNormalizer(
     casing=Casing.upper, text_normalizer="en", vocab=get_test_vocab()
 )
 
+
 @pytest.mark.skip(reason="not implemented yet! -> you want it you fix it!")
 def test_chunked_streaming_beam_search_decoder(
     librispeech_logtis_file,

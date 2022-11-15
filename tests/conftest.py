@@ -8,10 +8,13 @@ from numpy.typing import NDArray
 from transformers import Wav2Vec2CTCTokenizer
 
 from misc_utils.beartypes import NumpyInt16Dim1, NeStr, NumpyFloat1DArray
-from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import \
-    HFASRDecodeInferencer
-from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import HfCheckpoint, \
-    VocabFromASRLogitsInferencer
+from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
+    HFASRDecodeInferencer,
+)
+from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
+    HfCheckpoint,
+    VocabFromASRLogitsInferencer,
+)
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
 )
@@ -122,6 +125,7 @@ def hfwav2vec2_base_logits_inferencer(request):
         input_sample_rate=expected_sample_rate,
     ).build()
     return logits_inferencer
+
 
 @pytest.fixture
 def asr_decode_inferencer(request):

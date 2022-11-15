@@ -121,7 +121,9 @@ def test_speaker_clusterer(
         model_name="ecapa_tdnn", metric="cosine"
     ).build()
     s_e_labels_raw, _ = clusterer.predict(s_e_audio)
-    s_e_labels = expand_merge_segments_labelaware(s_e_labels_raw,expand_by=0.1,max_gap_dur=0.1)
+    s_e_labels = expand_merge_segments_labelaware(
+        s_e_labels_raw, expand_by=0.1, max_gap_dur=0.1
+    )
     print(f"{len(s_e_labels_raw)=}, {len(s_e_labels)=}")
 
     s_e_mapped_labels = clusterer.cluster_sels

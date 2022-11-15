@@ -4,12 +4,17 @@ from time import time
 
 from conftest import get_test_cache_base
 from misc_utils.prefix_suffix import BASE_PATHES
-from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import Aschinglupi, \
-    gather_final_aligned_transcripts
-from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import \
-    HFASRDecodeInferencer
-from ml4audio.asr_inference.transcript_gluer import TranscriptGluer, \
-    ASRStreamInferenceOutput
+from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import (
+    Aschinglupi,
+    gather_final_aligned_transcripts,
+)
+from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
+    HFASRDecodeInferencer,
+)
+from ml4audio.asr_inference.transcript_gluer import (
+    TranscriptGluer,
+    ASRStreamInferenceOutput,
+)
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
 from ml4audio.audio_utils.overlap_array_chunker import (
     audio_messages_from_file,
@@ -43,7 +48,9 @@ def test_ASRStreamInferencer(
     max_CER: float,
 ):
 
-    SR = expected_sample_rate = asr_decode_inferencer.logits_inferencer.input_sample_rate
+    SR = (
+        expected_sample_rate
+    ) = asr_decode_inferencer.logits_inferencer.input_sample_rate
     asr_input = list(
         audio_messages_from_file(librispeech_audio_file, expected_sample_rate)
     )

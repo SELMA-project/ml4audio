@@ -1,7 +1,8 @@
 import pytest
 
-from ml4audio.text_processing.character_mappings.text_normalization import \
-    CHARACTER_MAPPINGS
+from ml4audio.text_processing.character_mappings.text_normalization import (
+    CHARACTER_MAPPINGS,
+)
 
 
 @pytest.mark.parametrize(

@@ -17,8 +17,12 @@ from pyctcdecode.constants import (
 )
 from pyctcdecode.language_model import HotwordScorer
 
-from conftest import get_test_vocab, TEST_RESOURCES, load_hfwav2vec2_base_tokenizer, \
-    assert_transcript_cer
+from conftest import (
+    get_test_vocab,
+    TEST_RESOURCES,
+    load_hfwav2vec2_base_tokenizer,
+    assert_transcript_cer,
+)
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
 from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
