@@ -13,6 +13,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from misc_utils.beartypes import NumpyFloat1D, NeList
 from misc_utils.buildable import Buildable
+from misc_utils.dataclass_utils import UNDEFINED
 from nemo.collections.asr.models import EncDecClassificationModel
 from nemo.collections.asr.parts.utils.vad_utils import (
     generate_overlap_vad_seq,
@@ -211,7 +212,7 @@ DEFAULT_NEMO_VAD_CONFIG = {
 @dataclass
 class NemoOfflineVAD(Buildable):
     # for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
-
+    name: str = UNDEFINED
     cfg: Union[dict, DictConfig] = field(
         default_factory=lambda: DEFAULT_NEMO_VAD_CONFIG
     )

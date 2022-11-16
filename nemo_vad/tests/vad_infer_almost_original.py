@@ -170,5 +170,3 @@ def nemo_offline_vad_infer_main_original(
         (d["offset"], d["offset"] + d["duration"])
         for d in read_jsonl(out_manifest_filepath)
     ]
-
-
