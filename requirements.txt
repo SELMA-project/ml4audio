@@ -15,4 +15,3 @@ ffmpeg-python
 
 # TODO: in extras ?
 librosa
-nemo_toolkit[asr]==1.9.0
