@@ -18,10 +18,6 @@ DEBUG = os.environ.get("DEBUG", "False").lower() != "false"
 if DEBUG:
     print("DEBUGGING MODE")
 
-logger = logging.getLogger("websockets")
-logger.setLevel(logging.DEBUG if DEBUG else logging.INFO)
-logger.addHandler(logging.StreamHandler())
-
 app = FastAPI(debug=DEBUG)
 inferencer: Optional[PunctuationCapitalizationModel] = None
 

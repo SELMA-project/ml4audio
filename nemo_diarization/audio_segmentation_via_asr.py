@@ -54,6 +54,7 @@ def wav2vec2_decode_inferencer(model="jonatasgrosman/wav2vec2-large-xlsr-53-germ
     asr.build()
     return asr
 
+
 @beartype
 def aschinglupi_infer_file(
     wav_file: str, model_name="jonatasgrosman/wav2vec2-large-xlsr-53-german"
@@ -65,6 +66,7 @@ def aschinglupi_infer_file(
     asr_input = list(audio_messages_from_file(wav_file, SR))
     return aschinglupi_infer_messages(asr_input, model_name, SR)
 
+
 @beartype
 def aschinglupi_infer_array(
     array: NumpyFloat1DArray,
@@ -74,11 +76,13 @@ def aschinglupi_infer_array(
 ) -> AlignedTranscript:
     """
     only for debugging -> loads asr-model with every call!
+    # TODO: heavy code duplication! see: ml4audio/asr_inference/asr_chunk_infer_glue_pipeline.py
     """
     a = convert_to_16bit_array(array)
     chunks_g = break_array_into_chunks(a, int(target_sample_rate * chunk_duration))
     messages_g = list(audio_messages_from_chunks("foobar", chunks_g))
     return aschinglupi_infer_messages(messages_g, model_name, target_sample_rate)
+
 
 @beartype
 def aschinglupi_infer_messages(

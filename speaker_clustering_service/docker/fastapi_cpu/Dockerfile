@@ -41,7 +41,7 @@ RUN $PIP_INSTALL install Cython
 # to trigger re-run of following, "disable" caching, see: https://stackoverflow.com/questions/35134713/disable-cache-for-specific-run-commands
 # use with: --build-arg CACHEBUST=$(date +%s)
 
-ARG CACHEBUST=1
+ARG CACHEBUST=-1
 RUN echo "$CACHEBUST"
 
 COPY requirements.txt requirements.txt

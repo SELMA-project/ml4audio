@@ -7,7 +7,7 @@ import uvicorn
 from beartype import beartype
 from fastapi import FastAPI, UploadFile
 
-from fastapi_asr_service.app.fastapi_asr_service_utils import (
+from app.fastapi_asr_service_utils import (
     load_asr_inferencer,
     load_vad_inferencer,
 )
@@ -18,8 +18,10 @@ from misc_utils.dataclass_utils import (
 from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import Aschinglupi
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, letter_to_words
 from ml4audio.audio_utils.nemo_utils import nemo_offline_vad_to_cut_away_noise
-from ml4audio.service_utils.fastapi_utils import read_uploaded_audio_file, \
-    get_full_model_config
+from ml4audio.service_utils.fastapi_utils import (
+    read_uploaded_audio_file,
+    get_full_model_config,
+)
 from nemo_vad.nemo_offline_vad import NemoOfflineVAD
 
 DEBUG = os.environ.get("DEBUG", "False").lower() != "false"
@@ -65,7 +67,6 @@ async def upload_and_process_audio_file(file: UploadFile):
     some parts of nemo cannot be pickled: "_pickle.PicklingError: Can't pickle <class 'nemo.collections.common.parts.preprocessing.collections.SpeechLabelEntity'>"
     """
     global asr_inferencer, vad
-
 
     audio = await read_uploaded_audio_file(file)
 

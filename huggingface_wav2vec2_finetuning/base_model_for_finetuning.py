@@ -21,8 +21,9 @@ from misc_utils.dataclass_utils import (
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
-from ml4audio.text_processing.character_mappings.text_normalization import \
-    TextNormalizer
+from ml4audio.text_processing.character_mappings.text_normalization import (
+    TextNormalizer,
+)
 
 
 @dataclass

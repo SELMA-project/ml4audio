@@ -24,6 +24,7 @@ def load_asr_inferencer():
     inferencer.build()
     return inferencer
 
+
 # for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
 
 DEFAULT_NEMO_VAD_CONFIG = {

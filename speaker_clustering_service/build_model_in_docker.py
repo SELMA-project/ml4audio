@@ -12,5 +12,7 @@ if __name__ == "__main__":
     it also downloads the model, some where to .cache folder
     """
 
-    inferencer = UmascanSpeakerClusterer(model_name="ecapa_tdnn", metric="cosine").build()
+    inferencer = UmascanSpeakerClusterer(
+        model_name="ecapa_tdnn", metric="cosine"
+    ).build()
     pprint(to_dict(inferencer))

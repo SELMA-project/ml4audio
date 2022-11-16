@@ -10,6 +10,7 @@ docker run -it -v ${PWD}:/code -v $CODE_DIR/misc-utils:/code/misc-utils -v $CODE
 
 export PYTHONPATH=/code:/code/ml4audio && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-
 curl -F ‘file=@path/to/local/file’ localhost:8000/transcribe
+# "production"
+docker run -p 8001:8000 --rm $IMAGE
 ```

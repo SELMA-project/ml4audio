@@ -62,7 +62,7 @@ async def upload_and_process_audio_file(file: UploadFile, segments: str = Form()
     r = requests.post(f"http://localhost:{port}/predict", files=files)
     """
     segments = json.loads(segments)
-    is_bearable(segments, list[list[float]])
+    is_bearable(segments, list[list[float]])  # TODO: does not type-narrow mypy!
     segments: list[tuple[float, float]] = [(s, e) for s, e in segments]
     global inferencer
 
@@ -82,7 +82,7 @@ async def upload_and_process_audio_file(file: UploadFile, segments: str = Form()
 async def upload_and_process_audio_file_unsegmented(file: UploadFile):
     """"""
     global inferencer
-
+    assert isinstance(inferencer, UmascanSpeakerClusterer)
     audio = await read_uploaded_audio_file(file)
     dur = float(len(audio)) / SR
     s_e_labels, _ = inferencer.predict([((0.0, dur), audio)])
@@ -114,7 +114,8 @@ def get_model_config() -> Dict[str, Any]:
 @app.on_event("startup")
 def startup_event():
     global inferencer
-    inferencer = UmascanSpeakerClusterer(model_name="ecapa_tdnn", metric="cosine").build()
+    model_name = "ecapa_tdnn"  # TODO(tilo): try out titanet!
+    inferencer = UmascanSpeakerClusterer(model_name=model_name, metric="cosine").build()
 
 
 if __name__ == "__main__":

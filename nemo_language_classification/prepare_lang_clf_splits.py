@@ -21,6 +21,7 @@ def fix_path(d):
     d["audio_filepath"] = f"{os.environ['HF_DATASETS_CACHE']}/{audio_filepath_tail}"
     return d
 
+
 @beartype
 def create_subset_manifest(
     base_manifest: str,
