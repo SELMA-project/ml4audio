@@ -11,6 +11,7 @@ jiwer
 # for turkish see: https://emre.github.io/unicode_tr/
 unicode_tr
 beartype==0.11.0
+ffmpeg-python
 
 # TODO: in extras ?
 librosa
