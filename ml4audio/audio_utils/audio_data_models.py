@@ -15,7 +15,7 @@ from misc_utils.beartypes import (
 )
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import FillUndefined, _UNDEFINED, UNDEFINED
-from misc_utils.prefix_suffix import PrefixSuffix
+from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from misc_utils.utils import Singleton
 
 ArrayText = tuple[NumpyFloat1DArray, NeStr]
@@ -114,11 +114,19 @@ class AudioSegment(Buildable):
     """
 
     parent_id: SegmentId
-    audio_file: PrefixSuffix  # TODO: rename to audio-source
+    audio_file: Union[PrefixSuffix, NeStr]  # TODO: rename to audio-source
 
     id_suffix: Optional[NeStr] = None
     start: Optional[Seconds] = None  # should be absolut!
     end: Optional[Seconds] = None
+
+    def __post_init__(self):
+        if isinstance(self.audio_file, str):
+            data_dir_prefix = f'{BASE_PATHES["data_dir"]}/'
+            assert self.audio_file.startswith(data_dir_prefix)
+            self.audio_file = PrefixSuffix(
+                "data_dir", self.audio_file.replace(data_dir_prefix, "")
+            )
 
     @property
     def audio_source_id(self) -> NeStr:

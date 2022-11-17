@@ -105,9 +105,7 @@ class NemoPerturbatedAudioData(CachedData, AudioData, ExamAudioData):
         self.audio_segments = [
             AudioSegment(
                 parent_id=p.stem,
-                audio_file=PrefixSuffix(
-                    "cache_root", str(p).replace(f'{BASE_PATHES["cache_root"]}/', "")
-                ),
+                audio_file=str(p),
             )
             for p in Path(self.prefix_cache_dir(f"wavs")).glob("*.wav")
         ]
