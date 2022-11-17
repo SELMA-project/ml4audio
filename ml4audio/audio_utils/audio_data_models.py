@@ -15,6 +15,7 @@ from misc_utils.beartypes import (
 )
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import FillUndefined, _UNDEFINED, UNDEFINED
+from misc_utils.prefix_suffix import PrefixSuffix
 from misc_utils.utils import Singleton
 
 ArrayText = tuple[NumpyFloat1DArray, NeStr]
@@ -103,7 +104,7 @@ Id = NeStr
 
 
 @dataclass
-class AudioSegment:
+class AudioSegment(Buildable):
     """
     it really needs to keep two references:
      * one to the (parent)-segment that is getting segmented
@@ -113,7 +114,7 @@ class AudioSegment:
     """
 
     parent_id: SegmentId
-    audio_file: NeStr  # TODO: rename to audio-source
+    audio_file: PrefixSuffix  # TODO: rename to audio-source
 
     id_suffix: Optional[NeStr] = None
     start: Optional[Seconds] = None  # should be absolut!
@@ -121,7 +122,7 @@ class AudioSegment:
 
     @property
     def audio_source_id(self) -> NeStr:
-        return self.audio_file
+        return str(self.audio_file)
 
     @property
     def id(self) -> SegmentId:
@@ -219,7 +220,7 @@ class AudioData(Iterable[IdArray], FillUndefined):
 
 
 @dataclass
-class AudioFileData(GotAudioSegments, GotOverallDuration):
+class ExamAudioData(GotAudioSegments, GotOverallDuration):
     overall_duration: float = field(init=False)
 
     @property

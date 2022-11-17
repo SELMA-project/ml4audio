@@ -30,7 +30,7 @@ from ml4audio.audio_utils.audio_data_models import (
     AudioData,
     IdArray,
     AudioSegment,
-    AudioFileData,
+    ExamAudioData,
 )
 from ml4audio.audio_utils.audio_io import (
     normalize_audio_array,
@@ -42,7 +42,7 @@ from nemo.collections.asr.parts.preprocessing import (
 
 
 @dataclass
-class NemoPerturbatedAudioData(CachedData, AudioData, AudioFileData):
+class NemoPerturbatedAudioData(CachedData, AudioData, ExamAudioData):
     """
     for benchmarking not for training
     """
@@ -105,12 +105,15 @@ class NemoPerturbatedAudioData(CachedData, AudioData, AudioFileData):
         self.audio_segments = [
             AudioSegment(
                 parent_id=p.stem,
-                audio_file=str(p),
+                audio_file=PrefixSuffix(
+                    "cache_root", str(p).replace(f'{BASE_PATHES["cache_root"]}/', "")
+                ),
             )
             for p in Path(self.prefix_cache_dir(f"wavs")).glob("*.wav")
         ]
 
     def __iter__(self) -> Iterator[tuple[str, NumpyFloat1DArray]]:
+        # TODO: remove this method
         for p in Path(self.prefix_cache_dir("wavs")).glob("*.wav"):
             array, _ = torchaudio_load(str(p))
             eid = p.name.replace(".wav", "")
