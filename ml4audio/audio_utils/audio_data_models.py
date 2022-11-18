@@ -7,6 +7,7 @@ from typing import (
     Union,
     Optional,
     TypeVar,
+    Generic,
 )
 
 from misc_utils.beartypes import (
@@ -289,7 +290,7 @@ TOut = TypeVar("Output")
 
 
 @dataclass
-class IterableInferencer(Buildable, Iterator[TOut]):
+class IterableInferencer(Buildable, Generic[TIn, TOut]):
     @abstractmethod
     def infer(self, inputs: Iterable[TIn]) -> Iterator[TOut]:
         raise NotImplemented
