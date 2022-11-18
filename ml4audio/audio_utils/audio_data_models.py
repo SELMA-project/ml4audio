@@ -6,6 +6,7 @@ from typing import (
     Any,
     Union,
     Optional,
+    TypeVar,
 )
 
 from misc_utils.beartypes import (
@@ -283,8 +284,12 @@ class FileLikeAudioCorpus(Iterable[FileLikeAudioDatum], FillUndefined):
         raise NotImplementedError
 
 
+TIn = TypeVar("Input")
+TOut = TypeVar("Output")
+
+
 @dataclass
-class IterableProcessor(Buildable):
+class IterableInferencer(Buildable, Iterator[TOut]):
     @abstractmethod
-    def process(self, inputs: Iterable) -> Iterator:
+    def infer(self, inputs: Iterable[TIn]) -> Iterator[TOut]:
         raise NotImplemented
