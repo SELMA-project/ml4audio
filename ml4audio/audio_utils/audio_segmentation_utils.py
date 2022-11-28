@@ -1,5 +1,6 @@
 import os
 from collections import namedtuple
+from dataclasses import dataclass
 from typing import Annotated, Iterable, Union
 
 import soundfile
@@ -32,9 +33,13 @@ StartEndLabel = Annotated[
 StartEndLabels = NeList[StartEndLabel]
 
 
-# purposefully not type-hint here!
-def is_non_overlapping(seq) -> bool:
-    return all((seq[k - 1][1] <= seq[k][0] for k in range(1, len(seq))))
+# purposefully not type-hint here! why not?
+def is_non_overlapping(seq: list[tuple[float, float]]) -> bool:
+    if len(seq) > 1:
+        is_fine = all((seq[k - 1][1] <= seq[k][0] for k in range(1, len(seq))))
+    else:
+        is_fine = True
+    return is_fine
 
 
 StartEndLabelNonOverlap = Annotated[
@@ -46,7 +51,11 @@ NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 
 
 def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
-    return all(seq[k - 1][0] <= seq[k][0] for k in range(1, len(seq)))
+    if len(seq) > 1:
+        is_fine = all(seq[k - 1][0] <= seq[k][0] for k in range(1, len(seq)))
+    else:
+        is_fine = True
+    return is_fine
 
 
 @beartype
@@ -83,7 +92,10 @@ def merge_segments_labelaware(
     return merged
 
 
-Span = namedtuple("Span", ["start", "end"])
+@dataclass
+class Span:
+    start: float
+    end: float
 
 
 def is_overlapping(span: Span, next_span: Span):
@@ -105,11 +117,10 @@ def get_contiguous_stamps(
     )
     for i in overlapping_idx:
         avg = (cont_spans[i].start + cont_spans[i + 1].end) / 2.0
-        cont_spans[i][1] = avg
-        cont_spans[i + 1][0] = avg
-    non_overlapping_start_ends = [tuple(x) for x in cont_spans]
+        cont_spans[i].end = avg
+        cont_spans[i + 1].start = avg
 
-    return non_overlapping_start_ends
+    return [(x.start, x.end) for x in cont_spans]
 
 
 @beartype

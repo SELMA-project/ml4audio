@@ -125,7 +125,7 @@ class AudioSegment(Buildable):
     def __post_init__(self):
         if isinstance(self.audio_file, str):
             data_dir_prefix = f'{BASE_PATHES["data_dir"]}/'
-            assert self.audio_file.startswith(data_dir_prefix)
+            assert self.audio_file.startswith(data_dir_prefix), f"{self.audio_file}"
             self.audio_file = PrefixSuffix(
                 "data_dir", self.audio_file.replace(data_dir_prefix, "")
             )
