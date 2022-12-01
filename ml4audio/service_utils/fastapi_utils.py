@@ -12,8 +12,6 @@ from misc_utils.beartypes import NumpyFloat1D, NumpyFloat32_1D, Dataclass
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import encode_dataclass, decode_dataclass
 
-from ml4audio.audio_utils.audio_io import ffmpeg_torch_load
-
 
 _UploadFile = Union[UploadFile, starlette_UploadFile]
 
@@ -45,6 +43,7 @@ async def read_uploaded_audio_file(
     file: _UploadFile, SR: int = 16000
 ) -> NumpyFloat32_1D:
     # TODO: cannot typehint from fastapi import UploadFile cause it hands in UploadFile from starlette!
+    from ml4audio.audio_utils.audio_io import ffmpeg_torch_load
 
     if not file:
         raise HTTPException(status_code=400, detail="Audio bytes expected")
