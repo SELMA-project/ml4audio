@@ -134,6 +134,15 @@ class HfModelFromCheckpoint(BuildableData):
 
     @property
     def _is_data_valid(self) -> bool:
+        """
+        TODO: what about these?
+            ├── config.json
+            ├── preprocessor_config.json
+            ├── pytorch_model.bin
+            ├── special_tokens_map.json
+            ├── tokenizer_config.json
+            └── vocab.json
+        """
         is_valid = all(
             (
                 os.path.isfile(f"{self.data_dir}/{file}")

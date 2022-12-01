@@ -1,3 +1,5 @@
+from abc import abstractmethod
+from dataclasses import dataclass
 from tempfile import NamedTemporaryFile
 from typing import Union
 
@@ -6,13 +8,36 @@ from beartype import beartype
 from fastapi import UploadFile, HTTPException
 from starlette.datastructures import UploadFile as starlette_UploadFile
 
-from misc_utils.beartypes import NumpyFloat1D, NumpyFloat32_1D
-from misc_utils.dataclass_utils import encode_dataclass
+from misc_utils.beartypes import NumpyFloat1D, NumpyFloat32_1D, Dataclass
+from misc_utils.buildable import Buildable
+from misc_utils.dataclass_utils import encode_dataclass, decode_dataclass
 
 from ml4audio.audio_utils.audio_io import ffmpeg_torch_load
 
 
 _UploadFile = Union[UploadFile, starlette_UploadFile]
+
+
+@dataclass
+class DictPredictor:
+    @abstractmethod
+    def predict(self, data: dict) -> dict:
+        raise NotImplementedError
+
+
+@dataclass
+class DataclassPredictor(Buildable):
+    @abstractmethod
+    def predict(self, data: Dataclass) -> Dataclass:
+        raise NotImplementedError
+
+
+@dataclass
+class DataclassEncoderDecoderPredictorWrapper(Buildable, DictPredictor):
+    predictor: DataclassPredictor
+
+    def predict(self, data: dict) -> dict:
+        return encode_dataclass(self.predictor.predict(decode_dataclass(data)))
 
 
 @beartype
