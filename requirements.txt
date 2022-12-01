@@ -1,3 +1,4 @@
+# try not to fix versions here!
 misc-utils@git+https://github.com/dertilo/misc-utils@main#egg=misc-utils
 Cython
 numba==0.53.1 # somehow this version cannot be bumped
@@ -10,7 +11,7 @@ transformers
 jiwer
 # for turkish see: https://emre.github.io/unicode_tr/
 unicode_tr
-beartype==0.11.0
+beartype
 ffmpeg-python
 
 # TODO: in extras ?
