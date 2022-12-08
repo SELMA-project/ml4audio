@@ -53,6 +53,7 @@ class NemoPerturbatedAudioData(CachedData, AudioData, ExamAudioData):
     augmentor: Optional[AudioAugmentor] = field(init=False, repr=False)
     limit: Optional[int] = None
     overall_duration: float = field(init=False, default=0.0)
+    lang: str = UNDEFINED  # TODO: this might be sample specific in multi-lang datasets!
 
     cache_base: PrefixSuffix = field(
         default_factory=lambda: BASE_PATHES["processed_data"]
@@ -106,6 +107,7 @@ class NemoPerturbatedAudioData(CachedData, AudioData, ExamAudioData):
             AudioSegment(
                 parent_id=p.stem,
                 audio_file=str(p),
+                meta_data={"lang": self.lang},
             )
             for p in Path(self.prefix_cache_dir(f"wavs")).glob("*.wav")
         ]

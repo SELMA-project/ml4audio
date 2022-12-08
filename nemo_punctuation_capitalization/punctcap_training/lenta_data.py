@@ -71,14 +71,10 @@ class LentaData(BuildableData, Iterable[str]):
 
 if __name__ == "__main__":
 
-    # base_path = os.environ["BASE_PATH"]
+    base_path = os.environ["BASE_PATH"]
     processed_corproa_dir = "/nm-raid/audio/data/corpora/processed_corpora"
     # cache_root = f"{base_path}/data/cache"
-    # BASE_PATHES["base_path"] = base_path
     BASE_PATHES["processed_corproa_dir"] = processed_corproa_dir
-    BASE_PATHES["russian_text_data"] = PrefixSuffix(
-        "data_base_dir", "RUSSIAN_TEXT_DATA"
-    )
     # BASE_PATHES["processed_data"] = PrefixSuffix("cache_root", "PROCESSED_DATA")
 
     corpus = LentaData().build()
