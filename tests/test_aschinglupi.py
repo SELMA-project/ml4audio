@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 from time import time
@@ -28,6 +30,7 @@ from ml4audio.text_processing.asr_text_normalization import (
 from ml4audio.text_processing.pretty_diff import smithwaterman_aligned_icdiff
 
 BASE_PATHES["asr_inference"] = get_test_cache_base()
+os.environ["DEBUG_GLUER"] = "True"
 
 
 @pytest.mark.parametrize(
