@@ -116,19 +116,17 @@ class Aschinglupi(CachedData):
     ) -> Iterator[ASRStreamInferenceOutput]:
         for chunk in self.audio_bufferer.handle_datum(inpt):
             chunk: AudioMessageChunk
-            altr: AlignedTranscript = (
-                self.hf_asr_decoding_inferencer.transcribe_audio_array(chunk.array)
-            )
-            altr.frame_id = chunk.frame_idx
-            altr.update_offset(chunk.frame_idx)
-            message = ASRMessage(
-                message_id=chunk.message_id,
-                aligned_transcript=altr,
-                end_of_message=chunk.end_of_signal,
-            )
-            glued_transcript = self.transcript_gluer.handle_message(message)
-            assert glued_transcript.aligned_transcript is not None
-            yield glued_transcript
+            altr = self.hf_asr_decoding_inferencer.transcribe_audio_array(chunk.array)
+            if altr.len_not_space > 0:
+                altr.frame_id = chunk.frame_idx
+                altr.update_offset(chunk.frame_idx)
+                message = ASRMessage(
+                    message_id=chunk.message_id,
+                    aligned_transcript=altr,
+                    end_of_message=chunk.end_of_signal,
+                )
+                glued_transcript = self.transcript_gluer.handle_message(message)
+                yield glued_transcript
 
     @beartype
     def transcribe_audio_array(self, array: Numpy1D) -> AlignedTranscript:

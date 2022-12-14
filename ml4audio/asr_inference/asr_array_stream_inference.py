@@ -6,6 +6,7 @@ from beartype import beartype
 from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
     HFASRDecodeInferencer,
 )
+from ml4audio.asr_inference.transcript_glueing import NonEmptyAlignedTranscript
 from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
 from ml4audio.audio_utils.overlap_array_chunker import AudioMessageChunk
 
@@ -13,7 +14,7 @@ from ml4audio.audio_utils.overlap_array_chunker import AudioMessageChunk
 @dataclass
 class ASRMessage:
     message_id: str
-    aligned_transcript: AlignedTranscript  # TODO: NeAlignedTranscript here?
+    aligned_transcript: NonEmptyAlignedTranscript  # TODO: enforce being non-empty?
     end_of_message: bool
 
 

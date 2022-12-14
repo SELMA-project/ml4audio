@@ -84,10 +84,17 @@ def load_audio_array_from_filelike(
     return array
 
 
-def ffprobe(vf):
+def ffprobe(vf) -> dict:
     cmd = f'ffprobe -v error -print_format json -show_entries stream "{vf}"'
     o, e = exec_command(cmd)
     return json.loads("".join([x.decode("utf8") for x in o]))
+
+
+@beartype
+def ffprobe_audio_duration(vf: File) -> float:
+    cmd = f'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "{vf}"'
+    o, e = exec_command(cmd)
+    return float(o[0])
 
 
 def get_video_file_ffprobe_stream_infos(vf: str) -> list[dict]:

@@ -71,18 +71,21 @@ class TranscriptGluer(Buildable):
             aligned_transcript=self._hyp_buffer,
             end_of_message=inp.end_of_message,
         )
+        if DEBUG:
+            print(
+                f"{inp.aligned_transcript.text=}, {suffix_to_be_removed=},{new_suffix=},{self._hyp_buffer.text=}"
+            )
+
         assert self._hyp_buffer is not None
         # if inp.end_of_message: TODO: resetting here breaks the AsrStreamingPostASRSegmentingExecutor
         #     self.reset()
         return output
 
     @beartype
-    def _calc_suffix(self, inp: ASRMessage) -> Tuple[str, str]:
-        def is_fine(x: AlignedTranscript):
-            return len(x.text.replace(" ", "")) > 0
+    def _calc_suffix(self, inp: ASRMessage) -> tuple[str, str]:
 
-        if is_fine(
-            inp.aligned_transcript
+        if (
+            inp.aligned_transcript.len_not_space > 0
         ):  # TODO: message can be fine and end_of_message at same time!
             is_very_start_of_stream = inp.aligned_transcript.frame_id == 0
             do_overwrite_everything = (
@@ -120,10 +123,13 @@ class TranscriptGluer(Buildable):
                 new_suffix = f"{text}{' ' if inp.end_of_message else ''}"
 
         elif inp.end_of_message:
-            # print("zero message just for end_of_message flag")
+            if DEBUG:
+                print("zero message just for end_of_message flag")
             ending_to_be_removed = ""
             new_suffix = ""
         else:
+            if DEBUG:
+                print(f"NOT fine and NOT end_of_message!!")
             ending_to_be_removed = ""
             new_suffix = ""
 

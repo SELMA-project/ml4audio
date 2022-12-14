@@ -9,7 +9,6 @@ from misc_utils.utils import just_try
 from ml4audio.audio_utils.aligned_transcript import (
     AlignedTranscript,
     LetterIdx,
-    NeAlignedTranscript,
 )
 
 sys.path.append(".")
@@ -78,10 +77,10 @@ def glue_left_right_update_hyp_buffer(
 
 @beartype
 def glue_left_right(
-    left: NeAlignedTranscript,
-    right: NeAlignedTranscript,
+    left: NonEmptyAlignedTranscript,
+    right: NonEmptyAlignedTranscript,
     sm: difflib.SequenceMatcher,
-) -> tuple[str, NeAlignedTranscript]:
+) -> tuple[str, NonEmptyAlignedTranscript]:
     """
     two overlapping sequences
 
@@ -110,7 +109,7 @@ def glue_left_right(
         print(
             f"GLUED left: {AlignedTranscript(letters_left, sr).text}, right: {AlignedTranscript(letters_right, sr).text}"
         )
-    glued = NeAlignedTranscript(
+    glued = AlignedTranscript(
         letters_left + letters_right, sr, offset=left.offset
     ).update_offset()
     return ending_to_be_removed, glued
@@ -118,7 +117,9 @@ def glue_left_right(
 
 @beartype
 def left_right_letters(
-    left: NeAlignedTranscript, right: NeAlignedTranscript, sm: difflib.SequenceMatcher
+    left: NonEmptyAlignedTranscript,
+    right: NonEmptyAlignedTranscript,
+    sm: difflib.SequenceMatcher,
 ) -> tuple[NeList[LetterIdx], str, NeList[LetterIdx]]:
     sr = right.sample_rate
     assert sr == left.sample_rate
@@ -177,7 +178,10 @@ def has_no_text_at_all(letters):
     return len("".join([l.letter for l in letters if l.letter != " "])) == 0
 
 
-def not_glueing_but_simply_appending(left, right):
+@beartype
+def not_glueing_but_simply_appending(
+    left: NonEmptyAlignedTranscript, right: NonEmptyAlignedTranscript
+) -> tuple[list[LetterIdx], list[LetterIdx]]:
     letters_left = left.letters
     space_letter = LetterIdx(" ", right.letters[0].r_idx)
     letters_right = [space_letter] + right.letters
