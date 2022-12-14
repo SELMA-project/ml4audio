@@ -1,7 +1,7 @@
 import os
 import shutil
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, Optional
 
 from beartype import beartype
 from transformers import set_seed
@@ -13,9 +13,11 @@ from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     ResamplingASRLogitsInferencer,
     NumpyFloatORInt16_1DArray,
 )
+from ml4audio.asr_inference.transcript_glueing import NonEmptyAlignedTranscript
 from ml4audio.audio_utils.aligned_transcript import (
     LetterIdx,
     NeAlignedTranscript,
+    AlignedTranscript,
 )
 from ml4audio.text_processing.ctc_decoding import BaseCTCDecoder, LogitAlignedTranscript
 
@@ -63,14 +65,14 @@ class HFASRDecodeInferencer(ASRAudioArrayInferencer):
     @beartype
     def transcribe_audio_array(
         self, audio_array: NumpyFloatORInt16_1DArray
-    ) -> NeAlignedTranscript:
+    ) -> AlignedTranscript:
         logits = self.logits_inferencer.resample_calc_logits(audio_array)
         return self.__aligned_decode(logits, len(audio_array))
 
     @beartype
     def __aligned_decode(
         self, logits: TorchTensor2D, audio_array_seq_len: int
-    ) -> NeAlignedTranscript:
+    ) -> AlignedTranscript:
         """
         letters aligned to audio-frames
 
@@ -86,7 +88,7 @@ class HFASRDecodeInferencer(ASRAudioArrayInferencer):
             LetterIdx(letter=l, r_idx=i)
             for l, i in zip(dec_out.text, projected_array_index)
         ]
-        return NeAlignedTranscript(
+        return AlignedTranscript(
             letters=letters,
             sample_rate=self.logits_inferencer.input_sample_rate,
             logits_score=dec_out.logits_score,

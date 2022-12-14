@@ -44,7 +44,7 @@ def glue_left_right_update_hyp_buffer(
     new_trans: NonEmptyAlignedTranscript,
     hyp_buffer: NonEmptyAlignedTranscript,
     sm: difflib.SequenceMatcher,
-) -> Tuple[str, str, NonEmptyAlignedTranscript]:
+) -> tuple[str, str, NonEmptyAlignedTranscript]:
 
     # if DEBUG:
     #     print(

@@ -14,7 +14,6 @@ from ml4audio.asr_inference.transcript_glueing import (
 )
 from ml4audio.audio_utils.aligned_transcript import (
     AlignedTranscript,
-    NeAlignedTranscript,
 )
 
 DEBUG = os.environ.get("DEBUG", "False").lower() != "false"
