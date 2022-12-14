@@ -1,6 +1,9 @@
+import difflib
 import os
 import pickle
-import sys
+from typing import Optional, Iterable
+
+import numpy as np
 from beartype import beartype
 
 from ml4audio.asr_inference.hfwav2vec2_asr_decode_inferencer import (
@@ -12,28 +15,23 @@ from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer impor
 from ml4audio.asr_inference.transcript_glueing import glue_left_right
 from ml4audio.audio_utils.aligned_transcript import (
     LetterIdx,
-    NeAlignedTranscript,
+    AlignedTranscript,
 )
-
-import difflib
-from typing import Optional, Iterable
-
-import numpy as np
 from nemo.collections.asr.parts.preprocessing import AudioSegment
 
 
 @beartype
 def glue_transcripts(
-    aligned_transcripts: Iterable[NeAlignedTranscript],
+    aligned_transcripts: Iterable[AlignedTranscript],
     debug=False,
-) -> NeAlignedTranscript:
+) -> AlignedTranscript:
     """
     TODO: when/where is this used?
     """
 
     sm = difflib.SequenceMatcher()
     sample_rate = None
-    previous: Optional[NeAlignedTranscript] = None
+    previous: Optional[AlignedTranscript] = None
     letters: list[LetterIdx] = []
     very_start = None
     for ts in aligned_transcripts:
@@ -53,15 +51,7 @@ def glue_transcripts(
             letters.extend([LetterIdx(x.letter, ts.abs_idx(x)) for x in ts.letters])
         previous = ts
 
-    monotonously_increasing = all(
-        (letters[k].r_idx >= letters[k - 1].r_idx for k in range(1, len(letters)))
-    )
-    assert (
-        monotonously_increasing
-    ), f"text: {''.join([l.letter for l in letters])},indizes: {[l.r_idx for l in letters]}"
-
-    transcript = NeAlignedTranscript(letters, sample_rate, offset=very_start)
-    return transcript
+    return AlignedTranscript(letters, sample_rate, offset=very_start)
 
 
 def generate_arrays(samples: np.ndarray, step):
@@ -80,7 +70,7 @@ def generate_arrays(samples: np.ndarray, step):
 @beartype
 def transcribe_audio_file(
     asr: HFASRDecodeInferencer, file, step_dur=5, do_cache=False
-) -> NeAlignedTranscript:
+) -> AlignedTranscript:
     """
     TODO: what is this good for?
     """

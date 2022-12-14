@@ -64,22 +64,17 @@ class TranscriptGluer(Buildable):
     @beartype
     def handle_message(self, inp: ASRMessage) -> ASRStreamInferenceOutput:
         suffix_to_be_removed, new_suffix = self._calc_suffix(inp)
-        output = ASRStreamInferenceOutput(
+        if DEBUG:
+            print(
+                f"{inp.aligned_transcript.text=}, {suffix_to_be_removed=},{new_suffix=},{self._hyp_buffer.text=}"
+            )
+        return ASRStreamInferenceOutput(
             id=inp.message_id,
             ending_to_be_removed=suffix_to_be_removed,
             text=new_suffix,
             aligned_transcript=self._hyp_buffer,
             end_of_message=inp.end_of_message,
         )
-        if DEBUG:
-            print(
-                f"{inp.aligned_transcript.text=}, {suffix_to_be_removed=},{new_suffix=},{self._hyp_buffer.text=}"
-            )
-
-        assert self._hyp_buffer is not None
-        # if inp.end_of_message: TODO: resetting here breaks the AsrStreamingPostASRSegmentingExecutor
-        #     self.reset()
-        return output
 
     @beartype
     def _calc_suffix(self, inp: ASRMessage) -> tuple[str, str]:
