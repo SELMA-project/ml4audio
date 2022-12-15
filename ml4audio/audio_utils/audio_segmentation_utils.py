@@ -128,7 +128,7 @@ def expand_segments(
     segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
 ) -> NonOverlSegs:
-    raw_expaned = [(start - expand_by, end + expand_by) for start, end in segments]
+    raw_expaned = [(max(start - expand_by,0.0), end + expand_by) for start, end in segments]
     return get_contiguous_stamps(raw_expaned)
 
 
