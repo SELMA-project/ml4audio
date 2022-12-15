@@ -206,7 +206,7 @@ def merge_short_segments(
 
     min_dur_segs: list = list(buffer_segment(segments))
     last_start, last_end = min_dur_segs[-1]
-    if last_end - last_start < min_dur:
+    if last_end - last_start < min_dur and len(min_dur_segs) > 1:
         _, last_end = min_dur_segs.pop(-1)
         min_dur_segs[-1] = (min_dur_segs[-1][0], last_end)
 
