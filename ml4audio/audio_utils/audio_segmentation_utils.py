@@ -210,8 +210,6 @@ def merge_short_segments(
         _, last_end = min_dur_segs.pop(-1)
         min_dur_segs[-1] = (min_dur_segs[-1][0], last_end)
 
-    assert all((e - s >= min_dur for s, e in min_dur_segs))
-
     return min_dur_segs
 
 
