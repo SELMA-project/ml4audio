@@ -372,8 +372,8 @@ def ffmpeg_load_audio_from_file(
     based on: https://github.com/openai/whisper/blob/d18e9ea5dd2ca57c697e8e55f9e654f06ede25d0/whisper/audio.py#L22
     """
     try:
-        # TODO: vf seems to be working!
-        "ffmpeg -i audiomonolith/tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav -vf trim=1.11:2.22 -f s16le -ac 1 -acodec pcm_s16le -ar 1600 test.wav"
+        # TODO: vf seems not to be working!
+        # "ffmpeg -i audiomonolith/tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav -vf trim=1.11:2.22 -f s16le -ac 1 -acodec pcm_s16le -ar 1600 test.wav"
         cmd = ffmpeg.input(audio_file, threads=0).output(
             "-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr
         )

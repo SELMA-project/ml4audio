@@ -44,6 +44,14 @@ class AlignedTranscript:
     frame_id: Optional[int] = None  # TODO: rename to audio_segment_frame_idx
 
     def __post_init__(self):
+        letters = self.letters
+        monotonously_increasing = all(
+            (letters[k].r_idx >= letters[k - 1].r_idx for k in range(1, len(letters)))
+        )
+        assert (
+            monotonously_increasing
+        ), f"text: {''.join([l.letter for l in letters])},indizes: {[l.r_idx for l in letters]}"
+
         self.update_offset()
 
     def set_abs_pos_in_time(self, frame_id: int):

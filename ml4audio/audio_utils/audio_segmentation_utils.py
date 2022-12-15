@@ -186,8 +186,8 @@ def expand_merge_segments(
 
 @beartype
 def merge_short_segments(
-    segments: NeList[tuple[float, float]], min_dur: float = 1.5
-) -> NeList[StartEnd]:
+    segments: NonOverlappingMonotonIncreasingSegments, min_dur: float = 1.5
+) -> NonOverlappingMonotonIncreasingSegments:
     GIVE_ME_NEW_START = -1
 
     def buffer_segment(segs: Iterable[tuple[float, float]]):
@@ -200,32 +200,54 @@ def merge_short_segments(
                 yield previous_start, end
                 previous_start = GIVE_ME_NEW_START
 
-    min_dur_segs = list(buffer_segment(segments))
+        vield_very_last = previous_start != GIVE_ME_NEW_START
+        if vield_very_last:
+            yield previous_start, end
+
+    min_dur_segs: list = list(buffer_segment(segments))
+    last_start, last_end = min_dur_segs[-1]
+    if last_end - last_start < min_dur:
+        _, last_end = min_dur_segs.pop(-1)
+        min_dur_segs[-1] = (min_dur_segs[-1][0], last_end)
+
     assert all((e - s > min_dur for s, e in min_dur_segs))
+
     return min_dur_segs
 
 
+def is_weakly_monoton_increasing_timeseries(timestamps: list[float]) -> bool:
+    return all(
+        (timestamps[k + 1] - timestamps[k] >= 0.0 for k in range(len(timestamps) - 1))
+    )
+
+
 @beartype
-def pause_based_segmentation(
-    timestamped_letters: NeList[tuple[str, float]],
+def segment_letter_timestamps(
+    letter_timestamps: Annotated[
+        NeList[float], Is[is_weakly_monoton_increasing_timeseries]
+    ],
     min_seg_dur=1.5,
     max_gap_dur=0.2,
     expand_by=0.1,
-) -> NeList[StartEnd]:
-    _, timestamps = [list(x) for x in zip(*timestamped_letters)]
+) -> NonOverlappingMonotonIncreasingSegments:
     letter_duration = (
         0.04  # heuristic -> 40ms is median of some transcript, sounds plausible!
     )
-    timestamps = sorted(timestamps)  # god dammit!
-    weakly_monoton_increasing = all(
-        (timestamps[k + 1] - timestamps[k] >= 0.0 for k in range(len(timestamps) - 1))
-    )
-    assert weakly_monoton_increasing
-    s_e_times = [(ts, ts + letter_duration) for k, ts in enumerate(timestamps)]
+    s_e_times = [(ts, ts + letter_duration) for ts in letter_timestamps]
     s_e_times = expand_merge_segments(
         s_e_times, max_gap_dur=max_gap_dur, expand_by=expand_by
     )
     s_e_times = merge_short_segments(s_e_times, min_dur=min_seg_dur)
+
+    def check_segment_validity():
+        first_ts = letter_timestamps[0]
+        assert s_e_times[0][0] == first_ts - expand_by, f"{s_e_times[0][0]=},{first_ts}"
+        last_ts = letter_timestamps[-1]
+        assert (
+            s_e_times[-1][1] == last_ts + letter_duration + expand_by
+        ), f"{s_e_times[-1][1]=},{last_ts}"
+
+    check_segment_validity()
     return s_e_times
 
 

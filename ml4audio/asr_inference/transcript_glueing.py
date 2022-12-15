@@ -62,7 +62,7 @@ def glue_left_right_update_hyp_buffer(
     )
     assert hyp_buffer.text.endswith(
         ending_to_be_removed
-    ), f"{glued.text=} doe snot end with {ending_to_be_removed=}"
+    ), f"{glued.text=} does not end with {ending_to_be_removed=}"
     assert len(glued.letters) > 0  # , f"{hyp_buffer.text=}, {new_trans.text=}"
     assert glued.letters[0].r_idx == 0
     # TODO: ring-buffer?
