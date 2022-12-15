@@ -128,7 +128,9 @@ def expand_segments(
     segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
 ) -> NonOverlSegs:
-    raw_expaned = [(max(start - expand_by,0.0), end + expand_by) for start, end in segments]
+    raw_expaned = [
+        (max(start - expand_by, 0.0), end + expand_by) for start, end in segments
+    ]
     return get_contiguous_stamps(raw_expaned)
 
 
@@ -239,7 +241,9 @@ def segment_letter_timestamps(
 
     def check_segment_validity():
         first_ts = letter_timestamps[0]
-        assert s_e_times[0][0] == first_ts - expand_by, f"{s_e_times[0][0]=},{first_ts}"
+        assert s_e_times[0][0] == max(
+            first_ts - expand_by, 0.0
+        ), f"{s_e_times[0][0]=},{first_ts}"
         last_ts = letter_timestamps[-1]
         assert (
             s_e_times[-1][1] == last_ts + letter_duration + expand_by
