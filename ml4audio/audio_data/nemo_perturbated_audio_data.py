@@ -6,6 +6,7 @@ from typing import (
     Iterator,
     Optional,
     Union,
+    Iterable,
 )
 
 import soundfile as sf
@@ -54,6 +55,9 @@ class NemoPerturbatedAudioData(CachedData, AudioData, ExamAudioData):
     limit: Optional[int] = None
     overall_duration: float = field(init=False, default=0.0)
     lang: str = UNDEFINED  # TODO: this might be sample specific in multi-lang datasets!
+    audio_segments: Iterable[AudioSegment] = field(
+        init=False, repr=False
+    )  # should not be dumped to dataclass.json!
 
     cache_base: PrefixSuffix = field(
         default_factory=lambda: BASE_PATHES["processed_data"]
