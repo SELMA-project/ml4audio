@@ -130,7 +130,7 @@ class AudioSegment(Buildable):
             assert self.audio_file.startswith(data_dir_prefix), f"{self.audio_file}"
             self.audio_file = PrefixSuffix(
                 "data_dir", self.audio_file.replace(data_dir_prefix, "")
-            )
+            ).build()
 
     @property
     def audio_source_id(self) -> NeStr:
