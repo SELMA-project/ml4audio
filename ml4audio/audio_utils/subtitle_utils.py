@@ -2,7 +2,6 @@ import re
 from dataclasses import dataclass
 
 from beartype import beartype
-from webvtt import WebVTT, Caption
 
 from misc_utils.dataclass_utils import deserialize_dataclass
 from misc_utils.utils import iterable_to_chunks
@@ -11,6 +10,10 @@ from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, LetterIdx
 try:
     from pysubs2.time import make_time
     from pysubs2 import SSAFile, Color, SSAEvent
+except ImportError:
+    pass
+try:
+    from webvtt import WebVTT, Caption
 except ImportError:
     pass
 

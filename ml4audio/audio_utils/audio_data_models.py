@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 from typing import (
     Iterable,
     Iterator,
@@ -116,16 +116,21 @@ class AudioSegment(Buildable):
     """
 
     parent_id: SegmentId
-    audio_file: Union[PrefixSuffix, NeStr]  # TODO: rename to audio-source
-
+    audio_file: Optional[
+        Union[PrefixSuffix, NeStr]
+    ] = None  # TODO: rename to audio-source
+    audio_file_suffix: InitVar[Optional[NeStr]] = None
     id_suffix: Optional[NeStr] = None
     start: Optional[Seconds] = None  # should be absolut!
     end: Optional[Seconds] = None
 
     meta_data: Optional[dict] = None
 
-    def __post_init__(self):
-        if isinstance(self.audio_file, str) and "data_dir" in BASE_PATHES:
+    def __post_init__(self, audio_file_suffix: Optional[NeStr]):
+        if audio_file_suffix is not None:
+            self.audio_file = PrefixSuffix("data_dir", audio_file_suffix)
+
+        elif isinstance(self.audio_file, str) and "data_dir" in BASE_PATHES:
             data_dir_prefix = f'{BASE_PATHES["data_dir"]}/'
             assert self.audio_file.startswith(data_dir_prefix), f"{self.audio_file}"
             self.audio_file = PrefixSuffix(

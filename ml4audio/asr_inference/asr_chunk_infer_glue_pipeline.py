@@ -26,7 +26,7 @@ from ml4audio.asr_inference.transcript_gluer import (
     TranscriptGluer,
     ASRStreamInferenceOutput,
 )
-from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
+from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, LetterIdx
 from ml4audio.audio_utils.audio_io import (
     convert_to_16bit_array,
     break_array_into_chunks,
@@ -151,9 +151,9 @@ def gather_final_aligned_transcripts(
             last_response = t.aligned_transcript
 
         if inpt.end_of_signal:
-            assert last_response is not None
             aschinglupi.reset()
-            yield last_response
+            if last_response is not None:
+                yield last_response
 
 
 @beartype
@@ -165,6 +165,7 @@ CompleteMessage = Annotated[
     NeList[AudioMessageChunk], Is[lambda ams: is_end_of_signal(ams[-1])]
 ]
 
+NO_TRANSCRIPT = " ... "
 
 @beartype
 def calc_final_transcript(
@@ -172,8 +173,13 @@ def calc_final_transcript(
     audio_messages: CompleteMessage,
 ) -> AlignedTranscript:
     last_responses = list(gather_final_aligned_transcripts(inferencer, audio_messages))
-    assert len(last_responses) == 1, f"there can only be one final response"
-    return last_responses[0]
+    if len(last_responses) == 1:
+        return last_responses[0]
+    else:
+        return AlignedTranscript(
+            letters=[LetterIdx(NO_TRANSCRIPT, 0)],
+            sample_rate=inferencer.sample_rate,
+        )
 
 
 @beartype
