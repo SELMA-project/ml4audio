@@ -301,3 +301,17 @@ class IterableInferencer(Buildable, Generic[TIn, TOut]):
     @abstractmethod
     def infer(self, inputs: Iterable[TIn]) -> Iterator[TOut]:
         raise NotImplemented
+
+
+@dataclass
+class Predictor(Buildable, Generic[TIn, TOut]):
+    @abstractmethod
+    def predict(self, inputt: TIn) -> TOut:
+        raise NotImplemented
+
+
+@dataclass
+class AsyncPredictor(Buildable, Generic[TIn, TOut]):
+    @abstractmethod
+    async def async_predict(self, inputt: TIn) -> TOut:
+        raise NotImplemented
