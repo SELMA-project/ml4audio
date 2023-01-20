@@ -150,7 +150,7 @@ class AudioSegment(Buildable):
 
 @dataclass
 class GotAudioSegments:
-    audio_segments: Iterable[AudioSegment] = field(init=False)
+    audio_segments: Optional[Iterable[AudioSegment]] = field(init=False, default=None)
 
     @staticmethod
     def from_obj(audio_segments: Iterable[AudioSegment]):
@@ -161,7 +161,7 @@ class GotAudioSegments:
 
 @dataclass
 class GotTranscripts:
-    transcripts: Iterable[TranscriptAnnotation] = field(init=False)
+    transcripts: Iterable[TranscriptAnnotation] = field(init=False, default=None)
 
     @classmethod
     def from_obj(cls, obj: Iterable[TranscriptAnnotation]):
