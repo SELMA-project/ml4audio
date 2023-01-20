@@ -8,6 +8,7 @@ import numpy as np
 import soundfile
 import torch
 from beartype import beartype
+from beartype.door import is_bearable
 from beartype.vale import Is
 from omegaconf import DictConfig, OmegaConf
 
@@ -28,7 +29,9 @@ from nemo.utils import logging
 
 from ml4audio.audio_utils.audio_segmentation_utils import (
     StartEnd,
-    is_weakly_monoton_increasing,
+    is_weakly_monoton_increasing_timeseries,
+    is_non_overlapping,
+    expand_merge_segments,
 )
 
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -50,7 +53,7 @@ def create_manifest(manifest_file: str, audio_file):
         fp.write("\n")
 
 
-VoiceSegments = Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]]
+VoiceSegments = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 
 StartEndsVADProbas = tuple[VoiceSegments, list[float]]
 
@@ -216,6 +219,8 @@ class NemoOfflineVAD(Buildable):
     cfg: Union[dict, DictConfig] = field(
         default_factory=lambda: DEFAULT_NEMO_VAD_CONFIG
     )
+    max_gap_dur: float = 1.0
+    expand_by: float = 0.5
 
     def _build_self(self) -> Any:
         self.dictcfg = (
@@ -235,7 +240,10 @@ class NemoOfflineVAD(Buildable):
             prefix="nemo_wants_to_write_many_files"
         ) as tmpdir:
             soundfile.write(tmpfile.name, audio, samplerate=16000)
-            pred = nemo_offline_vad_infer(
+            segments, probas = nemo_offline_vad_infer(
                 self.dictcfg, self.vad_model, tmpfile.name, tmpdir
             )
-        return pred
+        segments = expand_merge_segments(
+            segments, max_gap_dur=self.max_gap_dur, expand_by=self.expand_by
+        )
+        return segments, probas
