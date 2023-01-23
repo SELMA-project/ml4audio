@@ -101,11 +101,14 @@ class Span:
 def is_overlapping(span: Span, next_span: Span):
     return span.end > next_span.start
 
+NonOverlappingMonotonIncreasingSegments = Annotated[
+    NeList[StartEnd], Is[is_non_overlapping] & Is[is_weakly_monoton_increasing]
+]
 
 @beartype
 def get_contiguous_stamps(
     start_ends: NeList[StartEnd],
-) -> NonOverlSegs:
+) -> NonOverlappingMonotonIncreasingSegments:
     """
     based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py#L230
     """
@@ -155,9 +158,6 @@ def expand_merge_segments_labelaware(
     return s_e_labels
 
 
-NonOverlappingMonotonIncreasingSegments = Annotated[
-    NeList[StartEnd], Is[is_non_overlapping] & Is[is_weakly_monoton_increasing]
-]
 
 
 @beartype
