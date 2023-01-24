@@ -214,10 +214,16 @@ DEFAULT_NEMO_VAD_CONFIG = {
 
 
 @dataclass
+class PathValue:
+    path: list[str]
+    value: Any
+
+
+@dataclass
 class NemoOfflineVAD(Buildable):
     # for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
     name: str = UNDEFINED
-    override_params: Optional[list[Sequence[list[str], Any]]] = None
+    override_params: Optional[list[PathValue]] = None
     cfg: Union[dict, DictConfig] = field(
         default_factory=lambda: DEFAULT_NEMO_VAD_CONFIG
     )
@@ -226,8 +232,8 @@ class NemoOfflineVAD(Buildable):
 
     def _build_self(self) -> Any:
         if self.override_params is not None:
-            for path, value in self.override_params:
-                set_val_in_nested_dict(self.cfg, path, value)
+            for pv in self.override_params:
+                set_val_in_nested_dict(self.cfg, pv.path, pv.value)
 
         self.dictcfg = (
             OmegaConf.create(self.cfg) if isinstance(self.cfg, dict) else self.cfg
