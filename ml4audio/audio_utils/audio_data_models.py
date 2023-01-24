@@ -313,6 +313,9 @@ class Predictor(DataclassPredictor, Generic[TIn, TOut]):
 
 @dataclass
 class AsyncPredictor(Buildable, Generic[TIn, TOut]):
+    """
+    TODO: being Buildable is necessary in order to "_extract_knowledge"
+    """
     @abstractmethod
     async def async_predict(self, inputt: TIn) -> TOut:
         raise NotImplemented

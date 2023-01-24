@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass, field
-from typing import Any, Union, Annotated, Optional
+from typing import Any, Union, Annotated, Optional, Sequence
 
 import numpy as np
 import soundfile
@@ -217,7 +217,7 @@ DEFAULT_NEMO_VAD_CONFIG = {
 class NemoOfflineVAD(Buildable):
     # for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
     name: str = UNDEFINED
-    override_params: Optional[list[tuple[list[str], Any]]] = None
+    override_params: Optional[list[Sequence[list[str], Any]]] = None
     cfg: Union[dict, DictConfig] = field(
         default_factory=lambda: DEFAULT_NEMO_VAD_CONFIG
     )

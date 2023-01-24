@@ -1,10 +1,10 @@
-# based on : https://github.com/ccoreilly/wav2vec2-service/blob/master/convert_torch_to_onnx.py
 from transformers import Wav2Vec2ForCTC
 import torch
 import argparse
 
 
 def convert_to_onnx(model_id_or_path, onnx_model_name):
+    # based on : https://github.com/ccoreilly/wav2vec2-service/blob/master/convert_torch_to_onnx.py
     print(f"Converting {model_id_or_path} to onnx")
     model = Wav2Vec2ForCTC.from_pretrained(model_id_or_path)
     audio_len = 250000
@@ -32,9 +32,6 @@ def quantize_onnx_model(onnx_model_path, quantized_model_path):
     TODO:
         use_external_data_format create extra file containing weights, this files absolute path on file system seems to be hard-coded in the onnx-file!
         so one cannot really copy it!
-    :param onnx_model_path:
-    :param quantized_model_path:
-    :return:
     """
     print("Starting quantization...")
     from onnxruntime.quantization import quantize_dynamic, QuantType
