@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass, field
-from typing import Any, Union, Annotated
+from typing import Any, Union, Annotated, Optional
 
 import numpy as np
 import soundfile
@@ -15,6 +15,7 @@ from omegaconf import DictConfig, OmegaConf
 from misc_utils.beartypes import NumpyFloat1D, NeList
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import UNDEFINED
+from misc_utils.utils import set_val_in_nested_dict
 from nemo.collections.asr.models import EncDecClassificationModel
 from nemo.collections.asr.parts.utils.vad_utils import (
     generate_overlap_vad_seq,
@@ -216,6 +217,7 @@ DEFAULT_NEMO_VAD_CONFIG = {
 class NemoOfflineVAD(Buildable):
     # for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
     name: str = UNDEFINED
+    override_params: Optional[list[tuple[list[str], Any]]] = None
     cfg: Union[dict, DictConfig] = field(
         default_factory=lambda: DEFAULT_NEMO_VAD_CONFIG
     )
@@ -223,6 +225,10 @@ class NemoOfflineVAD(Buildable):
     expand_by: float = 0.5
 
     def _build_self(self) -> Any:
+        if self.override_params is not None:
+            for path, value in self.override_params:
+                set_val_in_nested_dict(self.cfg, path, value)
+
         self.dictcfg = (
             OmegaConf.create(self.cfg) if isinstance(self.cfg, dict) else self.cfg
         )

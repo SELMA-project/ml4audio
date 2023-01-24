@@ -100,7 +100,6 @@ class Aschinglupi(CachedData):
         thats why it still needs to build its children after loading from cache
 
         """
-
         self.hf_asr_decoding_inferencer.build()  # TODO(tilo): WTF!! there should be no build in a _post_build_setup!
         # TODO: might be handled by proper is_ready logic!
         assert self.hf_asr_decoding_inferencer._was_built

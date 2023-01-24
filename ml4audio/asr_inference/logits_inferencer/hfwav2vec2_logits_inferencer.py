@@ -6,16 +6,15 @@ import torch
 from beartype import beartype
 from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC, BatchFeature
 
-from misc_utils.dataclass_utils import UNDEFINED
-from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
-    ResamplingASRLogitsInferencer,
-    OnnxedHFCheckpoint,
-)
 from misc_utils.beartypes import (
     NumpyFloat2DArray,
     NumpyFloat1DArray,
     TorchTensor2D,
-    TorchTensor3D,
+)
+from misc_utils.dataclass_utils import UNDEFINED
+from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
+    ResamplingASRLogitsInferencer,
+    OnnxedHFCheckpoint,
 )
 
 HFWAV2VEC2_SAMPLE_RATE = 16_000  # TODO: somewhen this might be model dependent!
