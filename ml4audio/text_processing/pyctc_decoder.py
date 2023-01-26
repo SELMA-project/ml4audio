@@ -133,7 +133,8 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
 
     def __del__(self):
         # for __del__ vs __delete__ see: https://stackoverflow.com/questions/59508235/what-is-the-difference-between-del-and-delete
-        self._pyctc_decoder.cleanup()  # one has to manually cleanup!
+        if self._pyctc_decoder is not None:
+            self._pyctc_decoder.cleanup()  # one has to manually cleanup!
 
 
 @dataclass
