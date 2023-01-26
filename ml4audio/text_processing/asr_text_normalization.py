@@ -111,11 +111,15 @@ class TranscriptNormalizer(Buildable):
     the arg: text_normalizer is referring to CHARACTER_MAPPINGS
     """
 
-    casing: Casing = UNDEFINED
+    casing: Union[str, Casing] = UNDEFINED
     text_normalizer: Union[TextNormalizer, str] = UNDEFINED
     vocab: Union[
         _UNDEFINED, list[str]
     ] = UNDEFINED  # here not NeList cause CachedList initially is empty list (before build)
+
+    def __post_init__(self):
+        if isinstance(self.casing, str):
+            self.casing = Casing(self.casing)
 
     def _build_self(self):
         """

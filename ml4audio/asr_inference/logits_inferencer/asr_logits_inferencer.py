@@ -241,7 +241,7 @@ class OnnxedHFCheckpoint(HfCheckpoint):
         import onnx
 
         onnx_model = onnx.load(self.onnx_model)
-        onnx.checker.check_model(onnx_model)
+        onnx.checker.check_model(self.onnx_model)
 
 
 @dataclass

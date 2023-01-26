@@ -149,6 +149,11 @@ class AudioSegment(Buildable):
 
 
 @dataclass
+class AudioSegmentWorkflow(AudioSegment):
+    workflow_name: str = UNDEFINED
+
+
+@dataclass
 class GotAudioSegments:
     audio_segments: Optional[Iterable[AudioSegment]] = field(init=False, default=None)
 
@@ -312,16 +317,25 @@ class Predictor(DataclassPredictor, Generic[TIn, TOut]):
 
 
 @dataclass
-class AsyncPredictor(Buildable, Generic[TIn, TOut]):
-    """
-    TODO: being Buildable is necessary in order to "_extract_knowledge"
-    """
+class AsyncPredictor(Generic[TIn, TOut]):
     @abstractmethod
     async def async_predict(self, inputt: TIn) -> TOut:
         raise NotImplemented
 
+
 @dataclass
-class Predictor(Buildable,Generic[TIn, TOut]):
+class AsyncWorkflow(Buildable):
+    """
+    TODO: being Buildable is necessary in order to "_extract_knowledge"
+    """
+
+    @abstractmethod
+    async def run_workflow(self, inputt):
+        raise NotImplemented
+
+
+@dataclass
+class Predictor(Buildable, Generic[TIn, TOut]):
     @abstractmethod
     def predict(self, inputt: TIn) -> TOut:
         raise NotImplemented

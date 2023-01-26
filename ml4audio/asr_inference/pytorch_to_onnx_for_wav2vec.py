@@ -1,11 +1,14 @@
+from beartype import beartype
 from transformers import Wav2Vec2ForCTC
 import torch
 import argparse
 
 
-def convert_to_onnx(model_id_or_path, onnx_model_name):
+@beartype
+def convert_to_onnx(model_id_or_path: str, onnx_model_name):
     # based on : https://github.com/ccoreilly/wav2vec2-service/blob/master/convert_torch_to_onnx.py
     print(f"Converting {model_id_or_path} to onnx")
+    # using: "torch_dtype=torch.float16" leads to "weight_norm_kernel" not implemented for 'Half'
     model = Wav2Vec2ForCTC.from_pretrained(model_id_or_path)
     audio_len = 250000
 
