@@ -317,7 +317,9 @@ class Predictor(DataclassPredictor, Generic[TIn, TOut]):
 
 
 @dataclass
-class AsyncPredictor(Generic[TIn, TOut]):
+class AsyncPredictor(
+    Generic[TIn, TOut]
+):  # TODO: remove cause its same as AsyncWorkflow
     @abstractmethod
     async def async_predict(self, inputt: TIn) -> TOut:
         raise NotImplemented
