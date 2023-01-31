@@ -1,4 +1,7 @@
+from typing import Annotated
+
 from beartype import beartype
+from beartype.vale import Is
 from transformers import Wav2Vec2ForCTC
 import torch
 import argparse
@@ -30,20 +33,43 @@ def convert_to_onnx(model_id_or_path: str, onnx_model_name):
     )
 
 
-def quantize_onnx_model(onnx_model_path, quantized_model_path):
+from onnxruntime.quantization import quantize_dynamic, QuantType
+
+ONNX_QUANT_WEIGHT_TYPES = {
+    "QUInt8": QuantType.QUInt8,
+    "QInt8": QuantType.QInt8,
+}
+WeightTypeName = Annotated[str, Is[lambda s: s in ONNX_QUANT_WEIGHT_TYPES.keys()]]
+
+
+@beartype
+def quantize_onnx_model(
+    model_id_or_path:str,onnx_model_path: str, quantized_model_path: str, weight_type_name="QUInt8"
+):
     """
     TODO:
         use_external_data_format create extra file containing weights, this files absolute path on file system seems to be hard-coded in the onnx-file!
         so one cannot really copy it!
     """
+
+    # see: https://github.com/microsoft/onnxruntime/issues/3130#issuecomment-1150608315
+    model = Wav2Vec2ForCTC.from_pretrained(model_id_or_path)
+    names = [name for name, _ in model.named_children()]
+
+    prefix = ["MatMul", "Add", "Relu"]
+    linear_names = [v for v in names if v.split("_")[0] in prefix]
+
     print("Starting quantization...")
-    from onnxruntime.quantization import quantize_dynamic, QuantType
 
     quantize_dynamic(
         onnx_model_path,
         quantized_model_path,
-        weight_type=QuantType.QInt8,  # better stay with default: QInt8
+        weight_type=ONNX_QUANT_WEIGHT_TYPES[
+            weight_type_name
+        ],  # better stay with default: QInt8
         use_external_data_format=True,  # to support big models (>2GB)
+        nodes_to_quantize=linear_names,
+        extra_options={"MatMulConstBOnly": True},
     )
 
     print(f"Quantized model saved to: {quantized_model_path}")
@@ -53,7 +79,7 @@ if __name__ == "__main__":
     """
     # seems to work!
     python ml4audio/asr_inference/pytorch_to_onnx_for_wav2vec.py --model jonatasgrosman/wav2vec2-large-xlsr-53-english
-    
+
     # big model
     python ml4audio/asr_inference/pytorch_to_onnx_for_wav2vec.py --model jonatasgrosman/wav2vec2-xls-r-1b-english
     # leads to
@@ -78,8 +104,8 @@ if __name__ == "__main__":
     onnx_model_name = model_id_or_path.split("/")[-1] + ".onnx"
     convert_to_onnx(model_id_or_path, onnx_model_name)
     if args.quantize:
-        quantized_model_name = model_id_or_path.split("/")[-1] + ".quant.onnx"
-        quantize_onnx_model(onnx_model_name, quantized_model_name)
+        quantized_model_path = model_id_or_path.split("/")[-1] + ".quant.onnx"
+        onnx_model_name = quantize_onnx_model(model_id_or_path,onnx_model_name, quantized_model_path)
 
     import onnx
 

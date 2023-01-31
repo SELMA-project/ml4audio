@@ -46,6 +46,7 @@ from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.asr_inference.pytorch_to_onnx_for_wav2vec import (
     convert_to_onnx,
     quantize_onnx_model,
+    WeightTypeName,
 )
 from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM
 
@@ -209,6 +210,7 @@ class FinetunedCheckpoint(HfCheckpoint):
 class OnnxedHFCheckpoint(HfCheckpoint):
     vanilla_chkpt: HfCheckpoint = UNDEFINED
     do_quantize: bool = True
+    weight_type_name: Optional[WeightTypeName] = None
     name: NeStr = field(init=False)
 
     def __post_init__(self):
@@ -235,7 +237,12 @@ class OnnxedHFCheckpoint(HfCheckpoint):
 
         if self.do_quantize:
             quantized_model_name = self._create_onnx_model_file(True)
-            quantize_onnx_model(onnx_model_name, quantized_model_name)
+            quantize_onnx_model(
+                model_id_or_path=model_id_or_path,
+                onnx_model_path=onnx_model_name,
+                quantized_model_path=quantized_model_name,
+                weight_type_name=self.weight_type_name,
+            )
             os.remove(onnx_model_name)
 
         import onnx
