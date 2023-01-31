@@ -50,6 +50,16 @@ def quantize_onnx_model(onnx_model_path, quantized_model_path):
 
 
 if __name__ == "__main__":
+    """
+    # seems to work!
+    python ml4audio/asr_inference/pytorch_to_onnx_for_wav2vec.py --model jonatasgrosman/wav2vec2-large-xlsr-53-english
+    
+    # big model
+    python ml4audio/asr_inference/pytorch_to_onnx_for_wav2vec.py --model jonatasgrosman/wav2vec2-xls-r-1b-english
+    # leads to
+    ValueError: Message onnx.ModelProto exceeds maximum protobuf size of 2GB: 3850629924
+
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model",
@@ -70,3 +80,8 @@ if __name__ == "__main__":
     if args.quantize:
         quantized_model_name = model_id_or_path.split("/")[-1] + ".quant.onnx"
         quantize_onnx_model(onnx_model_name, quantized_model_name)
+
+    import onnx
+
+    onnx_model = onnx.load(onnx_model_name)
+    onnx.checker.check_model(onnx_model)
