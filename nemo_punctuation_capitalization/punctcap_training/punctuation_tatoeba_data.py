@@ -59,7 +59,15 @@ class TatoebaWikipediaData(Buildable, Iterable[str]):
         return self.raw_data.name
 
     def _build_self(self) -> Any:
-        self.num_lines = sum((1 for l in self))
+        self.num_lines = sum(
+            (
+                1
+                for l in tqdm(
+                    self,
+                    desc=f"{TatoebaWikipediaData.__class__.__name__}: counting num-lines",
+                )
+            )
+        )
 
     def __iter__(self):
         files = list(Path(self.raw_data.data_dir).rglob("wikipedia.txt.gz"))
@@ -89,6 +97,7 @@ class TatoebaLanguages(CachedData, Iterable[str]):
 
     def _build_cache(self):
         wget_file(self.url, self.prefix_cache_dir("data"))
+        assert os.path.isfile(f'{self.prefix_cache_dir("data")}/MonolingualData.md')
         self.lang_codes = [
             l.replace("* [", "").split("]")[0]
             for l in read_lines(f'{self.prefix_cache_dir("data")}/MonolingualData.md')
