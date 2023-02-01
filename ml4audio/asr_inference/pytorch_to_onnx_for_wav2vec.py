@@ -33,13 +33,8 @@ def convert_to_onnx(model_id_or_path: str, onnx_model_name):
     )
 
 
-from onnxruntime.quantization import quantize_dynamic, QuantType
-
-ONNX_QUANT_WEIGHT_TYPES = {
-    "QUInt8": QuantType.QUInt8,
-    "QInt8": QuantType.QInt8,
-}
-WeightTypeName = Annotated[str, Is[lambda s: s in ONNX_QUANT_WEIGHT_TYPES.keys()]]
+# WeightTypeName = Annotated[str, Is[lambda s: s in ONNX_QUANT_WEIGHT_TYPES.keys()]]
+WeightTypeName = Annotated[str, Is[lambda s: s in ["QUInt8","QInt8"]]] # TODO: I was too lazy to rebuild docker-image with onnxruntime!
 
 
 @beartype
@@ -60,6 +55,13 @@ def quantize_onnx_model(
     linear_names = [v for v in names if v.split("_")[0] in prefix]
 
     print("Starting quantization...")
+
+    from onnxruntime.quantization import quantize_dynamic, QuantType
+
+    ONNX_QUANT_WEIGHT_TYPES = {
+        "QUInt8": QuantType.QUInt8,
+        "QInt8": QuantType.QInt8,
+    }
 
     quantize_dynamic(
         onnx_model_path,
