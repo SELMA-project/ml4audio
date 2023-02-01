@@ -61,7 +61,7 @@ class CharacterMapping(TextNormalizer):
         self.table = str.maketrans(self.mapping)
 
     @property
-    def replace_mapping(self):
+    def replace_mapping(self) -> dict[str, str]:
         return SAME_SAME_BUT_DIFFERENT
 
     def __call__(self, text: str) -> str:
@@ -83,6 +83,17 @@ class NoCharacterMappingAtAll(CharacterMapping):
         return {}
 
 
+@register_normalizer_plugin("none_lower_veryfirst")
+class NoCharacterMappingAtAllLowerVeryFirst(CharacterMapping):
+    @property
+    def mapping(self) -> dict[str, str]:
+        return {}
+
+    def __call__(self, text: str) -> str:
+        text = text[0].lower() + text[1:]
+        return super().__call__(text)
+
+
 @register_normalizer_plugin("no_punct")
 class NoPunctuation(CharacterMapping):
     @property
@@ -92,18 +103,33 @@ class NoPunctuation(CharacterMapping):
         return PUNCTUATION_TO_BE_REPLACE_BY_SPACE
 
 
+german_white_list = {"ä", "ü", "ö", "ß"}
+
+german_mapping = {
+    k: v
+    for k, v in (
+        REMOVE_EVERYTHING | REPLACE_ALL_PUNCT_WITH_SPACE | NORMALIZE_DASH
+    ).items()
+    if k not in german_white_list
+}
+
+
 @register_normalizer_plugin("de")
 class GermanTextNormalizer(CharacterMapping):
     @property
     def mapping(self) -> dict[str, str]:
-        white_list = {"ä", "ü", "ö", "ß"}
-        return {
-            k: v
-            for k, v in (
-                REMOVE_EVERYTHING | REPLACE_ALL_PUNCT_WITH_SPACE | NORMALIZE_DASH
-            ).items()
-            if k not in white_list
-        }
+        return german_mapping
+
+
+@register_normalizer_plugin("de_no_sz")
+class GermanTextCleanerNoSz(CharacterMapping):
+    @property
+    def replace_mapping(self) -> dict[str, str]:
+        return super().replace_mapping | {"ß": "ss"}
+
+    @property
+    def mapping(self) -> dict[str, str]:
+        return german_mapping
 
 
 @register_normalizer_plugin("ru")

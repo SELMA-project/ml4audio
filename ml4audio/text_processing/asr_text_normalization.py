@@ -23,7 +23,7 @@ from misc_utils.dataclass_utils import (
 #     return mapping
 from ml4audio.text_processing.character_mappings.text_normalization import (
     CHARACTER_MAPPINGS,
-    TextNormalizer,
+    TextNormalizer, TextCleaner,
 )
 
 SILENCE_SYMBOL = "|"
@@ -112,7 +112,7 @@ class TranscriptNormalizer(Buildable):
     """
 
     casing: Union[str, Casing] = UNDEFINED
-    text_normalizer: Union[TextNormalizer, str] = UNDEFINED
+    text_cleaner: Union[TextCleaner, str] = UNDEFINED
     vocab: Union[
         _UNDEFINED, list[str]
     ] = UNDEFINED  # here not NeList cause CachedList initially is empty list (before build)
@@ -135,7 +135,7 @@ class TranscriptNormalizer(Buildable):
     def apply(self, text: str) -> str:
         assert len(self.vocab) > 0
         return normalize_filter_text(
-            text, self.vocab, self.text_normalizer, self.casing
+            text, self.vocab, self.text_cleaner, self.casing
         )
 
 
