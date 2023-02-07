@@ -19,7 +19,6 @@ from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import FillUndefined, _UNDEFINED, UNDEFINED
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from misc_utils.utils import Singleton
-from ml4audio.service_utils.fastapi_utils import DataclassPredictor
 
 ArrayText = tuple[NumpyFloat1DArray, NeStr]
 
