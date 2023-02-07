@@ -31,7 +31,7 @@ from ml4audio.audio_utils.audio_data_models import (
     AudioData,
     IdArray,
     AudioSegment,
-    ExamAudioData,
+    ExamAudioData, AudioSegmentWorkflow,
 )
 from ml4audio.audio_utils.audio_io import (
     normalize_audio_array,
@@ -55,6 +55,7 @@ class NemoPerturbatedAudioData(CachedData, AudioData, ExamAudioData):
     limit: Optional[int] = None
     overall_duration: float = field(init=False, default=0.0)
     lang: str = UNDEFINED  # TODO: this might be sample specific in multi-lang datasets!
+    workflow_name: str = UNDEFINED
     audio_segments: Iterable[AudioSegment] = field(
         init=False, repr=False
     )  # should not be dumped to dataclass.json!
@@ -108,10 +109,11 @@ class NemoPerturbatedAudioData(CachedData, AudioData, ExamAudioData):
 
     def _post_build_setup(self):
         self.audio_segments = [
-            AudioSegment(
+            AudioSegmentWorkflow(
                 parent_id=p.stem,
                 audio_file=str(p),
                 meta_data={"lang": self.lang},
+                workflow_name=self.workflow_name
             )
             for p in Path(self.prefix_cache_dir(f"wavs")).glob("*.wav")
         ]

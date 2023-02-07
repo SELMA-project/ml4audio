@@ -270,7 +270,7 @@ class ModelArgs(Buildable):
         if self.new_vocab is not None:
             self._transcript_normalizer = TranscriptNormalizer(
                 casing=self.casing,
-                text_normalizer=self.text_normalizer,
+                text_cleaner=self.text_cleaner,
                 vocab=self.new_vocab,
             )
 
@@ -313,7 +313,7 @@ class ModelArgs(Buildable):
         else:
             vocab = list(self.processor.tokenizer.get_vocab().keys())
             self._transcript_normalizer = TranscriptNormalizer(
-                casing=self.casing, text_normalizer=self.text_normalizer, vocab=vocab
+                casing=self.casing, text_cleaner=self.text_cleaner, vocab=vocab
             )
             state_dict = None
 

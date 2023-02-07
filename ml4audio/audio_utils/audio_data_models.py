@@ -309,35 +309,24 @@ class IterableInferencer(Buildable, Generic[TIn, TOut]):
         raise NotImplemented
 
 
-@dataclass
-class Predictor(DataclassPredictor, Generic[TIn, TOut]):
-    @abstractmethod
-    def predict(self, inputt: TIn) -> TOut:
-        raise NotImplemented
+# @dataclass
+# class Predictor(DataclassPredictor, Generic[TIn, TOut]):
+#     @abstractmethod
+#     def predict(self, inputt: TIn) -> TOut:
+#         raise NotImplemented
 
 
-@dataclass
-class AsyncPredictor(
-    Generic[TIn, TOut]
-):  # TODO: remove cause its same as AsyncWorkflow
-    @abstractmethod
-    async def async_predict(self, inputt: TIn) -> TOut:
-        raise NotImplemented
+# @dataclass
+# class AsyncPredictor(
+#     Generic[TIn, TOut]
+# ):  # TODO: remove cause its same as AsyncWorkflow
+#     @abstractmethod
+#     async def async_predict(self, inputt: TIn) -> TOut:
+#         raise NotImplemented
 
 
-@dataclass
-class AsyncWorkflow(Buildable):
-    """
-    TODO: being Buildable is necessary in order to "_extract_knowledge"
-    """
-
-    @abstractmethod
-    async def run_workflow(self, inputt):
-        raise NotImplemented
-
-
-@dataclass
-class Predictor(Buildable, Generic[TIn, TOut]):
-    @abstractmethod
-    def predict(self, inputt: TIn) -> TOut:
-        raise NotImplemented
+# @dataclass
+# class Predictor(Buildable, Generic[TIn, TOut]):
+#     @abstractmethod
+#     def predict(self, inputt: TIn) -> TOut:
+#         raise NotImplemented

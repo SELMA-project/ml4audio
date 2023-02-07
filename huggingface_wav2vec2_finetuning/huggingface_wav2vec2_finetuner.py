@@ -264,7 +264,7 @@ def _prepare_models(
 
     transcript_normalizer = TranscriptNormalizer(
         casing=model_args.casing,
-        text_normalizer=model_args.text_normalizer,
+        text_cleaner=model_args.text_normalizer,
         vocab=vocab,
     )
 
