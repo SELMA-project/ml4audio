@@ -4,7 +4,7 @@
 3. glue transcripts -> buffering
 """
 from dataclasses import dataclass, field
-from typing import Iterator, Union, Optional, Iterable, Annotated
+from typing import Iterator, Union, Optional, Iterable, Annotated, Any
 
 import numpy as np
 from beartype import beartype
@@ -12,7 +12,7 @@ from beartype.vale import Is
 from transformers import set_seed
 
 from misc_utils.beartypes import Numpy1D, NumpyInt16_1D, NeList
-from misc_utils.cached_data import CachedData
+from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
     _UNDEFINED,
@@ -41,7 +41,7 @@ set_seed(42)
 
 
 @dataclass
-class Aschinglupi(CachedData):
+class Aschinglupi(Buildable):
     """
 
         nameing: Aschinglupi == ASR Chunking Inference Glueing Pipeline
@@ -87,26 +87,14 @@ class Aschinglupi(CachedData):
         # TODO: why is decoder not part of name?
         return f"aschinglupi-{self.hf_asr_decoding_inferencer.logits_inferencer.name}"
 
-    def _build_cache(self):
-        """
-        it is bundling/glueing things together does not have own cache
-        usefull for exporting this into an asr-service
-        """
-        pass
-
-    def _post_build_setup(self):
-        """
-        this object is CachedData just for documentation purposes
-        thats why it still needs to build its children after loading from cache
-
-        """
-        self.hf_asr_decoding_inferencer.build()  # TODO(tilo): WTF!! there should be no build in a _post_build_setup!
+    def _build_self(self) -> Any:
+        # self.hf_asr_decoding_inferencer.build()  # TODO(tilo): WTF!! there should be no build in a _post_build_setup!
         # TODO: might be handled by proper is_ready logic!
         assert self.hf_asr_decoding_inferencer._was_built
         assert self.hf_asr_decoding_inferencer.logits_inferencer._was_built
 
-        self.audio_bufferer.reset()
-        self.transcript_gluer.build()  # this is somewhat annoying, that this buildable-object is not getting build cause it is child of cacheddata
+        # self.audio_bufferer.reset()
+        # self.transcript_gluer.build()  # this is somewhat annoying, that this buildable-object is not getting build cause it is child of cacheddata
         assert self.transcript_gluer.seqmatcher is not None
 
     @beartype
@@ -165,6 +153,7 @@ CompleteMessage = Annotated[
 ]
 
 NO_TRANSCRIPT = " ... "
+
 
 @beartype
 def calc_final_transcript(
