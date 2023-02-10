@@ -106,41 +106,39 @@ Id = NeStr
 
 
 @dataclass
-class AudioSegment(Buildable):
+class AudioFileSegment(Buildable):
     """
     it really needs to keep two references:
      * one to the (parent)-segment that is getting segmented
      * one to the audio_source
     start,end should always be "absolut", there is no offset!
 
+    being Buildable just because of PrefixSuffix!
     """
 
     parent_id: SegmentId
-    audio_file: Optional[
-        Union[PrefixSuffix, NeStr]
-    ] = None  # TODO: rename to audio-source
-    audio_file_suffix: InitVar[Optional[NeStr]] = None
+    audio_file: PrefixSuffix
+    # audio_file_suffix: InitVar[Optional[NeStr]] = None
     id_suffix: Optional[NeStr] = None
-    start: Optional[Seconds] = None  # should be absolut!
-    end: Optional[Seconds] = None
 
-    meta_data: Optional[dict] = None
+    start: Seconds = None  # should be absolut!
+    end: Seconds = None
 
-    def __post_init__(self, audio_file_suffix: Optional[NeStr]):
-        if audio_file_suffix is not None:
-            self.audio_file = PrefixSuffix("data_dir", audio_file_suffix)
-
-        elif isinstance(self.audio_file, str) and "data_dir" in BASE_PATHES:
-            data_dir_prefix = f'{BASE_PATHES["data_dir"]}/'
-            assert self.audio_file.startswith(data_dir_prefix), f"{self.audio_file}"
-            self.audio_file = PrefixSuffix(
-                "data_dir", self.audio_file.replace(data_dir_prefix, "")
-            ).build()
-
-    @property
-    def audio_source_id(self) -> NeStr:
-        return str(self.audio_file)
-
+    # def __post_init__(self, audio_file_suffix: Optional[NeStr]):
+    #     if audio_file_suffix is not None:
+    #         self.audio_file = PrefixSuffix("data_dir", audio_file_suffix)
+    #
+    #     elif isinstance(self.audio_file, str) and "data_dir" in BASE_PATHES:
+    #         data_dir_prefix = f'{BASE_PATHES["data_dir"]}/'
+    #         assert self.audio_file.startswith(data_dir_prefix), f"{self.audio_file}"
+    #         self.audio_file = PrefixSuffix(
+    #             "data_dir", self.audio_file.replace(data_dir_prefix, "")
+    #         ).build()
+    #
+    # @property
+    # def audio_source_id(self) -> NeStr:
+    #     return str(self.audio_file)
+    #
     @property
     def id(self) -> SegmentId:
         suffix = self.id_suffix
@@ -148,16 +146,11 @@ class AudioSegment(Buildable):
 
 
 @dataclass
-class AudioSegmentWorkflow(AudioSegment):
-    workflow_name: str = UNDEFINED
-
-
-@dataclass
 class GotAudioSegments:
-    audio_segments: Optional[Iterable[AudioSegment]] = field(init=False, default=None)
+    audio_segments: Optional[Iterable[AudioFileSegment]] = field(init=False, default=None)
 
     @staticmethod
-    def from_obj(audio_segments: Iterable[AudioSegment]):
+    def from_obj(audio_segments: Iterable[AudioFileSegment]):
         o = GotAudioSegments()
         o.audio_segments = audio_segments
         return o
@@ -241,14 +234,6 @@ class AudioData(Iterable[IdArray], FillUndefined):
         raise NotImplementedError
 
 
-@dataclass
-class ExamAudioData(GotAudioSegments, GotOverallDuration):
-    overall_duration: float = field(init=False)
-
-    @property
-    @abstractmethod
-    def name(self):
-        raise NotImplementedError
 
 
 @dataclass
