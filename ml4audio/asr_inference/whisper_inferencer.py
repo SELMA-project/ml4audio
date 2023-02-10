@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Iterator, Any, Union, Optional
 
+from beartype import beartype
+
 import whisper as whisper_module
 from misc_utils.beartypes import NumpyFloat1DArray
 from misc_utils.buildable_data import BuildableData
@@ -34,6 +36,10 @@ class WhisperInferencer(BuildableData):
         return f"whisper-{self.model_name}"
 
     @property
+    def sample_rate(self) -> int:
+        return whisper_module.audio.SAMPLE_RATE
+
+    @property
     def _is_data_valid(self) -> bool:
         return os.path.isfile(self._checkpoint_file)
 
@@ -49,11 +55,13 @@ class WhisperInferencer(BuildableData):
             whisper_module._MODELS[self.model_name], self.data_dir, in_memory=False
         )
         assert checkpoint_file == self._checkpoint_file
+        self._load_data()
 
     def _load_data(self):
         self._model = whisper_module.load_model(self._checkpoint_file)
 
-    def predict(self, audio_array: NumpyFloat1DArray) -> Iterator[IdText]:
+    @beartype
+    def predict(self, audio_array: NumpyFloat1DArray) -> str:
 
         result = self._model.transcribe(
             audio_array,
