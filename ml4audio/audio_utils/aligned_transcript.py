@@ -69,15 +69,18 @@ class AlignedTranscript:
     def array_idx(self):
         return [x.r_idx for x in self.letters]
 
-    def abs_idx(self, letter: LetterIdx):
+    @beartype
+    def abs_idx(self, letter: LetterIdx) -> int:
         return self.offset + letter.r_idx
 
-    def abs_timestamp(self, letter: LetterIdx):
-        return self.abs_idx(letter) / self.sample_rate
+    @beartype
+    def abs_timestamp(self, letter: LetterIdx) -> float:
+        return float(self.abs_idx(letter) / self.sample_rate)
 
     @property
-    def rel_timestamps(self):
-        return [l.r_idx / self.sample_rate for l in self.letters]
+    @beartype
+    def rel_timestamps(self) -> list[float]:
+        return [float(l.r_idx) / self.sample_rate for l in self.letters]
 
     @property
     def abs_timestamps(self) -> list[float]:

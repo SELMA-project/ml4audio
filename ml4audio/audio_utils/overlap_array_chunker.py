@@ -126,9 +126,9 @@ class OverlapArrayChunker:
     chunk_size: int
     min_step_size: int  # if step_size==chunk_size it produced non-overlapping segments
     _buffer: Optional[Numpy1DArray] = field(init=False, repr=False, default=None)
-    minimum_chunk_size: Union[
-        int, _DONT_EMIT_PREMATURE_CHUNKS
-    ] = DONT_EMIT_PREMATURE_CHUNKS
+    # minimum_chunk_size: Union[ # TODO: just for streaming-live-asr
+    #     int, _DONT_EMIT_PREMATURE_CHUNKS
+    # ] = DONT_EMIT_PREMATURE_CHUNKS
     max_step_size: Optional[int] = None
 
     frame_counter: Optional[int] = field(init=False, repr=False, default=None)
@@ -217,20 +217,21 @@ class OverlapArrayChunker:
                     end_of_signal=eos,
                 )
 
-        elif (
-            self.minimum_chunk_size is not DONT_EMIT_PREMATURE_CHUNKS
-            and self._buffer_size >= self.minimum_chunk_size
-            and self.is_very_start
-            and self.__premature_chunk_long_enough_to_yield_again()
-        ):
-            self.last_buffer_size = self._buffer_size
-            premature_chunk = self._buffer
-            yield MessageChunk(
-                message_id=current_message_id,
-                array=premature_chunk,
-                frame_idx=0,
-                end_of_signal=datum.end_of_signal,  # can happen for short audio-signals!
-            )
+        # TODO: live-asr stuff not use in long time, should be fixed if wanted!
+        # elif (
+        #     self.minimum_chunk_size is not DONT_EMIT_PREMATURE_CHUNKS
+        #     and self._buffer_size >= self.minimum_chunk_size
+        #     and self.is_very_start
+        #     and self.__premature_chunk_long_enough_to_yield_again()
+        # ):
+        #     self.last_buffer_size = self._buffer_size
+        #     premature_chunk = self._buffer
+        #     yield MessageChunk(
+        #         message_id=current_message_id,
+        #         array=premature_chunk,
+        #         frame_idx=0,
+        #         end_of_signal=datum.end_of_signal,  # can happen for short audio-signals!
+        #     )
 
         got_final_chunk = not yielded_final and self._buffer_size > 0
         if datum.end_of_signal and got_final_chunk:

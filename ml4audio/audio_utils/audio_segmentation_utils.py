@@ -8,7 +8,7 @@ from beartype import beartype
 from beartype.door import die_if_unbearable, is_bearable
 from beartype.vale import Is
 
-from misc_utils.beartypes import NumpyFloat1DArray, NeList
+from misc_utils.beartypes import NumpyFloat1DArray, NeList, NumpyFloat1D
 
 non_empty = lambda x: x[1] > x[0]
 start_non_negative = lambda x: x[0] >= 0
@@ -32,6 +32,12 @@ StartEndLabel = Annotated[
 ]
 StartEndLabels = NeList[StartEndLabel]
 
+StartEndArray = Annotated[
+    tuple[float, float, NumpyFloat1D],
+    (Is[non_empty] & Is[start_non_negative]),
+]
+StartEndArrays = NeList[StartEndArray]
+
 
 # purposefully not type-hint here! why not?
 def is_non_overlapping(seq: list[tuple[float, float]]) -> bool:
@@ -44,6 +50,12 @@ def is_non_overlapping(seq: list[tuple[float, float]]) -> bool:
 
 StartEndLabelNonOverlap = Annotated[
     StartEndLabels,
+    Is[is_non_overlapping],
+]
+StartEndLabelsNonOverlap = StartEndLabelNonOverlap  # TODO: rename to this
+
+StartEndArraysNonOverlap = Annotated[
+    StartEndArrays,
     Is[is_non_overlapping],
 ]
 
@@ -101,9 +113,11 @@ class Span:
 def is_overlapping(span: Span, next_span: Span):
     return span.end > next_span.start
 
+
 NonOverlappingMonotonIncreasingSegments = Annotated[
     NeList[StartEnd], Is[is_non_overlapping] & Is[is_weakly_monoton_increasing]
 ]
+
 
 @beartype
 def get_contiguous_stamps(
@@ -156,8 +170,6 @@ def expand_merge_segments_labelaware(
         max_gap_dur=max_gap_dur,
     )
     return s_e_labels
-
-
 
 
 @beartype
@@ -223,9 +235,7 @@ def is_weakly_monoton_increasing_timeseries(timestamps: list[float]) -> bool:
 
 @beartype
 def segment_letter_timestamps(
-    letter_timestamps: Annotated[
-        NeList[float], Is[is_weakly_monoton_increasing_timeseries]
-    ],
+    timestamps: Annotated[NeList[float], Is[is_weakly_monoton_increasing_timeseries]],
     min_seg_dur=1.5,
     max_gap_dur=0.2,
     expand_by=0.1,
@@ -233,18 +243,18 @@ def segment_letter_timestamps(
     letter_duration = (
         0.04  # heuristic -> 40ms is median of some transcript, sounds plausible!
     )
-    s_e_times = [(ts, ts + letter_duration) for ts in letter_timestamps]
+    s_e_times = [(ts, ts + letter_duration) for ts in timestamps]
     s_e_times = expand_merge_segments(
         s_e_times, max_gap_dur=max_gap_dur, expand_by=expand_by
     )
     s_e_times = merge_short_segments(s_e_times, min_dur=min_seg_dur)
 
     def check_segment_validity():
-        first_ts = letter_timestamps[0]
+        first_ts = timestamps[0]
         assert s_e_times[0][0] == max(
             first_ts - expand_by, 0.0
         ), f"{s_e_times[0][0]=},{first_ts}"
-        last_ts = letter_timestamps[-1]
+        last_ts = timestamps[-1]
         assert (
             s_e_times[-1][1] == last_ts + letter_duration + expand_by
         ), f"{s_e_times[-1][1]=},{last_ts}"
