@@ -14,6 +14,9 @@ from whisper import Whisper
 
 @dataclass
 class WhisperInferencer(BuildableData):
+    """
+    https://github.com/saharmor/whisper-playground
+    """
     model_name: str = "base"
     lang: str = "de"
 
@@ -25,7 +28,7 @@ class WhisperInferencer(BuildableData):
         0.8,
         1.0,
     )  # this is default in whisper code
-    beam_size: Optional[int] = None
+    beam_size: Optional[int] = None # default=5 see whisper code
     _model: Whisper = field(init=False, repr=False)
     base_dir: PrefixSuffix = field(
         default_factory=lambda: PrefixSuffix("cache_root", "MODELS/WHISPER_MODELS")
