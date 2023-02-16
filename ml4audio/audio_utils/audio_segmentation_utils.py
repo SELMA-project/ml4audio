@@ -72,14 +72,22 @@ def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
 
 @beartype
 def groups_to_merge_segments_of_same_label(
-    start_end_label: NeList[StartEndLabel], max_gap_dur: float
+    start_end_label: StartEndLabelsNonOverlap, min_gap_dur: float
 ) -> NeList[NeList[int]]:
+    """
+    :param start_end_label:
+    :param min_gap_dur: gaps (of same speaker) smaller than this get merged
+    """
+
     initial_group = [0]
     mergable_groupds = [initial_group]
     for k in range(len(start_end_label) - 1):
         start, end, label = start_end_label[k]
         next_start, next_end, next_label = start_end_label[k + 1]
-        if label == next_label and next_start - end < max_gap_dur:
+        is_close_enough_to_be_merged = (
+            next_start - end < min_gap_dur
+        )  # is relaxing "float(end) == float(next_start)", see nvidia-nemo code
+        if label == next_label and is_close_enough_to_be_merged:
             mergable_groupds[-1].append(k + 1)
         else:
             new_group = [k + 1]
@@ -89,10 +97,16 @@ def groups_to_merge_segments_of_same_label(
 
 
 @beartype
-def merge_segments_labelaware(
-    start_end_label: NeList[StartEndLabel], max_gap_dur: float
+def merge_segments_of_same_label(
+    start_end_label: StartEndLabelsNonOverlap, min_gap_dur: float
 ) -> StartEndLabelNonOverlap:
-    groups = groups_to_merge_segments_of_same_label(start_end_label, max_gap_dur)
+    """
+        should do same as: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py
+    https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py#L250
+
+        but "cleaner"!
+    """
+    groups = groups_to_merge_segments_of_same_label(start_end_label, min_gap_dur)
 
     def merge_segment(first: int, last: int):
         group_start = start_end_label[first][0]
@@ -120,7 +134,7 @@ NonOverlappingMonotonIncreasingSegments = Annotated[
 
 
 @beartype
-def get_contiguous_stamps(
+def fix_segments_to_non_overlapping(
     start_ends: NeList[StartEnd],
 ) -> NonOverlappingMonotonIncreasingSegments:
     """
@@ -148,7 +162,7 @@ def expand_segments(
     raw_expaned = [
         (max(start - expand_by, 0.0), end + expand_by) for start, end in segments
     ]
-    return get_contiguous_stamps(raw_expaned)
+    return fix_segments_to_non_overlapping(raw_expaned)
 
 
 @beartype
@@ -165,9 +179,9 @@ def expand_merge_segments_labelaware(
     s_e_exp = expand_segments(
         [(s, e) for s, e, _ in start_end_labels], expand_by=expand_by
     )
-    s_e_labels = merge_segments_labelaware(
+    s_e_labels = merge_segments_of_same_label(
         [(s, e, l) for (s, e), (_, _, l) in zip(s_e_exp, start_end_labels)],
-        max_gap_dur=max_gap_dur,
+        min_gap_dur=max_gap_dur,
     )
     return s_e_labels
 
