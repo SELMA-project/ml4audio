@@ -132,9 +132,10 @@ class UmascanSpeakerClusterer(Buildable):
 
     @beartype
     def _umpa_cluster(self, embeds: NumpyFloat2D) -> list[int]:
+        # for parameters see: https://umap-learn.readthedocs.io/en/latest/clustering.html
         clusterable_embedding = umap.UMAP(
-            n_neighbors=30,
-            min_dist=0.0,
+            n_neighbors=30, # _neighbors value – small values will focus more on very local structure and are more prone to producing fine grained cluster structure that may be more a result of patterns of noise in the data than actual clusters. In this case we’ll double it from the default 15 up to 30.
+            min_dist=0.0, # it is beneficial to set min_dist to a very low value. Since we actually want to pack points together densely (density is what we want after all) a low value will help, as well as making cleaner separations between clusters. In this case we will simply set min_dist to be 0.
             n_components=10,
             random_state=42,
             metric=self.metric,  # TODO: what about cosine?
