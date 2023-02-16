@@ -44,6 +44,7 @@ from misc_utils.beartypes import (
     NeList,
     NumpyFloat2D,
     NumpyFloat1D,
+    File,
 )
 from misc_utils.buildable import Buildable
 from ml4audio.audio_utils.audio_segmentation_utils import (
@@ -60,12 +61,17 @@ from ml4audio.speaker_tasks.speaker_embedding_utils import (
 
 seed_everything(42)
 StartEndLabel = tuple[float, float, str]  # TODO: why not using TimeSpan here?
+StartEndArrays = NeList[
+    tuple[StartEnd, NumpyFloat1D]
+]  # TODO: why not StartEndArraysNonOverlap ?
 
 LabeledArrays = NeList[tuple[NumpyFloat1D, str]]
 
 
 @beartype
-def start_end_array(labeled_arrays: LabeledArrays) -> StartEndArraysNonOverlap:
+def start_end_arrays_for_calibration(
+    labeled_arrays: LabeledArrays,
+) -> StartEndArrays:
     SR = 16000
     some_gap = 123.0
     one_week = float(7 * 24 * 60 * 60)  # longer than any audio-file
@@ -74,12 +80,37 @@ def start_end_array(labeled_arrays: LabeledArrays) -> StartEndArraysNonOverlap:
         offset = one_week
         for a, l in labeled_arrays:
             dur = len(a) / SR
-            yield (offset, offset + dur, a)
+            yield ((offset, offset + dur), a)
             offset += dur + some_gap
 
     out = list(_g())
     assert len(out) == len(labeled_arrays)
     return out
+
+
+@beartype
+def _load_calib_data(
+    calibration_speaker_data: NeList[tuple[File, StartEndLabels]],
+    CALIB_LABEL_PREFIX: str,
+) -> LabeledArrays:
+    SR = 16000
+    labeled_arrays = []
+    for audio_file, s_e_ls in calibration_speaker_data:
+        array = (
+            load_resample_with_torch(audio_file, target_sample_rate=SR)
+            .numpy()
+            .astype(np.float32)
+        )
+        labeled_arrays.extend(
+            [
+                (
+                    array[round(s * SR) : round(e * SR)],
+                    f"{CALIB_LABEL_PREFIX}-{l}",
+                )
+                for s, e, l in s_e_ls
+            ]
+        )
+    return labeled_arrays
 
 
 @dataclass
@@ -119,29 +150,10 @@ class UmascanSpeakerClusterer(Buildable):
 
     def _build_self(self) -> Any:
         self._speaker_model = load_EncDecSpeakerLabelModel(self.model_name)
-        if self.calibration_speaker_data is not None:
-            self._calib_labeled_arrays = self._load_adj_data()
-
-    @beartype
-    def _load_adj_data(self) -> LabeledArrays:
-        SR = 16000
-        labeled_arrays = []
-        for audio_file, s_e_ls in self.calibration_speaker_data:
-            array = (
-                load_resample_with_torch(audio_file, target_sample_rate=SR)
-                .numpy()
-                .astype(np.float32)
-            )
-            labeled_arrays.extend(
-                [
-                    (
-                        array[round(s * SR) : round(e * SR)],
-                        f"{self.CALIB_LABEL_PREFIX}-{l}",
-                    )
-                    for s, e, l in s_e_ls
-                ]
-            )
-        return labeled_arrays
+        # if self.calibration_speaker_data is not None:
+        self._calib_labeled_arrays = _load_calib_data(
+            self.calibration_speaker_data, self.CALIB_LABEL_PREFIX
+        )
 
     @beartype
     def predict(
@@ -174,7 +186,7 @@ class UmascanSpeakerClusterer(Buildable):
     @beartype
     def _calc_raw_labels(
         self,
-        s_e_audio: NeList[tuple[StartEnd, NumpyFloat1D]],
+        s_e_audio: StartEndArrays,
         ref_labels: Optional[list[str]] = None,
     ):
         if ref_labels is not None:
@@ -182,26 +194,39 @@ class UmascanSpeakerClusterer(Buildable):
         else:
             ref_labels = ["dummy" for _ in range(len(s_e_audio))]
 
-        if self._calib_labeled_arrays is not None:
-            s_e_audio += start_end_array(self._calib_labeled_arrays)
-            ref_labels += [l for _, l in self._calib_labeled_arrays]
+        assert self._calib_labeled_arrays is not None
+        calib_sea = start_end_arrays_for_calibration(self._calib_labeled_arrays)
+        calib_labels = [l for _, l in self._calib_labeled_arrays]
 
+        calib_embeds, _, mapped_calib_ref_labels = self._extract_embeddings(
+            calib_sea, calib_labels
+        )
+
+        (
+            s_e_mapped_labels,
+            mapped_ref_labels,
+        ) = self._embedd_and_cluster_with_calibration_data(
+            calib_embeds, s_e_audio, ref_labels
+        )
+        return s_e_mapped_labels, mapped_ref_labels
+
+    def _embedd_and_cluster_with_calibration_data(
+        self,
+        calib_embeds: NumpyFloat2D,
+        s_e_audio: StartEndArrays,
+        ref_labels: list[str],
+    ):
         self._embeds, start_ends, mapped_ref_labels = self._extract_embeddings(
             s_e_audio, ref_labels
         )
-        real_data_indizes = [
-            k
-            for k, l in enumerate(mapped_ref_labels)
-            if not l.startswith(self.CALIB_LABEL_PREFIX)
-        ]
-
-        umap_labels = self._umpa_cluster(self._embeds)
+        umap_labels = self._umpa_cluster(
+            np.concatenate([self._embeds, calib_embeds], axis=0)
+        )
+        umap_labels_real = umap_labels[: self._embeds.shape[0]]
         s_e_mapped_labels = [
-            (s, e, f"speaker_{l}") for (s, e), l in zip(start_ends, umap_labels)
+            (s, e, f"speaker_{l}") for (s, e), l in zip(start_ends, umap_labels_real)
         ]
-        s_e_mapped_labels_real = [s_e_mapped_labels[k] for k in real_data_indizes]
-        mapped_ref_labels_real = [mapped_ref_labels[k] for k in real_data_indizes]
-        return s_e_mapped_labels_real, mapped_ref_labels_real
+        return s_e_mapped_labels, mapped_ref_labels
 
     @beartype
     def _umpa_cluster(self, embeds: NumpyFloat2D) -> list[int]:
