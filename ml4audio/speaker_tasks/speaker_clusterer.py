@@ -9,6 +9,7 @@ import numpy as np
 import pynndescent
 from beartype.door import is_bearable
 
+from ml4audio.audio_utils.audio_data_models import Seconds
 from ml4audio.audio_utils.nemo_utils import load_EncDecSpeakerLabelModel
 
 
@@ -48,6 +49,8 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
     StartEnd,
     StartEndLabels,
     NonOverlSegs,
+    merge_segments_of_same_label,
+    fix_segments_to_non_overlapping,
 )
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
     get_nemo_speaker_embeddings,
@@ -72,9 +75,11 @@ class UmascanSpeakerClusterer(Buildable):
     """
 
     model_name: str
-    window: float = 1.5
-    step_dur: float = 0.75
+    window: Seconds = 1.5
+    step_dur: Seconds = 0.75
     metric: str = "euclidean"  # cosine
+    same_speaker_min_gap_dur: Seconds = 0.1  # TODO: maybe this is not the clusterers responsibility, but some diarizers?
+
     _speaker_model: EncDecSpeakerLabelModel = field(init=False, repr=False)
     _embeds: NumpyFloat2DArray = field(
         init=False, repr=False
@@ -103,12 +108,13 @@ class UmascanSpeakerClusterer(Buildable):
         if ref_labels is None:
             ref_sels_projected_to_cluster_sels = None
 
-        lines = [" ".join([str(s), str(e), l]) for s, e, l in self.cluster_sels]
-        a = get_contiguous_stamps(lines)
-        lines = merge_stamps(a)
-        s_e_labels_rw = [l.split(" ") for l in lines]
-        s_e_labels = [(float(s), float(e), l) for s, e, l in s_e_labels_rw]
-        assert is_bearable([(s, e) for s, e, _ in s_e_labels], NonOverlSegs)
+        s_e_fixed = fix_segments_to_non_overlapping(
+            [(s, e) for s, e, _ in self.cluster_sels]
+        )  # TODO: use instead of get_contiguous_stamps
+        s_e_labels = merge_segments_of_same_label(
+            [(s, e, l) for (s, e), (_, _, l) in zip(s_e_fixed, self.cluster_sels)],
+            min_gap_dur=self.same_speaker_min_gap_dur,
+        )
         return s_e_labels, ref_sels_projected_to_cluster_sels
 
     @beartype
@@ -134,8 +140,8 @@ class UmascanSpeakerClusterer(Buildable):
     def _umpa_cluster(self, embeds: NumpyFloat2D) -> list[int]:
         # for parameters see: https://umap-learn.readthedocs.io/en/latest/clustering.html
         clusterable_embedding = umap.UMAP(
-            n_neighbors=30, # _neighbors value – small values will focus more on very local structure and are more prone to producing fine grained cluster structure that may be more a result of patterns of noise in the data than actual clusters. In this case we’ll double it from the default 15 up to 30.
-            min_dist=0.0, # it is beneficial to set min_dist to a very low value. Since we actually want to pack points together densely (density is what we want after all) a low value will help, as well as making cleaner separations between clusters. In this case we will simply set min_dist to be 0.
+            n_neighbors=30,  # _neighbors value – small values will focus more on very local structure and are more prone to producing fine grained cluster structure that may be more a result of patterns of noise in the data than actual clusters. In this case we’ll double it from the default 15 up to 30.
+            min_dist=0.0,  # it is beneficial to set min_dist to a very low value. Since we actually want to pack points together densely (density is what we want after all) a low value will help, as well as making cleaner separations between clusters. In this case we will simply set min_dist to be 0.
             n_components=10,
             random_state=42,
             metric=self.metric,  # TODO: what about cosine?

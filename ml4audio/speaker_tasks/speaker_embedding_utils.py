@@ -55,7 +55,7 @@ def format_rttm_lines(
         lines.append(log)
     return lines
 
-
+@beartype
 def rttm_line(start, duration, file_id, speaker):
     return "SPEAKER {} 1   {:.3f}   {:.3f} <NA> <NA> {} <NA> <NA>".format(
         file_id, start, duration, speaker

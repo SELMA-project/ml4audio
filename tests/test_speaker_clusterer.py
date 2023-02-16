@@ -12,8 +12,7 @@ from ml4audio.audio_utils.audio_io import (
     load_resample_with_nemo,
 )
 from ml4audio.audio_utils.audio_segmentation_utils import (
-    pause_based_segmentation,
-    expand_merge_segments_labelaware,
+    segment_letter_timestamps,
 )
 from ml4audio.speaker_tasks.speaker_clusterer import UmascanSpeakerClusterer
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
@@ -89,6 +88,7 @@ def test_speaker_clusterer(
     audio_file="tests/resources/oLnl1D6owYA.opus",
     aligned_transcript_file="tests/resources/aligned_transcript.json",
 ):
+    """
     # at = asr_infer(
     #     audio_file, model_name="jonatasgrosman/wav2vec2-large-xlsr-53-english"
     # )
@@ -96,6 +96,8 @@ def test_speaker_clusterer(
     #     "nemo_diarization/tests/resources/aligned_transcript.json",
     #     to_dict(at),
     # )
+    """
+
     SR = 16000
 
     d = read_json(aligned_transcript_file)
@@ -103,16 +105,16 @@ def test_speaker_clusterer(
         letters=[LetterIdx(x["letter"], x["r_idx"]) for x in d.pop("letters")], **d
     )
     at.remove_unnecessary_spaces()
-    letters_times = [(l.letter, at.abs_timestamp(l)) for l in at.letters]
-    s_e_times = pause_based_segmentation(
-        letters_times,
+
+    s_e_times = segment_letter_timestamps(
+        timestamps=[at.abs_timestamp(l) for l in at.letters],
         min_seg_dur=1.5,
         max_gap_dur=0.7,
         expand_by=0.1,
     )
     print(f"got {len(s_e_times)} segments")
-    for (st, et) in s_e_times:
-        print(f"{st}->{et}\t{et - st}\t{at.slice_via_timestamps(st,et).text}")
+    # for (st, et) in s_e_times:
+    #     print(f"{st}->{et}\t{et - st}\t{at.slice_via_timestamps(st,et).text}")
     s_e_sp_ref = read_sel_from_rttm(rttm_ref)
     array = load_resample_with_nemo(audio_file)
     s_e_audio = [((s, e), array[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
@@ -120,11 +122,7 @@ def test_speaker_clusterer(
     clusterer: UmascanSpeakerClusterer = UmascanSpeakerClusterer(
         model_name="ecapa_tdnn", metric="cosine"
     ).build()
-    s_e_labels_raw, _ = clusterer.predict(s_e_audio)
-    s_e_labels = expand_merge_segments_labelaware(
-        s_e_labels_raw, expand_by=0.1, max_gap_dur=0.1
-    )
-    print(f"{len(s_e_labels_raw)=}, {len(s_e_labels)=}")
+    s_e_labels, _ = clusterer.predict(s_e_audio)
 
     s_e_mapped_labels = clusterer.cluster_sels
     labels_ref = apply_labels_to_segments(
