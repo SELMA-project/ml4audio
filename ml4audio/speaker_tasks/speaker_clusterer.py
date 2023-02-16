@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional, ClassVar
+from typing import Any, Optional, ClassVar, Iterator
 
 # https://github.com/scikit-learn-contrib/hdbscan/issues/457#issuecomment-1006344406
 # strange error: numpy.core._exceptions._UFuncNoLoopError: ufunc 'correct_alternative_cosine' did not contain a loop with signature matching types  <class 'numpy.dtype[float32]'> -> None
@@ -190,9 +190,11 @@ class UmascanSpeakerClusterer(Buildable):
         ref_labels: Optional[list[str]] = None,
     ):
         if ref_labels is not None:
-            assert len(ref_labels) == len(s_e_audio)
-        else:
-            ref_labels = ["dummy" for _ in range(len(s_e_audio))]
+            raise NotImplementedError("if you want it, fix it!")
+        # if ref_labels is not None:
+        #     assert len(ref_labels) == len(s_e_audio)
+        # else:
+        #     ref_labels = ["dummy" for _ in range(len(s_e_audio))]
 
         assert self._calib_labeled_arrays is not None
         calib_sea = start_end_arrays_for_calibration(self._calib_labeled_arrays)
@@ -202,12 +204,36 @@ class UmascanSpeakerClusterer(Buildable):
             calib_sea, calib_labels
         )
 
+        def calc_chunks(
+            s_e_a: StartEndArrays, chunk_length: float = 60.0
+        ) -> Iterator[StartEndArrays]:
+            raise NotImplementedError("how to handle the very last, potentially very short chunk")
+            start = 0
+            buffer = []
+            for s, e, a in s_e_a:
+                if e - start > chunk_length:
+                    yield buffer
+                    start = s
+                    buffer = [(s, e, a)]
+                else:
+                    buffer.append((s, e, a))
+
+            if len(buffer) > 0:
+                yield buffer
+
+        # chunkwise_labels = [
+        #     self._embedd_and_cluster_with_calibration_data(
+        #         calib_embeds, s_e_a_chunk, ["dummy" for _ in range(len(s_e_a_chunk))]
+        #     )
+        #     for s_e_a_chunk in calc_chunks(s_e_audio, chunk_length=60.0)
+        # ]
         (
             s_e_mapped_labels,
             mapped_ref_labels,
         ) = self._embedd_and_cluster_with_calibration_data(
-            calib_embeds, s_e_audio, ref_labels
+            calib_embeds, s_e_audio, ["dummy" for _ in range(len(s_e_audio))]
         )
+
         return s_e_mapped_labels, mapped_ref_labels
 
     def _embedd_and_cluster_with_calibration_data(
