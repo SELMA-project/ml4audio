@@ -102,8 +102,6 @@ def merge_segments_of_same_label(
 ) -> StartEndLabelNonOverlap:
     """
         should do same as: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py
-    https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py#L250
-
         but "cleaner"!
     """
     groups = groups_to_merge_segments_of_same_label(start_end_label, min_gap_dur)
