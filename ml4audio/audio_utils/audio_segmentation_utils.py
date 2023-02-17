@@ -101,8 +101,8 @@ def merge_segments_of_same_label(
     start_end_label: StartEndLabelsNonOverlap, min_gap_dur: float
 ) -> StartEndLabelNonOverlap:
     """
-        should do same as: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py
-        but "cleaner"!
+    should do same as: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py
+    but "cleaner"!
     """
     groups = groups_to_merge_segments_of_same_label(start_end_label, min_gap_dur)
 
@@ -187,7 +187,7 @@ def expand_merge_segments_labelaware(
 @beartype
 def expand_merge_segments(
     segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
-    max_gap_dur: float = 0.2,  # gap within a segment -> shorter than this gets merged
+    min_gap_dur: float = 0.2,  # gap within a segment -> shorter than this gets merged
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
 ) -> NonOverlappingMonotonIncreasingSegments:
     exp_segs: list[tuple[float, float]] = []
@@ -195,7 +195,7 @@ def expand_merge_segments(
     prev_end: int = -9999
     for start, end in expand_segments(segments, expand_by):
 
-        is_expandable = len(exp_segs) > 0 and start - prev_end < max_gap_dur
+        is_expandable = len(exp_segs) > 0 and start - prev_end < min_gap_dur
         if is_expandable:
             startend = prev_start, end
             die_if_unbearable(startend, StartEnd)
@@ -257,7 +257,7 @@ def segment_letter_timestamps(
     )
     s_e_times = [(ts, ts + letter_duration) for ts in timestamps]
     s_e_times = expand_merge_segments(
-        s_e_times, max_gap_dur=max_gap_dur, expand_by=expand_by
+        s_e_times, min_gap_dur=max_gap_dur, expand_by=expand_by
     )
     s_e_times = merge_short_segments(s_e_times, min_dur=min_seg_dur)
 
