@@ -1,8 +1,9 @@
 import json
 import os
 import tempfile
+from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Union, Annotated, Optional, Sequence
+from typing import Any, Union, Annotated, Optional, Sequence, ClassVar
 
 import numpy as np
 import soundfile
@@ -12,10 +13,14 @@ from beartype.door import is_bearable
 from beartype.vale import Is
 from omegaconf import DictConfig, OmegaConf
 
-from misc_utils.beartypes import NumpyFloat1D, NeList
+from misc_utils.beartypes import NumpyFloat1D, NeList, File
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import UNDEFINED
-from misc_utils.utils import set_val_in_nested_dict
+from misc_utils.utils import (
+    set_val_in_nested_dict,
+    get_val_from_nested_dict,
+    NOT_EXISTING,
+)
 from nemo.collections.asr.models import EncDecClassificationModel
 from nemo.collections.asr.parts.utils.vad_utils import (
     generate_overlap_vad_seq,
@@ -30,7 +35,6 @@ from nemo.utils import logging
 
 from ml4audio.audio_utils.audio_segmentation_utils import (
     StartEnd,
-    is_weakly_monoton_increasing_timeseries,
     is_non_overlapping,
     expand_merge_segments,
 )
@@ -123,7 +127,9 @@ def nemo_offline_vad_infer(
 
 
 @beartype
-def vad_inference_part(cfg, manifest_vad_input, vad_model) -> StartEndsVADProbas:
+def vad_inference_part(
+    cfg: DictConfig, manifest_vad_input: File, vad_model: EncDecClassificationModel
+) -> StartEndsVADProbas:
     if not os.path.exists(cfg.frame_out_dir):
         os.mkdir(cfg.frame_out_dir)
     else:
@@ -131,34 +137,35 @@ def vad_inference_part(cfg, manifest_vad_input, vad_model) -> StartEndsVADProbas
             "Note frame_out_dir exists. If new file has same name as file inside existing folder, it will append result to existing file and might cause mistakes for next steps."
         )
     logging.info("Generating frame level prediction ")
+    vad_params = cfg.vad.parameters
     pred_dir = generate_vad_frame_pred(
         vad_model=vad_model,
-        window_length_in_sec=cfg.vad.parameters.window_length_in_sec,
-        shift_length_in_sec=cfg.vad.parameters.shift_length_in_sec,
+        window_length_in_sec=vad_params.window_length_in_sec,
+        shift_length_in_sec=vad_params.shift_length_in_sec,
         manifest_vad_input=manifest_vad_input,
         out_dir=cfg.frame_out_dir,
     )
     assert pred_dir == cfg.frame_out_dir
     logging.info(
-        f"Finish generating VAD frame level prediction with window_length_in_sec={cfg.vad.parameters.window_length_in_sec} and shift_length_in_sec={cfg.vad.parameters.shift_length_in_sec}"
+        f"Finish generating VAD frame level prediction with window_length_in_sec={vad_params.window_length_in_sec} and shift_length_in_sec={vad_params.shift_length_in_sec}"
     )
-    frame_length_in_sec = cfg.vad.parameters.shift_length_in_sec
+    frame_length_in_sec = vad_params.shift_length_in_sec
     # overlap smoothing filter
-    if cfg.vad.parameters.smoothing:
+    if vad_params.smoothing:
         # Generate predictions with overlapping input segments. Then a smoothing filter is applied to decide the label for a frame spanned by multiple segments.
         # smoothing_method would be either in majority vote (median) or average (mean)
         logging.info("Generating predictions with overlapping input segments")
         smoothing_pred_dir = generate_overlap_vad_seq(
             frame_pred_dir=pred_dir,
-            smoothing_method=cfg.vad.parameters.smoothing,
-            overlap=cfg.vad.parameters.overlap,
-            window_length_in_sec=cfg.vad.parameters.window_length_in_sec,
-            shift_length_in_sec=cfg.vad.parameters.shift_length_in_sec,
+            smoothing_method=vad_params.smoothing,
+            overlap=vad_params.overlap,
+            window_length_in_sec=vad_params.window_length_in_sec,
+            shift_length_in_sec=vad_params.shift_length_in_sec,
             num_workers=cfg.num_workers,
             out_dir=cfg.smoothing_out_dir,
         )
         logging.info(
-            f"Finish generating predictions with overlapping input segments with smoothing_method={cfg.vad.parameters.smoothing} and overlap={cfg.vad.parameters.overlap}"
+            f"Finish generating predictions with overlapping input segments with smoothing_method={vad_params.smoothing} and overlap={vad_params.overlap}"
         )
         pred_dir = smoothing_pred_dir
         frame_length_in_sec = 0.01
@@ -169,7 +176,7 @@ def vad_inference_part(cfg, manifest_vad_input, vad_model) -> StartEndsVADProbas
     per_args = {
         "frame_length_in_sec": frame_length_in_sec,
     }
-    per_args |= cfg.vad.parameters.postprocessing
+    per_args |= vad_params.postprocessing
     sequence, name = load_tensor_from_file(pred_filepath)
     vad_probas = sequence.tolist()
     out_dir, per_args_float = prepare_gen_segment_table(sequence, per_args)
@@ -179,7 +186,7 @@ def vad_inference_part(cfg, manifest_vad_input, vad_model) -> StartEndsVADProbas
 
 
 DEFAULT_NEMO_VAD_CONFIG = {
-    "name": "vad_inference_postprocessing",
+    "name": "vad_inference_postprocessing",  # TODO: why this name?
     "dataset": None,
     "num_workers": 0,
     "sample_rate": 16000,
@@ -225,14 +232,19 @@ class NemoOfflineVAD(Buildable):
     name: str = UNDEFINED
     override_params: Optional[list[PathValue]] = None
     cfg: Union[dict, DictConfig] = field(
-        default_factory=lambda: DEFAULT_NEMO_VAD_CONFIG
+        default_factory=lambda: deepcopy(DEFAULT_NEMO_VAD_CONFIG)
     )
-    max_gap_dur: float = 1.0
+    min_gap_dur: float = 1.0
     expand_by: float = 0.5
+    sample_rate: ClassVar[int] = 16000
 
     def _build_self(self) -> Any:
         if self.override_params is not None:
             for pv in self.override_params:
+                val = get_val_from_nested_dict(self.cfg, pv.path)
+                print(f"{val=}")
+                to_override_it_must_exist = val is not NOT_EXISTING
+                assert to_override_it_must_exist, f"{pv.path=} does not exist"
                 set_val_in_nested_dict(self.cfg, pv.path, pv.value)
 
         self.dictcfg = (
@@ -251,11 +263,11 @@ class NemoOfflineVAD(Buildable):
         ) as tmpfile, tempfile.TemporaryDirectory(
             prefix="nemo_wants_to_write_many_files"
         ) as tmpdir:
-            soundfile.write(tmpfile.name, audio, samplerate=16000)
+            soundfile.write(tmpfile.name, audio, samplerate=self.sample_rate)
             segments, probas = nemo_offline_vad_infer(
                 self.dictcfg, self.vad_model, tmpfile.name, tmpdir
             )
         segments = expand_merge_segments(
-            segments, max_gap_dur=self.max_gap_dur, expand_by=self.expand_by
+            segments, min_gap_dur=self.min_gap_dur, expand_by=self.expand_by
         )
         return segments, probas
