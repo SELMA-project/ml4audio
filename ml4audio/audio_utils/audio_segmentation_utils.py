@@ -41,8 +41,11 @@ StartEndArrays = NeList[StartEndArray]
 
 # purposefully not type-hint here! why not?
 def is_non_overlapping(seq: list[tuple[float, float]]) -> bool:
+    def prev_end(i):
+        return seq[i - 1][1]
+
     if len(seq) > 1:
-        is_fine = all((seq[k - 1][1] <= seq[k][0] for k in range(1, len(seq))))
+        is_fine = all((prev_end(k) <= seq[k][0] for k in range(1, len(seq))))
     else:
         is_fine = True
     return is_fine
@@ -63,8 +66,11 @@ NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 
 
 def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
+    def prev_start(i):
+        return seq[i - 1][0]
+
     if len(seq) > 1:
-        is_fine = all(seq[k - 1][0] <= seq[k][0] for k in range(1, len(seq)))
+        is_fine = all(prev_start(k) <= seq[k][0] for k in range(1, len(seq)))
     else:
         is_fine = True
     return is_fine
@@ -133,7 +139,7 @@ NonOverlappingMonotonIncreasingSegments = Annotated[
 
 @beartype
 def fix_segments_to_non_overlapping(
-    start_ends: NeList[StartEnd],
+    start_ends: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
 ) -> NonOverlappingMonotonIncreasingSegments:
     """
     based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py#L230

@@ -23,7 +23,12 @@ from misc_utils.beartypes import (
     NumpyFloat2D,
 )
 from misc_utils.processing_utils import iterable_to_batches
-from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, StartEndLabels
+from ml4audio.audio_utils.audio_segmentation_utils import (
+    StartEnd,
+    StartEndLabels,
+    StartEndLabelNonOverlap,
+    NonOverlSegs,
+)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -55,6 +60,7 @@ def format_rttm_lines(
         lines.append(log)
     return lines
 
+
 @beartype
 def rttm_line(start, duration, file_id, speaker):
     return "SPEAKER {} 1   {:.3f}   {:.3f} <NA> <NA> {} <NA> <NA>".format(
@@ -79,11 +85,13 @@ def read_sel_from_rttm(rttm_filename: str) -> StartEndLabels:
 
 FloatInt = Union[float, int]
 
+OUTSIDE = "OUTSIDE"
+
 
 @beartype
 def apply_labels_to_segments(
-    s_e_labels: NeList[tuple[FloatInt, FloatInt, str]],
-    new_segments: NeList[tuple[FloatInt, FloatInt]],
+    s_e_labels: StartEndLabelNonOverlap,
+    new_segments: NeList[StartEnd],  # might be overlapping
     min_overlap=0.6,  # proportion of overlap
 ) -> NeList[str]:
     """
@@ -111,8 +119,8 @@ def apply_labels_to_segments(
         elif calc_rel_overlap(s, e, label_start, label_end) >= min_overlap:
             labels.append(lp)
         else:
-            labels.append("OUTSIDE")
-            print(f"OUTSIDE: {s=},{e=},{time_stamp=},{label_start=},{label_end=}")
+            labels.append(OUTSIDE)
+            # print(f"OUTSIDE: {s=},{e=},{time_stamp=},{label_start=},{label_end=}")
 
     assert len(labels) == len(new_segments)
     return labels

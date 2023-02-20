@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+import pytest
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score
 
 from data_io.readwrite_files import write_lines, read_json
@@ -23,7 +24,7 @@ from ml4audio.speaker_tasks.speaker_embedding_utils import (
 from ml4audio.speaker_tasks.speechbrain_der import speechbrain_DER
 
 
-# @pytest.mark.skip
+@pytest.mark.skip
 def test_speaker_clusterer_oracle_vad(
     rttm_ref="tests/resources/oLnl1D6owYA_ref.rttm",
     audio_file="tests/resources/oLnl1D6owYA.opus",
@@ -120,7 +121,14 @@ def test_speaker_clusterer(
     s_e_audio = [((s, e), array[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
     assert all((len(a) > 1000 for (s, e), a in s_e_audio))
     clusterer: UmascanSpeakerClusterer = UmascanSpeakerClusterer(
-        model_name="ecapa_tdnn", metric="cosine"
+        model_name="ecapa_tdnn",
+        metric="cosine",
+        calibration_speaker_data=[
+            (
+                "tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav",
+                [(0.0, 20.0, "some_male_voice")],
+            )
+        ],
     ).build()
     s_e_labels, _ = clusterer.predict(s_e_audio)
 
