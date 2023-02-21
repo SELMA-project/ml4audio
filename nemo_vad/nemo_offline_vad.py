@@ -43,16 +43,22 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
 device = "cpu"  # TODO!
 
 
-def create_manifest(manifest_file: str, audio_file):
+@beartype
+def create_manifest(
+    manifest_file: Annotated[str, Is[lambda x: x.endswith("json")]],
+    audio_file: File,
+    rttm_file: Optional[File] = None,
+) -> None:
     meta = {
         "audio_filepath": audio_file,
         "offset": 0,
         "duration": None,
         "label": "infer",
         "text": "-",
-        # "rttm_filepath": rttm_file,
         "uem_filepath": None,
     }
+    if rttm_file:
+        meta |= {"rttm_filepath": rttm_file}
     with open(manifest_file, "w") as fp:
         json.dump(meta, fp)
         fp.write("\n")
@@ -65,13 +71,12 @@ StartEndsVADProbas = tuple[VoiceSegments, list[float]]
 
 @beartype
 def nemo_offline_vad_infer(
-    cfg: DictConfig, vad_model: EncDecClassificationModel, audio_file: str, tmpdir: str
+    cfg: DictConfig, vad_model: EncDecClassificationModel, audio_file: File, tmpdir: str
 ) -> StartEndsVADProbas:
     """
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/speech_classification/vad_infer.py
     TODO: get rid of all these stupid nemo file-read/writes! (manifest, table, ...)
     """
-    assert os.path.isfile(audio_file)
 
     data_dir = f"{tmpdir}"
     manifest_vad_input = f"{data_dir}/vad_manifest.json"
