@@ -20,7 +20,7 @@ from misc_utils.beartypes import (
     NumpyFloat2DArray,
     NeList,
     NumpyFloat1D,
-    NumpyFloat2D,
+    NumpyFloat2D, File,
 )
 from misc_utils.processing_utils import iterable_to_batches
 from ml4audio.audio_utils.audio_segmentation_utils import (
@@ -69,7 +69,7 @@ def rttm_line(start, duration, file_id, speaker):
 
 
 @beartype
-def read_sel_from_rttm(rttm_filename: str) -> StartEndLabels:
+def read_sel_from_rttm(rttm_filename: File) -> StartEndLabels:
     start_end_speaker = []
     with open(rttm_filename, "r") as f:
         for line in f.readlines():
@@ -90,7 +90,8 @@ OUTSIDE = "OUTSIDE"
 
 @beartype
 def apply_labels_to_segments(
-    s_e_labels: StartEndLabelNonOverlap,
+    s_e_labels: StartEndLabels, # they should be non-overlapping! otherwise things get overwritten!
+        # but some (voxconverse) reference-data is overlapping!
     new_segments: NeList[StartEnd],  # might be overlapping
     min_overlap=0.6,  # proportion of overlap
 ) -> NeList[str]:

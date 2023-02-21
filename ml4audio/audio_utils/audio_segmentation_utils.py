@@ -66,11 +66,16 @@ NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 
 
 def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
-    def prev_start(i):
-        return seq[i - 1][0]
 
     if len(seq) > 1:
-        is_fine = all(prev_start(k) <= seq[k][0] for k in range(1, len(seq)))
+        is_fine = True
+        for k in range(1, len(seq)):
+            start = seq[k][0]
+            prev_start = seq[k - 1][0]
+            if prev_start > start:
+                is_fine = False
+                print(f"sequence is NOT sorted! {k=}: {prev_start}>{start=}")
+                break
     else:
         is_fine = True
     return is_fine
@@ -154,7 +159,6 @@ def fix_segments_to_non_overlapping(
         avg = (cont_spans[i].start + cont_spans[i + 1].end) / 2.0
         cont_spans[i].end = avg
         cont_spans[i + 1].start = avg
-
     return [(x.start, x.end) for x in cont_spans]
 
 
