@@ -90,7 +90,8 @@ class NoCharacterMappingAtAllLowerVeryFirst(CharacterMapping):
         return {}
 
     def __call__(self, text: str) -> str:
-        text = text[0].lower() + text[1:]
+        if len(text)>0:
+            text = text[0].lower() + text[1:]
         return super().__call__(text)
 
 
