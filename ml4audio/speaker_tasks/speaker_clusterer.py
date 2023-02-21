@@ -55,7 +55,7 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
     SubSegment,
     calc_subsegments_for_clustering,
-    embed_audio_chunks_with_nemo,
+    SignalEmbedder,
 )
 
 seed_everything(42)
@@ -126,7 +126,7 @@ class UmascanSpeakerClusterer(Buildable):
 
     """
 
-    model_name: str
+    embedder: SignalEmbedder
     window: Seconds = 1.5
     step_dur: Seconds = 0.75
     metric: str = "euclidean"  # cosine
@@ -139,7 +139,6 @@ class UmascanSpeakerClusterer(Buildable):
         str
     ] = "CALIBRATION_SPEAKER"  # for for calibration of clustering algorithm
 
-    _speaker_model: EncDecSpeakerLabelModel = field(init=False, repr=False)
     _embeds: NumpyFloat2DArray = field(
         init=False, repr=False
     )  # cause one could want to investigate those after running predict
@@ -148,7 +147,6 @@ class UmascanSpeakerClusterer(Buildable):
     )  # segments which are used for clustering, labeled given by clustering-algorithm, one could want to investigate those after running predict
 
     def _build_self(self) -> Any:
-        self._speaker_model = load_EncDecSpeakerLabelModel(self.model_name)
         # if self.calibration_speaker_data is not None:
         self._calib_labeled_arrays = _load_calib_data(
             self.calibration_speaker_data, self.CALIB_LABEL_PREFIX
@@ -309,16 +307,16 @@ class UmascanSpeakerClusterer(Buildable):
         ref_labels: NeList[str],
     ) -> tuple[NumpyFloat2D, NeList[StartEnd], NeList[str]]:
         SR = 16_000
-        labeled_segments = [
-            (a, startend, l) for (startend, a), l in zip(s_e_audio, ref_labels)
-        ]
+        labeled_segments = [(s, e, l) for ((s, e), a), l in zip(s_e_audio, ref_labels)]
         sub_segs: list[SubSegment] = calc_subsegments_for_clustering(
-            labeled_segments, sample_rate=SR, shift=self.step_dur, window=self.window
+            chunks=[a for _, a in s_e_audio],
+            labeled_segments=labeled_segments,
+            sample_rate=SR,
+            shift=self.step_dur,
+            window=self.window,
         )
         arrays = [seg.audio_array for seg in sub_segs]
-        all_embs = embed_audio_chunks_with_nemo(
-            self._speaker_model, arrays, batch_size=1
-        )
+        all_embs = self.embedder.predict(arrays)
 
         s_e_mapped_labels = [
             (float(ss.offset + ss.start), float(ss.offset + ss.end), ss.label)

@@ -1,12 +1,15 @@
-from dataclasses import dataclass
+from abc import abstractmethod
+from dataclasses import dataclass, field
 from random import shuffle
-from typing import Union
+from typing import Union, Any
 
 import numpy as np
 import torch
 from beartype import beartype
 from matplotlib import pyplot as plt
 
+from misc_utils.buildable import Buildable
+from ml4audio.audio_utils.nemo_utils import load_EncDecSpeakerLabelModel
 from nemo.collections.asr.models import EncDecSpeakerLabelModel
 from nemo.collections.asr.parts.utils.speaker_utils import (
     get_subsegments,
@@ -161,13 +164,20 @@ def calc_subsegments_for_clustering(
     SR: int = sample_rate
     sub_segs = [
         SubSegment(start, sub_startend, slice_me_nice(sub_startend, chunk, SR), label)
-        for chunk, ((start, end), label) in zip(chunks, labeled_segments)
+        for chunk, (start, end, label) in zip(chunks, labeled_segments)
         for s, d in get_subsegments(
             offset=0.0, window=window, shift=shift, duration=len(chunk) / SR
         )
         for sub_startend in [(s, s + d)]
     ]
     return sub_segs
+
+
+@dataclass
+class SignalEmbedder:
+    @abstractmethod
+    def predict(self, arrays: NeList[NumpyFloat1D]) -> NeList[NumpyFloat1D]:
+        raise NotImplementedError
 
 
 @beartype
@@ -209,6 +219,19 @@ def embed_audio_chunks_with_nemo(
             all_embs.extend(embs.cpu().detach().numpy())
 
     return all_embs
+
+
+@dataclass
+class NemoAudioEmbedder(SignalEmbedder, Buildable):
+    model_name: str
+    _speaker_model: EncDecSpeakerLabelModel = field(init=False, repr=False)
+
+    def _build_self(self) -> Any:
+        self._speaker_model = load_EncDecSpeakerLabelModel(self.model_name)
+
+    @beartype
+    def predict(self, arrays: NeList[NumpyFloat1D]) -> NeList[NumpyFloat1D]:
+        return embed_audio_chunks_with_nemo(self._speaker_model, arrays, batch_size=1)
 
 
 @beartype
