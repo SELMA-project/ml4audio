@@ -7,7 +7,6 @@ from typing import Any, Optional, ClassVar, Iterator
 import numba
 import numpy as np
 import pynndescent
-from beartype.door import is_bearable
 
 from ml4audio.audio_utils.audio_data_models import Seconds
 from ml4audio.audio_utils.nemo_utils import load_EncDecSpeakerLabelModel
@@ -33,8 +32,7 @@ from beartype import beartype
 
 from nemo.collections.asr.models import EncDecSpeakerLabelModel
 from nemo.collections.asr.parts.utils.speaker_utils import (
-    get_contiguous_stamps,
-    merge_stamps,
+    embedding_normalize,
 )
 from pytorch_lightning import seed_everything
 
@@ -50,10 +48,8 @@ from misc_utils.buildable import Buildable
 from ml4audio.audio_utils.audio_segmentation_utils import (
     StartEnd,
     StartEndLabels,
-    NonOverlSegs,
     merge_segments_of_same_label,
     fix_segments_to_non_overlapping,
-    StartEndArraysNonOverlap,
     StartEndLabelNonOverlap,
 )
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
@@ -182,29 +178,23 @@ class UmascanSpeakerClusterer(Buildable):
             [(s, e, l) for (s, e), (_, _, l) in zip(s_e_fixed, self.cluster_sels)],
             min_gap_dur=self.same_speaker_min_gap_dur,
         )
-        (
-            ref_sels_projected_to_cluster_sels,
-            s_e_labels,
-        ) = self._remove_calibration_datas_prediction(
-            ref_sels_projected_to_cluster_sels, se_audio, s_e_labels
-        )
+        s_e_labels = self._remove_calibration_datas_prediction(se_audio, s_e_labels)
 
         return s_e_labels, ref_sels_projected_to_cluster_sels
 
     @beartype
     def _remove_calibration_datas_prediction(
         self,
-        ref_sels_projected_to_cluster_sels,
         s_e_audio: list[tuple[StartEnd, NumpyFloat1D]],
         s_e_labels: StartEndLabelNonOverlap,
     ):
         (_start, audio_end), _array = s_e_audio[-1]
         real_idx = [k for k, (s, e, l) in enumerate(s_e_labels) if s <= audio_end]
         s_e_labels = [s_e_labels[idx] for idx in real_idx]
-        ref_sels_projected_to_cluster_sels = [
-            ref_sels_projected_to_cluster_sels[idx] for idx in real_idx
-        ]
-        return ref_sels_projected_to_cluster_sels, s_e_labels
+        # ref_sels_projected_to_cluster_sels = [
+        #     ref_sels_projected_to_cluster_sels[idx] for idx in real_idx
+        # ]
+        return s_e_labels
 
     @beartype
     def _calc_raw_labels(
@@ -293,6 +283,8 @@ class UmascanSpeakerClusterer(Buildable):
 
     @beartype
     def _umpa_cluster(self, embeds: NumpyFloat2D) -> list[int]:
+        embeds = embedding_normalize(embeds)
+
         # for parameters see: https://umap-learn.readthedocs.io/en/latest/clustering.html
         clusterable_embedding = umap.UMAP(
             n_neighbors=30,  # _neighbors value – small values will focus more on very local structure and are more prone to producing fine grained cluster structure that may be more a result of patterns of noise in the data than actual clusters. In this case we’ll double it from the default 15 up to 30.

@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 from nemo.collections.asr.models import EncDecSpeakerLabelModel
 from nemo.collections.asr.parts.utils.speaker_utils import (
     get_subsegments,
-    embedding_normalize,
 )
 from sklearn import preprocessing
 from torch import autocast
@@ -166,19 +165,19 @@ def get_nemo_speaker_embeddings(
         labeled_segments, sample_rate, shift, window
     )
 
-    all_embs_raw = embed_audio_chunks_with_nemo(
-        speaker_model, overlapchunks_labels, batch_size
+    all_embs = embed_audio_chunks_with_nemo(
+        speaker_model, [a for a, _l in overlapchunks_labels], batch_size
     )
     # see: https://github.com/NVIDIA/NeMo/blob/4f06f3458b3d4d5e8ed3f5174d84e255a526321a/examples/speaker_tasks/recognition/extract_speaker_embeddings.py#L58
     # strangely I cannot find this normalization in clustering_diarizer-code
-    all_embs = embedding_normalize(np.asarray(all_embs_raw))
 
-    start_dur_label = [
+    s_e_l = [
         (float(ss.offset + ss.start), float(ss.offset + ss.end), ss.label)
         for ss in sub_segs
     ]
-    assert len(all_embs) == len(start_dur_label)
-    return all_embs, start_dur_label
+    assert len(all_embs) == len(s_e_l)
+    all_embs = np.asarray(all_embs)
+    return all_embs, s_e_l
 
 
 @beartype
@@ -213,7 +212,7 @@ def calc_subsegments_for_clustering(
 @beartype
 def embed_audio_chunks_with_nemo(
     speaker_model: EncDecSpeakerLabelModel,
-    overlapchunks_labels: NeList[tuple[NumpyFloat1D, str]],
+    overlapping_chunks: NeList[NumpyFloat1D],
     batch_size: int,
 ) -> NeList[NumpyFloat1D]:
 
@@ -224,15 +223,15 @@ def embed_audio_chunks_with_nemo(
 
     all_embs = []
     for test_batch in tqdm(
-        iterable_to_batches(overlapchunks_labels, batch_size=batch_size)
+        iterable_to_batches(overlapping_chunks, batch_size=batch_size)
     ):
-        audio_tensors = [torch.from_numpy(x).to(DEVICE) for x, _ in test_batch]
+        audio_tensors = [torch.from_numpy(x).to(DEVICE) for x in test_batch]
         audio_signal_len = torch.as_tensor([len(a) for a in audio_tensors]).to(DEVICE)
         no_need_for_padding_cause_all_have_same_len = (
-            len(set([len(a) for a, _label in test_batch])) == 1
+            len(set([len(a) for a in test_batch])) == 1
         )
         assert no_need_for_padding_cause_all_have_same_len, set(
-            [len(a) for a, _label in test_batch]
+            [len(a) for a in test_batch]
         )
         audio_tensor = torch.concat([x.unsqueeze(0) for x in audio_tensors], dim=0)
         # probably based on: https://github.com/NVIDIA/NeMo/blob/4f06f3458b3d4d5e8ed3f5174d84e255a526321a/nemo/collections/asr/models/clustering_diarizer.py#L351
@@ -243,7 +242,6 @@ def embed_audio_chunks_with_nemo(
             emb_shape = embs.shape[-1]
             embs = embs.view(-1, emb_shape)
             all_embs.extend(embs.cpu().detach().numpy())
-        del test_batch
 
     return all_embs
 
