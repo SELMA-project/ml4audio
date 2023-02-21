@@ -20,7 +20,8 @@ from misc_utils.beartypes import (
     NumpyFloat2DArray,
     NeList,
     NumpyFloat1D,
-    NumpyFloat2D, File,
+    NumpyFloat2D,
+    File,
 )
 from misc_utils.processing_utils import iterable_to_batches
 from ml4audio.audio_utils.audio_segmentation_utils import (
@@ -90,8 +91,8 @@ OUTSIDE = "OUTSIDE"
 
 @beartype
 def apply_labels_to_segments(
-    s_e_labels: StartEndLabels, # they should be non-overlapping! otherwise things get overwritten!
-        # but some (voxconverse) reference-data is overlapping!
+    s_e_labels: StartEndLabels,  # they should be non-overlapping! otherwise things get overwritten!
+    # but some (voxconverse) reference-data is overlapping!
     new_segments: NeList[StartEnd],  # might be overlapping
     min_overlap=0.6,  # proportion of overlap
 ) -> NeList[str]:
@@ -161,11 +162,36 @@ def get_nemo_speaker_embeddings(
 
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/models/clustering_diarizer.py#L329
     """
-    assert batch_size == 1, "only batch size 1 is supported"
-    SR: int = sample_rate
-    speaker_model = speaker_model.to(DEVICE)
-    speaker_model.eval()
+    overlapchunks_labels, sub_segs = calc_subsegments_for_clustering(
+        labeled_segments, sample_rate, shift, window
+    )
 
+    all_embs_raw = embed_audio_chunks_with_nemo(
+        speaker_model, overlapchunks_labels, batch_size
+    )
+    # see: https://github.com/NVIDIA/NeMo/blob/4f06f3458b3d4d5e8ed3f5174d84e255a526321a/examples/speaker_tasks/recognition/extract_speaker_embeddings.py#L58
+    # strangely I cannot find this normalization in clustering_diarizer-code
+    all_embs = embedding_normalize(np.asarray(all_embs_raw))
+
+    start_dur_label = [
+        (float(ss.offset + ss.start), float(ss.offset + ss.end), ss.label)
+        for ss in sub_segs
+    ]
+    assert len(all_embs) == len(start_dur_label)
+    return all_embs, start_dur_label
+
+
+@beartype
+def calc_subsegments_for_clustering(
+    labeled_segments: NeList[tuple[NumpyFloat1D, StartEnd, str]],
+    sample_rate: int,
+    shift: float,
+    window: float,
+) -> tuple[NeList[tuple[NumpyFloat1D, str]], NeList[SubSegment]]:
+    """
+    # "sub"-segmentation is based on: https://github.com/NVIDIA/NeMo/blob/4f06f3458b3d4d5e8ed3f5174d84e255a526321a/nemo/collections/asr/models/clustering_diarizer.py#L428
+    """
+    SR: int = sample_rate
     assert all((len(a) > 0 for a, _, _ in labeled_segments))
     sub_segs = [
         SubSegment(start, (s, s + d), audio_segment, label)
@@ -181,23 +207,21 @@ def get_nemo_speaker_embeddings(
         )
         for ss in sub_segs
     ]
-    all_embs = embed_normalize_audio_chunks_with_nemo(
-        speaker_model, overlapchunks_labels, batch_size
-    )
-    start_dur_label = [
-        (float(ss.offset + ss.start), float(ss.offset + ss.end), ss.label)
-        for ss in sub_segs
-    ]
-    assert len(all_embs) == len(start_dur_label)
-    return all_embs, start_dur_label
+    return overlapchunks_labels, sub_segs
 
 
 @beartype
-def embed_normalize_audio_chunks_with_nemo(
+def embed_audio_chunks_with_nemo(
     speaker_model: EncDecSpeakerLabelModel,
     overlapchunks_labels: NeList[tuple[NumpyFloat1D, str]],
     batch_size: int,
-) -> NumpyFloat2D:
+) -> NeList[NumpyFloat1D]:
+
+    if batch_size != 1:
+        raise NotImplementedError("only batch size 1 is supported, don't ask me why!")
+    speaker_model = speaker_model.to(DEVICE)
+    speaker_model.eval()
+
     all_embs = []
     for test_batch in tqdm(
         iterable_to_batches(overlapchunks_labels, batch_size=batch_size)
@@ -211,6 +235,7 @@ def embed_normalize_audio_chunks_with_nemo(
             [len(a) for a, _label in test_batch]
         )
         audio_tensor = torch.concat([x.unsqueeze(0) for x in audio_tensors], dim=0)
+        # probably based on: https://github.com/NVIDIA/NeMo/blob/4f06f3458b3d4d5e8ed3f5174d84e255a526321a/nemo/collections/asr/models/clustering_diarizer.py#L351
         with autocast(), torch.no_grad():
             _, embs = speaker_model.forward(
                 input_signal=audio_tensor, input_signal_length=audio_signal_len
@@ -219,8 +244,8 @@ def embed_normalize_audio_chunks_with_nemo(
             embs = embs.view(-1, emb_shape)
             all_embs.extend(embs.cpu().detach().numpy())
         del test_batch
-    all_embs_norm = embedding_normalize(np.asarray(all_embs))
-    return all_embs_norm
+
+    return all_embs
 
 
 @beartype

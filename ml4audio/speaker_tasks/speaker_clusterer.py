@@ -54,6 +54,7 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
     merge_segments_of_same_label,
     fix_segments_to_non_overlapping,
     StartEndArraysNonOverlap,
+    StartEndLabelNonOverlap,
 )
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
     get_nemo_speaker_embeddings,
@@ -158,14 +159,14 @@ class UmascanSpeakerClusterer(Buildable):
     @beartype
     def predict(
         self,
-        s_e_audio: list[tuple[StartEnd, NumpyFloat1D]],
+        se_audio: list[tuple[StartEnd, NumpyFloat1D]],
         ref_labels: Optional[
             NeList[str]
         ] = None,  # TODO: remove this, was only necessary for debugging?
     ) -> tuple[list[StartEndLabel], Optional[list[str]]]:
 
         self.cluster_sels, ref_sels_projected_to_cluster_sels = self._calc_raw_labels(
-            s_e_audio, ref_labels
+            se_audio, ref_labels
         )
         assert len(self.cluster_sels) == self._embeds.shape[0], (
             len(self.cluster_sels),
@@ -181,7 +182,29 @@ class UmascanSpeakerClusterer(Buildable):
             [(s, e, l) for (s, e), (_, _, l) in zip(s_e_fixed, self.cluster_sels)],
             min_gap_dur=self.same_speaker_min_gap_dur,
         )
+        (
+            ref_sels_projected_to_cluster_sels,
+            s_e_labels,
+        ) = self._remove_calibration_datas_prediction(
+            ref_sels_projected_to_cluster_sels, se_audio, s_e_labels
+        )
+
         return s_e_labels, ref_sels_projected_to_cluster_sels
+
+    @beartype
+    def _remove_calibration_datas_prediction(
+        self,
+        ref_sels_projected_to_cluster_sels,
+        s_e_audio: list[tuple[StartEnd, NumpyFloat1D]],
+        s_e_labels: StartEndLabelNonOverlap,
+    ):
+        (_start, audio_end), _array = s_e_audio[-1]
+        real_idx = [k for k, (s, e, l) in enumerate(s_e_labels) if s <= audio_end]
+        s_e_labels = [s_e_labels[idx] for idx in real_idx]
+        ref_sels_projected_to_cluster_sels = [
+            ref_sels_projected_to_cluster_sels[idx] for idx in real_idx
+        ]
+        return ref_sels_projected_to_cluster_sels, s_e_labels
 
     @beartype
     def _calc_raw_labels(
