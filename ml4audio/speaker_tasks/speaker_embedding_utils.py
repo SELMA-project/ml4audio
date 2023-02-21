@@ -148,65 +148,26 @@ class SubSegment:
 
 
 @beartype
-def get_nemo_speaker_embeddings(
-    labeled_segments: NeList[tuple[NumpyFloat1D, StartEnd, str]],
-    sample_rate: int,
-    speaker_model: EncDecSpeakerLabelModel,
-    window: float = 1.5,
-    shift: float = 0.75,
-    batch_size: int = 1,
-) -> tuple[NumpyFloat2D, StartEndLabels]:
-    """
-    based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/speaker_tasks/recognition/extract_speaker_embeddings.py
-
-    based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/models/clustering_diarizer.py#L329
-    """
-    overlapchunks_labels, sub_segs = calc_subsegments_for_clustering(
-        labeled_segments, sample_rate, shift, window
-    )
-
-    all_embs = embed_audio_chunks_with_nemo(
-        speaker_model, [a for a, _l in overlapchunks_labels], batch_size
-    )
-    # see: https://github.com/NVIDIA/NeMo/blob/4f06f3458b3d4d5e8ed3f5174d84e255a526321a/examples/speaker_tasks/recognition/extract_speaker_embeddings.py#L58
-    # strangely I cannot find this normalization in clustering_diarizer-code
-
-    s_e_l = [
-        (float(ss.offset + ss.start), float(ss.offset + ss.end), ss.label)
-        for ss in sub_segs
-    ]
-    assert len(all_embs) == len(s_e_l)
-    all_embs = np.asarray(all_embs)
-    return all_embs, s_e_l
-
-
-@beartype
 def calc_subsegments_for_clustering(
-    labeled_segments: NeList[tuple[NumpyFloat1D, StartEnd, str]],
+    chunks: NeList[NumpyFloat1D],
+    labeled_segments: StartEndLabels,
     sample_rate: int,
     shift: float,
     window: float,
-) -> tuple[NeList[tuple[NumpyFloat1D, str]], NeList[SubSegment]]:
+) -> NeList[SubSegment]:
     """
     # "sub"-segmentation is based on: https://github.com/NVIDIA/NeMo/blob/4f06f3458b3d4d5e8ed3f5174d84e255a526321a/nemo/collections/asr/models/clustering_diarizer.py#L428
     """
     SR: int = sample_rate
-    assert all((len(a) > 0 for a, _, _ in labeled_segments))
     sub_segs = [
-        SubSegment(start, (s, s + d), audio_segment, label)
-        for audio_segment, (start, end), label in labeled_segments
+        SubSegment(start, sub_startend, slice_me_nice(sub_startend, chunk, SR), label)
+        for chunk, ((start, end), label) in zip(chunks, labeled_segments)
         for s, d in get_subsegments(
-            offset=0.0, window=window, shift=shift, duration=len(audio_segment) / SR
+            offset=0.0, window=window, shift=shift, duration=len(chunk) / SR
         )
+        for sub_startend in [(s, s + d)]
     ]
-    overlapchunks_labels = [
-        (
-            slice_me_nice(ss.start_end, ss.audio_array, SR),  #
-            ss.label,
-        )
-        for ss in sub_segs
-    ]
-    return overlapchunks_labels, sub_segs
+    return sub_segs
 
 
 @beartype
@@ -215,7 +176,11 @@ def embed_audio_chunks_with_nemo(
     overlapping_chunks: NeList[NumpyFloat1D],
     batch_size: int,
 ) -> NeList[NumpyFloat1D]:
+    """
+    based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/speaker_tasks/recognition/extract_speaker_embeddings.py
 
+    based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/models/clustering_diarizer.py#L329
+    """
     if batch_size != 1:
         raise NotImplementedError("only batch size 1 is supported, don't ask me why!")
     speaker_model = speaker_model.to(DEVICE)
@@ -247,11 +212,11 @@ def embed_audio_chunks_with_nemo(
 
 
 @beartype
-def slice_me_nice(startend: StartEnd, segment: NumpyFloat1D, SR: int) -> NumpyFloat1D:
+def slice_me_nice(startend: StartEnd, array: NumpyFloat1D, SR: int) -> NumpyFloat1D:
     start, end = startend
     ffrom = max(0, round(start * SR))
-    tto = min(len(segment) - 1, round(end * SR))
-    sliced = segment[ffrom:tto]
+    tto = min(len(array) - 1, round(end * SR))
+    sliced = array[ffrom:tto]
     assert len(sliced) > 0
     return sliced
 

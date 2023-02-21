@@ -53,7 +53,9 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
     StartEndLabelNonOverlap,
 )
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
-    get_nemo_speaker_embeddings,
+    SubSegment,
+    calc_subsegments_for_clustering,
+    embed_audio_chunks_with_nemo,
 )
 
 seed_everything(42)
@@ -310,14 +312,21 @@ class UmascanSpeakerClusterer(Buildable):
         labeled_segments = [
             (a, startend, l) for (startend, a), l in zip(s_e_audio, ref_labels)
         ]
-        embeds, s_e_mapped_labels = get_nemo_speaker_embeddings(
-            labeled_segments,
-            sample_rate=SR,
-            speaker_model=self._speaker_model,
-            window=self.window,
-            shift=self.step_dur,
-            batch_size=1,  # TODO: whatabout higher batch-sizes?
+        sub_segs: list[SubSegment] = calc_subsegments_for_clustering(
+            labeled_segments, sample_rate=SR, shift=self.step_dur, window=self.window
         )
+        arrays = [seg.audio_array for seg in sub_segs]
+        all_embs = embed_audio_chunks_with_nemo(
+            self._speaker_model, arrays, batch_size=1
+        )
+
+        s_e_mapped_labels = [
+            (float(ss.offset + ss.start), float(ss.offset + ss.end), ss.label)
+            for ss in sub_segs
+        ]
+        assert len(all_embs) == len(s_e_mapped_labels)
+        embeds = np.asarray(all_embs)
+
         start_ends = [(s, e) for s, e, _ in s_e_mapped_labels]
         mapped_ref_labels = [l for s, e, l in s_e_mapped_labels]
         return embeds, start_ends, mapped_ref_labels
