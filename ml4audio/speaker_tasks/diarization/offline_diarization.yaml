@@ -1,0 +1,50 @@
+name: &name "ClusterDiarizer"
+
+num_workers: 1
+sample_rate: 16000
+batch_size: 64
+
+diarizer:
+  manifest_filepath: ???   # should be provided during the experiment
+  out_dir: ???             # should be provided during the experiment
+  oracle_vad: False        # use speech activity (VAD) model for timestamps
+  collar: 0.25             # no-score zone around reference segment boundaries
+  ignore_overlap: True     # ignore overlap segments while scoring
+
+  vad:
+#    model_path: "vad_multilingual_marblenet"  # loading this from ngc-hub seem NOT to be working!
+    model_path: "speaker_tasks/vad_multilingual_marblenet.nemo"    # provide a ".nemo" model path
+    external_vad_manifest: null    # whether to use an external VAD
+
+    parameters:
+      window_length_in_sec: 0.15   # Window length in sec for VAD context input
+      shift_length_in_sec: 0.01    # Shift length in sec for generate frame level VAD prediction
+      smoothing: "median"          # False or type of smoothing method (eg: median)
+      overlap: 0.15                # Overlap ratio for overlapped mean/median smoothing filter
+      onset: 0.3                   # Onset threshold for detecting the beginning and end of a speech
+      offset: 0.2                  # Offset threshold for detecting the end of a speech
+      pad_onset: 0.1               # Adding durations before each speech segment
+      pad_offset: 0.1              # Adding durations after each speech segment
+      min_duration_on: 0.7         # Threshold for small non_speech deletion
+      min_duration_off: 1.0        # Threshold for short speech segment deletion
+      filter_speech_first: True
+
+  speaker_embeddings:
+    model_path: ???                        # should be provided during the experiment
+    parameters:
+      window_length_in_sec: 1.5 # Window length(s) in sec (floating-point number). Either a number or a list. Ex) 1.5 or [1.5,1.0,0.5]
+      shift_length_in_sec: 0.75 # Shift length(s) in sec (floating-point number). Either a number or a list. Ex) 0.75 or [0.75,0.5,0.25]
+      multiscale_weights: null
+      #      window_length_in_sec: [1.5,1.0,0.5]  # window length in sec
+#      shift_length_in_sec: [0.75,0.5,0.25] # shift length in sec
+#      multiscale_weights: [0.33,0.33,0.33] # do multi-scaling
+      save_embeddings: False               # don't save extracted embeddings
+
+  clustering:
+    parameters:
+      oracle_num_speakers: False  # use a non-oracle setting
+      max_num_speakers: 50        # max number of speakers for each recording
+      sparse_search_volume: 100   # values that will be examined with time
+      enhanced_count_thres: 90    # tilo: this is a crutch/workaround for a not properly working clustering algorithm!
+      max_rp_threshold: 0.25      # range of p-value search: 0 < p <= threshold
+      sparse_search: False        # use all estimated speakers not sparse list
