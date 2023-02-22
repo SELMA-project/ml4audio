@@ -191,9 +191,6 @@ class UmascanSpeakerClusterer(Buildable):
         (_start, audio_end), _array = s_e_audio[-1]
         real_idx = [k for k, (s, e, l) in enumerate(s_e_labels) if s <= audio_end]
         s_e_labels = [s_e_labels[idx] for idx in real_idx]
-        # ref_sels_projected_to_cluster_sels = [
-        #     ref_sels_projected_to_cluster_sels[idx] for idx in real_idx
-        # ]
         return s_e_labels
 
     @beartype
