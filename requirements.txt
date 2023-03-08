@@ -1,18 +1,16 @@
 # try not to fix versions here!
 misc-utils@git+https://github.com/dertilo/misc-utils@main#egg=misc-utils
-Cython
-numba==0.53.1 # somehow this version cannot be bumped
+transformers
+jiwer
+beartype
+
+# TODO: in extras ?
+# librosa
+# ffmpeg-python
+# for turkish see: https://emre.github.io/unicode_tr/
+# unicode_tr
 # torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
 # torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.12.0%2Bcpu-cp39-cp39-linux_x86_64.whl # version 0.12 got ctc_decoder
 # torchaudio -> # install gpu version
 # datasets
 # speechbrain
-transformers
-jiwer
-# for turkish see: https://emre.github.io/unicode_tr/
-unicode_tr
-beartype
-ffmpeg-python
-
-# TODO: in extras ?
-librosa
