@@ -8,6 +8,7 @@ from beartype.vale import Is
 import whisper as whisper_module
 from misc_utils.beartypes import NumpyFloat1DArray
 from misc_utils.buildable_data import BuildableData
+from misc_utils.dataclass_utils import UNDEFINED, FillUndefined
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from whisper import Whisper
 
@@ -15,8 +16,7 @@ WHISPER_TASKS = {"transcribe", "translate"}
 
 
 @dataclass
-class WhisperPredictArgs:
-    audio: NumpyFloat1DArray
+class WhisperArgs:
     task: Annotated[str, Is[lambda s: s in WHISPER_TASKS]]
     language: str = "de"
     temperature: Optional[Union[float, tuple[float, ...], list[float]]] = (
@@ -29,6 +29,11 @@ class WhisperPredictArgs:
     )  # this is default in whisper code
     # don't mess with the temperatures! they are needed for fallback if beam-search fails!
     beam_size: Optional[int] = None  # default=5 see whisper code
+
+
+@dataclass
+class WhisperPredictArgs(WhisperArgs, FillUndefined):
+    audio: NumpyFloat1DArray = UNDEFINED
 
 
 @dataclass
