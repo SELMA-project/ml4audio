@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import tempfile
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -15,7 +16,9 @@ from omegaconf import DictConfig, OmegaConf
 
 from misc_utils.beartypes import NumpyFloat1D, NeList, File
 from misc_utils.buildable import Buildable
+from misc_utils.buildable_data import BuildableData
 from misc_utils.dataclass_utils import UNDEFINED
+from misc_utils.prefix_suffix import PrefixSuffix
 from misc_utils.utils import (
     set_val_in_nested_dict,
     get_val_from_nested_dict,
@@ -232,22 +235,25 @@ class PathValue:
 
 
 @dataclass
-class NemoOfflineVAD(Buildable):
+class NemoOfflineVAD(BuildableData):
     # for parameters see: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/asr/conf/vad/vad_inference_postprocessing.yaml
     name: str = UNDEFINED
     override_params: Optional[list[PathValue]] = None
     cfg: Union[dict, DictConfig] = field(
         default_factory=lambda: deepcopy(DEFAULT_NEMO_VAD_CONFIG)
     )
+    model_file: PrefixSuffix = field(init=False, default=None, repr=True)
     min_gap_dur: float = 1.0
     expand_by: float = 0.5
     sample_rate: ClassVar[int] = 16000
+    base_dir: PrefixSuffix = field(
+        default_factory=lambda: PrefixSuffix("cache_root", "MODELS/VAD_MODELS")
+    )
 
-    def _build_self(self) -> Any:
+    def __post_init__(self):
         if self.override_params is not None:
             for pv in self.override_params:
                 val = get_val_from_nested_dict(self.cfg, pv.path)
-                print(f"{val=}")
                 to_override_it_must_exist = val is not NOT_EXISTING
                 assert to_override_it_must_exist, f"{pv.path=} does not exist"
                 set_val_in_nested_dict(self.cfg, pv.path, pv.value)
@@ -256,10 +262,49 @@ class NemoOfflineVAD(Buildable):
             OmegaConf.create(self.cfg) if isinstance(self.cfg, dict) else self.cfg
         )
 
-        vad_model = init_vad_model(self.dictcfg.vad.model_path)
+    @property
+    def _is_data_valid(self) -> bool:
+        file = str(self.model_file)
+        print(f"_is_data_valid: { file=}")
+        return file.split(".")[-1] in ["nemo", "ckpt"] and is_bearable(file, File)
+
+    def _build_data(self) -> Any:
+
+        self.model_file = PrefixSuffix(
+            self.base_dir.prefix_key,
+            self._download_model().replace(f"{self.base_dir.prefix}/", ""),
+        )
+        self._load_data()
+
+    def _load_data(self):
+        vad_model = init_vad_model(str(self.model_file))
         vad_model = vad_model.to(device)
         vad_model.eval()
         self.vad_model = vad_model
+
+    @beartype
+    def _download_model(self) -> File:
+        if self.dictcfg.vad.model_path.split(".")[-1] not in ["nemo", "ckpt"]:
+            model_name = self.dictcfg.vad.model_path
+            (
+                _,
+                nemo_model_file_in_cache,
+            ) = EncDecClassificationModel._get_ngc_pretrained_model_info(
+                model_name=model_name
+            )
+            assert nemo_model_file_in_cache.endswith(model_name)
+            source_file = nemo_model_file_in_cache
+            target_file = f"{self.data_dir}/{model_name}"
+
+        elif os.path.isfile(self.dictcfg.vad.model_path):
+            source_file = self.dictcfg.vad.model_path
+            model_name = source_file.split("/")[-1]
+            target_file = f"{self.data_dir}/{model_name}"
+        else:
+            raise NotImplementedError(f"{self.dictcfg.vad.model_path=}")
+
+        shutil.copy(source_file, target_file)
+        return target_file
 
     @beartype
     def predict(self, audio: NumpyFloat1D) -> StartEndsVADProbas:
@@ -276,3 +321,12 @@ class NemoOfflineVAD(Buildable):
             segments, min_gap_dur=self.min_gap_dur, expand_by=self.expand_by
         )
         return segments, probas
+
+
+if __name__ == "__main__":
+    model_name = "vad_marblenet"
+    (
+        class_,
+        nemo_model_file_in_cache,
+    ) = EncDecClassificationModel._get_ngc_pretrained_model_info(model_name=model_name)
+    shutil.copy(nemo_model_file_in_cache, f"./")

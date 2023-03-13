@@ -111,6 +111,8 @@ def audio_messages_from_chunks(
 @dataclass
 class OverlapArrayChunker:
     """
+    TODO: this is a variable step-size sequencer chunker! -> split into two classes: 1. "fixed" and 2. "variable" chunk-size
+
     call it "SegChunker" ? in the end its sequences that are being chunked!
     formerly called AudioMessageChunker
     TODO: why is this not buildable? where build_self essentially calls reset

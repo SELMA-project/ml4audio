@@ -39,6 +39,7 @@ class FileLikeAudioDatum:
 
 @dataclass
 class AudioFile(FileLikeAudioDatum):
+    # TODO: where is this used?
 
     format: Optional[str] = field(init=False, repr=False)
 
@@ -73,10 +74,10 @@ class AlignmentSpanAnnotation(AlignmentSpan):
     confidence: float
 
 
-@dataclass
-class StandAloneAlignmentSpanAnnotation(AlignmentSpanAnnotation):
-    id_seq_a: str
-    id_seq_b: str
+# @dataclass # TODO: removeme
+# class StandAloneAlignmentSpanAnnotation(AlignmentSpanAnnotation):
+#     id_seq_a: str
+#     id_seq_b: str
 
 
 @dataclass
@@ -124,21 +125,6 @@ class AudioFileSegment(Buildable):
     start: Seconds = None  # should be absolut!
     end: Seconds = None
 
-    # def __post_init__(self, audio_file_suffix: Optional[NeStr]):
-    #     if audio_file_suffix is not None:
-    #         self.audio_file = PrefixSuffix("data_dir", audio_file_suffix)
-    #
-    #     elif isinstance(self.audio_file, str) and "data_dir" in BASE_PATHES:
-    #         data_dir_prefix = f'{BASE_PATHES["data_dir"]}/'
-    #         assert self.audio_file.startswith(data_dir_prefix), f"{self.audio_file}"
-    #         self.audio_file = PrefixSuffix(
-    #             "data_dir", self.audio_file.replace(data_dir_prefix, "")
-    #         ).build()
-    #
-    # @property
-    # def audio_source_id(self) -> NeStr:
-    #     return str(self.audio_file)
-    #
     @property
     def id(self) -> SegmentId:
         suffix = self.id_suffix
@@ -292,25 +278,3 @@ class IterableInferencer(Buildable, Generic[TIn, TOut]):
     def infer(self, inputs: Iterable[TIn]) -> Iterator[TOut]:
         raise NotImplemented
 
-
-# @dataclass
-# class Predictor(DataclassPredictor, Generic[TIn, TOut]):
-#     @abstractmethod
-#     def predict(self, inputt: TIn) -> TOut:
-#         raise NotImplemented
-
-
-# @dataclass
-# class AsyncPredictor(
-#     Generic[TIn, TOut]
-# ):  # TODO: remove cause its same as AsyncWorkflow
-#     @abstractmethod
-#     async def async_predict(self, inputt: TIn) -> TOut:
-#         raise NotImplemented
-
-
-# @dataclass
-# class Predictor(Buildable, Generic[TIn, TOut]):
-#     @abstractmethod
-#     def predict(self, inputt: TIn) -> TOut:
-#         raise NotImplemented
