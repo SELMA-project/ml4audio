@@ -91,10 +91,11 @@ if __name__ == "__main__":
     cache_root = f"{base_path}/data/cache"
     BASE_PATHES["cache_root"] = cache_root
 
-    inferencer = WhisperInferencer(model_name="tiny")
+    inferencer = WhisperInferencer(model_name="base")
     inferencer.build()
     from ml4audio.audio_utils.audio_io import ffmpeg_load_trim
 
     file = "tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.opus"
     array = ffmpeg_load_trim(file)
-    print(f"{inferencer.predict(array)=}")
+    args = WhisperPredictArgs(task="transcribe", language="ru", audio=array)
+    print(f"{inferencer.predict(args)=}")

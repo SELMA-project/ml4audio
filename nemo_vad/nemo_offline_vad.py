@@ -329,6 +329,7 @@ class NemoOfflineVAD(BuildableData):
             prefix="nemo_wants_to_write_many_files"
         ) as tmpdir:
             soundfile.write(tmpfile.name, audio, samplerate=self.sample_rate)
+            # with open('unwanted_nemo.log', 'w') as sys.stdout: # not working!
             segments, probas = nemo_offline_vad_infer(
                 self.dictcfg, self.vad_model, tmpfile.name, tmpdir
             )
