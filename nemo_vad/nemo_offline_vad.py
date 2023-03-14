@@ -46,6 +46,12 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
 device = "cpu"  # TODO!
 
 
+import logging
+
+logging.getLogger("nemo_logger").setLevel(logging.CRITICAL)
+logging.disable(logging.CRITICAL)
+
+
 @beartype
 def create_manifest(
     manifest_file: Annotated[str, Is[lambda x: x.endswith("json")]],
@@ -242,7 +248,6 @@ class NemoOfflineVAD(BuildableData):
     cfg: Union[dict, DictConfig] = field(
         default_factory=lambda: deepcopy(DEFAULT_NEMO_VAD_CONFIG)
     )
-    model_file: PrefixSuffix = field(init=False, default=None, repr=True)
     min_gap_dur: float = 1.0
     expand_by: float = 0.5
     sample_rate: ClassVar[int] = 16000
@@ -269,11 +274,7 @@ class NemoOfflineVAD(BuildableData):
         return file.split(".")[-1] in ["nemo", "ckpt"] and is_bearable(file, File)
 
     def _build_data(self) -> Any:
-
-        self.model_file = PrefixSuffix(
-            self.base_dir.prefix_key,
-            self._download_model().replace(f"{self.base_dir.prefix}/", ""),
-        )
+        self._download_model()
         self._load_data()
 
     def _load_data(self):
@@ -282,10 +283,27 @@ class NemoOfflineVAD(BuildableData):
         vad_model.eval()
         self.vad_model = vad_model
 
-    @beartype
-    def _download_model(self) -> File:
+    @property
+    def model_file_name(self) -> str:
         if self.dictcfg.vad.model_path.split(".")[-1] not in ["nemo", "ckpt"]:
             model_name = self.dictcfg.vad.model_path
+
+        elif os.path.isfile(self.dictcfg.vad.model_path):
+            source_file = self.dictcfg.vad.model_path
+            model_name = source_file.split("/")[-1]
+        else:
+            raise NotImplementedError(f"{self.dictcfg.vad.model_path=}")
+        return model_name
+
+    @property
+    def model_file(self) -> str:
+        return f"{self.data_dir}/{self.model_file_name}"
+
+    @beartype
+    def _download_model(self) -> File:
+
+        if self.dictcfg.vad.model_path.split(".")[-1] not in ["nemo", "ckpt"]:
+            model_name = self.model_file_name
             (
                 _,
                 nemo_model_file_in_cache,
@@ -294,17 +312,14 @@ class NemoOfflineVAD(BuildableData):
             )
             assert nemo_model_file_in_cache.endswith(model_name)
             source_file = nemo_model_file_in_cache
-            target_file = f"{self.data_dir}/{model_name}"
 
         elif os.path.isfile(self.dictcfg.vad.model_path):
             source_file = self.dictcfg.vad.model_path
-            model_name = source_file.split("/")[-1]
-            target_file = f"{self.data_dir}/{model_name}"
         else:
             raise NotImplementedError(f"{self.dictcfg.vad.model_path=}")
 
-        shutil.copy(source_file, target_file)
-        return target_file
+        shutil.copy(source_file, self.model_file)
+        return self.model_file
 
     @beartype
     def predict(self, audio: NumpyFloat1D) -> StartEndsVADProbas:
