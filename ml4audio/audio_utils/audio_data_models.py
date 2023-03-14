@@ -122,8 +122,8 @@ class AudioFileSegment(Buildable):
     # audio_file_suffix: InitVar[Optional[NeStr]] = None
     id_suffix: Optional[NeStr] = None
 
-    start: Seconds = None  # should be absolut!
-    end: Seconds = None
+    start: Optional[Seconds] = None  # should be absolut!
+    end: Optional[Seconds] = None
 
     @property
     def id(self) -> SegmentId:
@@ -133,7 +133,9 @@ class AudioFileSegment(Buildable):
 
 @dataclass
 class GotAudioSegments:
-    audio_segments: Optional[Iterable[AudioFileSegment]] = field(init=False, default=None)
+    audio_segments: Optional[Iterable[AudioFileSegment]] = field(
+        init=False, default=None
+    )
 
     @staticmethod
     def from_obj(audio_segments: Iterable[AudioFileSegment]):
@@ -220,8 +222,6 @@ class AudioData(Iterable[IdArray], FillUndefined):
         raise NotImplementedError
 
 
-
-
 @dataclass
 class AudioTextData(Iterable[ArrayText]):
     """
@@ -277,4 +277,3 @@ class IterableInferencer(Buildable, Generic[TIn, TOut]):
     @abstractmethod
     def infer(self, inputs: Iterable[TIn]) -> Iterator[TOut]:
         raise NotImplemented
-
