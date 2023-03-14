@@ -289,11 +289,8 @@ class NemoOfflineVAD(BuildableData):
         if self.dictcfg.vad.model_path.split(".")[-1] not in ["nemo", "ckpt"]:
             model_name = self.dictcfg.vad.model_path
 
-        elif os.path.isfile(self.dictcfg.vad.model_path):
-            source_file = self.dictcfg.vad.model_path
-            model_name = source_file.split("/")[-1]
         else:
-            raise NotImplementedError(f"{self.dictcfg.vad.model_path=}")
+            model_name = self.dictcfg.vad.model_path.split("/")[-1]
         return model_name
 
     @property
