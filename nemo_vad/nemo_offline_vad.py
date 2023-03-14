@@ -270,7 +270,7 @@ class NemoOfflineVAD(BuildableData):
     @property
     def _is_data_valid(self) -> bool:
         file = str(self.model_file)
-        print(f"_is_data_valid: { file=}")
+        print(f"_is_data_valid: {file=}")
         return file.split(".")[-1] in ["nemo", "ckpt"] and is_bearable(file, File)
 
     def _build_data(self) -> Any:
@@ -284,6 +284,7 @@ class NemoOfflineVAD(BuildableData):
         self.vad_model = vad_model
 
     @property
+    @beartype
     def model_file_name(self) -> str:
         if self.dictcfg.vad.model_path.split(".")[-1] not in ["nemo", "ckpt"]:
             model_name = self.dictcfg.vad.model_path
@@ -296,6 +297,7 @@ class NemoOfflineVAD(BuildableData):
         return model_name
 
     @property
+    @beartype
     def model_file(self) -> str:
         return f"{self.data_dir}/{self.model_file_name}"
 
