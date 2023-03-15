@@ -1,11 +1,15 @@
-from abc import abstractmethod, ABC
+from abc import abstractmethod
 from dataclasses import dataclass
+from typing import Annotated
 
-import numpy as np
+from beartype.vale import Is
 
 from misc_utils.beartypes import NumpyFloat1D
-from misc_utils.buildable import Buildable
-from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
+from ml4audio.audio_utils.audio_segmentation_utils import (
+    StartEndArray,
+    StartEndText,
+    is_non_overlapping,
+)
 
 
 class SetupTearDown:
@@ -32,4 +36,23 @@ class ASRAudioArrayInferencer(SetupTearDown):
 
     @abstractmethod
     def transcribe_audio_array(self, audio_array: NumpyFloat1D) -> str:
+        raise NotImplementedError
+
+
+StartEndTextsNonOverlap = Annotated[
+    list[StartEndText],
+    Is[is_non_overlapping],
+]
+
+
+@dataclass
+class ASRAudioSegmentInferencer(SetupTearDown):
+    @property
+    def sample_rate(self) -> int:
+        return 16000
+
+    @abstractmethod
+    def predict_transcribed_segments(
+        self, audio_array: NumpyFloat1D
+    ) -> StartEndTextsNonOverlap:
         raise NotImplementedError

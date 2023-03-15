@@ -32,6 +32,12 @@ StartEndLabel = Annotated[
 ]
 StartEndLabels = NeList[StartEndLabel]
 
+StartEndText = Annotated[
+    tuple[float, float, str],
+    (Is[non_empty] & Is[start_non_negative]),
+]
+
+
 StartEndArray = Annotated[
     tuple[float, float, NumpyFloat1D],
     (Is[non_empty] & Is[start_non_negative]),
@@ -66,6 +72,9 @@ NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 
 
 def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
+    """
+    rename to starts_are_weakly_monoton_increasing ?
+    """
 
     if len(seq) > 1:
         is_fine = True
@@ -137,15 +146,13 @@ def is_overlapping(span: Span, next_span: Span):
     return span.end > next_span.start
 
 
-NonOverlappingMonotonIncreasingSegments = Annotated[
-    NeList[StartEnd], Is[is_non_overlapping] & Is[is_weakly_monoton_increasing]
-]
+NonOverlappingMonotonIncreasingSegments = NonOverlSegs # non-overlapping is always weakly mononton increasing!
 
 
 @beartype
 def fix_segments_to_non_overlapping(
     start_ends: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
-) -> NonOverlappingMonotonIncreasingSegments:
+) -> NonOverlSegs:
     """
     based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py#L230
     """
@@ -199,7 +206,7 @@ def expand_merge_segments(
     segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
     min_gap_dur: float = 0.2,  # gap within a segment -> shorter than this gets merged
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
-) -> NonOverlappingMonotonIncreasingSegments:
+) -> NonOverlSegs:
     exp_segs: list[tuple[float, float]] = []
     prev_start: int = -9999
     prev_end: int = -9999
@@ -222,8 +229,8 @@ def expand_merge_segments(
 
 @beartype
 def merge_short_segments(
-    segments: NonOverlappingMonotonIncreasingSegments, min_dur: float = 1.5
-) -> NonOverlappingMonotonIncreasingSegments:
+    segments: NonOverlSegs, min_dur: float = 1.5
+) -> NonOverlSegs:
     GIVE_ME_NEW_START = -1
 
     def buffer_segment(segs: Iterable[tuple[float, float]]):
@@ -261,7 +268,7 @@ def segment_letter_timestamps(
     min_seg_dur=1.5,
     max_gap_dur=0.2,
     expand_by=0.1,
-) -> NonOverlappingMonotonIncreasingSegments:
+) -> NonOverlSegs:
     letter_duration = (
         0.04  # heuristic -> 40ms is median of some transcript, sounds plausible!
     )

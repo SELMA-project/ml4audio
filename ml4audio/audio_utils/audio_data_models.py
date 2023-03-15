@@ -10,6 +10,8 @@ from typing import (
     Generic,
 )
 
+from beartype.door import die_if_unbearable
+
 from misc_utils.beartypes import (
     NumpyFloat1DArray,
     NeStr,
@@ -19,6 +21,7 @@ from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import FillUndefined, _UNDEFINED, UNDEFINED
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from misc_utils.utils import Singleton
+from ml4audio.audio_utils.audio_segmentation_utils import StartEnd
 
 ArrayText = tuple[NumpyFloat1DArray, NeStr]
 
@@ -124,6 +127,10 @@ class AudioFileSegment(Buildable):
 
     start: Optional[Seconds] = None  # should be absolut!
     end: Optional[Seconds] = None
+
+    def __post_init__(self):
+        if self.start is not None and self.end is not None:
+            die_if_unbearable((self.start,self.end),StartEnd)
 
     @property
     def id(self) -> SegmentId:

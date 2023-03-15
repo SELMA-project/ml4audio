@@ -38,7 +38,7 @@ class WhisperPredictArgs(WhisperArgs, FillUndefined):
 
 
 @dataclass
-class WhisperInferencer(BuildableData,SetupTearDown):
+class WhisperInferencer(BuildableData, SetupTearDown):
     """
     https://github.com/saharmor/whisper-playground
     """
@@ -77,7 +77,7 @@ class WhisperInferencer(BuildableData,SetupTearDown):
         # self._load_data() #
 
     def _load_data(self):
-        pass # not loading here cause this gets called in is_ready-method!
+        pass  # not loading here cause this gets called in is_ready-method!
 
     def __enter__(self):
         self._model = whisper_module.load_model(self._checkpoint_file)
