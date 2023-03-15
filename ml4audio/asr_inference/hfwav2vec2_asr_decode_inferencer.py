@@ -7,6 +7,7 @@ from beartype import beartype
 from transformers import set_seed
 
 from misc_utils.beartypes import TorchTensor2D
+from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
 from ml4audio.asr_inference.inference import ASRAudioArrayInferencer
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
@@ -34,7 +35,7 @@ set_seed(42)
 
 
 @dataclass
-class HFASRDecodeInferencer(ASRAudioArrayInferencer):
+class HFASRDecodeInferencer(Buildable):
     """
     does asr-inference WITH decoding greedy/lm-based
     TODO:

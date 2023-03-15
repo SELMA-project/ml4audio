@@ -10,6 +10,7 @@ from misc_utils.beartypes import NumpyFloat1DArray
 from misc_utils.buildable_data import BuildableData
 from misc_utils.dataclass_utils import UNDEFINED, FillUndefined
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
+from ml4audio.asr_inference.inference import SetupTearDown
 from whisper import Whisper
 
 WHISPER_TASKS = {"transcribe", "translate"}
@@ -37,7 +38,7 @@ class WhisperPredictArgs(WhisperArgs, FillUndefined):
 
 
 @dataclass
-class WhisperInferencer(BuildableData):
+class WhisperInferencer(BuildableData,SetupTearDown):
     """
     https://github.com/saharmor/whisper-playground
     """
@@ -73,10 +74,16 @@ class WhisperInferencer(BuildableData):
             whisper_module._MODELS[self.model_name], self.data_dir, in_memory=False
         )
         assert checkpoint_file == self._checkpoint_file
-        self._load_data()
+        # self._load_data() #
 
     def _load_data(self):
+        pass # not loading here cause this gets called in is_ready-method!
+
+    def __enter__(self):
         self._model = whisper_module.load_model(self._checkpoint_file)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        del self._model
 
     @beartype
     def predict(self, pred_args: WhisperPredictArgs) -> dict:
