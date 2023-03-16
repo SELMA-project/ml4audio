@@ -87,7 +87,6 @@ class WhisperInferencer(BuildableData, SetupTearDown):
 
     @beartype
     def predict(self, pred_args: WhisperPredictArgs) -> dict:
-
         result = self._model.transcribe(**asdict(pred_args))
         # TODO: result as dataclass?
         return result
