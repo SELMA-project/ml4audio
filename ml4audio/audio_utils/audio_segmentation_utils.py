@@ -45,13 +45,12 @@ StartEndArray = Annotated[
 StartEndArrays = NeList[StartEndArray]
 
 
-# purposefully not type-hint here! why not?
 def is_non_overlapping(seq: list[tuple[float, float]]) -> bool:
-    def prev_end(i):
-        return seq[i - 1][1]
 
     if len(seq) > 1:
-        is_fine = all((prev_end(k) <= seq[k][0] for k in range(1, len(seq))))
+        is_fine = all(
+            (prev_end <= start for (_, prev_end), (start, _) in zip(seq[:-1], seq[1:]))
+        )
     else:
         is_fine = True
     return is_fine
@@ -146,7 +145,9 @@ def is_overlapping(span: Span, next_span: Span):
     return span.end > next_span.start
 
 
-NonOverlappingMonotonIncreasingSegments = NonOverlSegs # non-overlapping is always weakly mononton increasing!
+NonOverlappingMonotonIncreasingSegments = (
+    NonOverlSegs  # non-overlapping is always weakly mononton increasing!
+)
 
 
 @beartype
@@ -163,7 +164,7 @@ def fix_segments_to_non_overlapping(
         range(len(start_ends) - 1),
     )
     for i in overlapping_idx:
-        avg = (cont_spans[i].start + cont_spans[i + 1].end) / 2.0
+        avg = (cont_spans[i].end + cont_spans[i + 1].start) / 2.0
         cont_spans[i].end = avg
         cont_spans[i + 1].start = avg
     return [(x.start, x.end) for x in cont_spans]
@@ -228,9 +229,7 @@ def expand_merge_segments(
 
 
 @beartype
-def merge_short_segments(
-    segments: NonOverlSegs, min_dur: float = 1.5
-) -> NonOverlSegs:
+def merge_short_segments(segments: NonOverlSegs, min_dur: float = 1.5) -> NonOverlSegs:
     GIVE_ME_NEW_START = -1
 
     def buffer_segment(segs: Iterable[tuple[float, float]]):
