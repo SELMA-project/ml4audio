@@ -45,11 +45,16 @@ StartEndArray = Annotated[
 StartEndArrays = NeList[StartEndArray]
 
 
-def is_non_overlapping(seq: list[tuple[float, float]]) -> bool:
+def is_non_overlapping(seq: list[tuple]) -> bool:
 
     if len(seq) > 1:
         is_fine = all(
-            (prev_end <= start for (_, prev_end), (start, _) in zip(seq[:-1], seq[1:]))
+            (
+                prev_end <= start
+                for (_, prev_end, *_whatever), (start, _, *_whatever) in zip(
+                    seq[:-1], seq[1:]
+                )
+            )
         )
     else:
         is_fine = True
