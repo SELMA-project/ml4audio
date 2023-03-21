@@ -21,7 +21,7 @@ class SetupTearDown:
         raise NotImplementedError
 
     @abstractmethod
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
         """
         use as tear-down, to free memory, unload model
         """

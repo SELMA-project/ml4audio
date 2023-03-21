@@ -38,7 +38,7 @@ class WhisperPredictArgs(WhisperArgs, FillUndefined):
 
 
 @dataclass
-class WhisperInferencer(BuildableData, SetupTearDown):
+class WhisperInferencer(BuildableData):
     """
     https://github.com/saharmor/whisper-playground
     """
@@ -82,7 +82,7 @@ class WhisperInferencer(BuildableData, SetupTearDown):
     def __enter__(self):
         self._model = whisper_module.load_model(self._checkpoint_file)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
         del self._model
 
     @beartype

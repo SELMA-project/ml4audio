@@ -110,7 +110,26 @@ Id = NeStr
 
 
 @dataclass
-class AudioFileSegment(Buildable):
+class StartEndSegment:
+
+    parent_id: SegmentId = UNDEFINED
+    id_suffix: Optional[NeStr] = None
+
+    start: Optional[Seconds] = None  # should be absolut!
+    end: Optional[Seconds] = None
+
+    def __post_init__(self):
+        if self.start is not None and self.end is not None:
+            die_if_unbearable((self.start, self.end), StartEnd)
+
+    @property
+    def id(self) -> SegmentId:
+        suffix = self.id_suffix
+        return f"{self.parent_id}-{suffix}" if suffix else self.parent_id
+
+
+@dataclass  # TODO: make frozen?
+class AudioFileSegment(Buildable, StartEndSegment):
     """
     it really needs to keep two references:
      * one to the (parent)-segment that is getting segmented
@@ -120,22 +139,7 @@ class AudioFileSegment(Buildable):
     being Buildable just because of PrefixSuffix!
     """
 
-    parent_id: SegmentId
-    audio_file: PrefixSuffix
-    # audio_file_suffix: InitVar[Optional[NeStr]] = None
-    id_suffix: Optional[NeStr] = None
-
-    start: Optional[Seconds] = None  # should be absolut!
-    end: Optional[Seconds] = None
-
-    def __post_init__(self):
-        if self.start is not None and self.end is not None:
-            die_if_unbearable((self.start,self.end),StartEnd)
-
-    @property
-    def id(self) -> SegmentId:
-        suffix = self.id_suffix
-        return f"{self.parent_id}-{suffix}" if suffix else self.parent_id
+    audio_file: PrefixSuffix = UNDEFINED
 
 
 @dataclass
