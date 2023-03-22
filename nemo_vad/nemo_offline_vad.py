@@ -248,6 +248,8 @@ class NemoOfflineVAD(BuildableData):
     min_gap_dur: float = 1.0
     expand_by: float = 0.5
     sample_rate: ClassVar[int] = 16000
+
+    _vad_model: EncDecClassificationModel = field(init=False, repr=False)
     base_dir: PrefixSuffix = field(
         default_factory=lambda: PrefixSuffix("cache_root", "MODELS/VAD_MODELS")
     )
@@ -267,18 +269,22 @@ class NemoOfflineVAD(BuildableData):
     @property
     def _is_data_valid(self) -> bool:
         file = str(self.model_file)
-        print(f"_is_data_valid: {file=}")
         return file.split(".")[-1] in ["nemo", "ckpt"] and is_bearable(file, File)
 
     def _build_data(self) -> Any:
         self._download_model()
+
+    def __enter__(self):
         self._load_data()
+
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
+        del self._vad_model
 
     def _load_data(self):
         vad_model = init_vad_model(str(self.model_file))
         vad_model = vad_model.to(device)
         vad_model.eval()
-        self.vad_model = vad_model
+        self._vad_model = vad_model
 
     @property
     @beartype
@@ -327,7 +333,7 @@ class NemoOfflineVAD(BuildableData):
             soundfile.write(tmpfile.name, audio, samplerate=self.sample_rate)
             # with open('unwanted_nemo.log', 'w') as sys.stdout: # not working!
             segments, probas = nemo_offline_vad_infer(
-                self.dictcfg, self.vad_model, tmpfile.name, tmpdir
+                self.dictcfg, self._vad_model, tmpfile.name, tmpdir
             )
         segments = expand_merge_segments(
             segments, min_gap_dur=self.min_gap_dur, expand_by=self.expand_by
