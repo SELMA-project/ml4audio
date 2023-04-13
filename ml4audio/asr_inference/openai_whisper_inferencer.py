@@ -13,7 +13,11 @@ from ml4audio.asr_inference.inference import (
     ASRAudioSegmentInferencer,
     StartEndTextsNonOverlap,
 )
-from ml4audio.asr_inference.whisper_inference import fix_start_end, WhisperArgs
+from ml4audio.asr_inference.whisper_inference import (
+    fix_start_end,
+    WhisperArgs,
+    WhisperInferencer,
+)
 from ml4audio.audio_utils.audio_segmentation_utils import (
     fix_segments_to_non_overlapping,
 )
@@ -26,14 +30,12 @@ class WhisperPredictArgs(WhisperArgs, FillUndefined):
 
 
 @dataclass
-class OpenAIWhisperASRSegmentInferencer(BuildableData, ASRAudioSegmentInferencer):
+class OpenAIWhisperASRSegmentInferencer(BuildableData, WhisperInferencer):
     """
     https://github.com/saharmor/whisper-playground
     """
 
     model_name: str = "base"
-
-    whisper_args: Optional[WhisperArgs] = None
 
     _model: Whisper = field(init=False, repr=False)
     base_dir: PrefixSuffix = field(
@@ -87,12 +89,13 @@ class OpenAIWhisperASRSegmentInferencer(BuildableData, ASRAudioSegmentInferencer
             for seg, (start, end) in zip(whisper_segments, start_end)
         ]
 
+
     @beartype
-    def predict_transcribed_segments(
-        self, audio_array: NumpyFloat1D
+    def predict_transcribed_with_whisper_args(
+        self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
     ) -> StartEndTextsNonOverlap:
         audio_dur = float(len(audio_array) / self.sample_rate)
-        pred_args = WhisperPredictArgs(audio=audio_array, **asdict(self.whisper_args))
+        pred_args = WhisperPredictArgs(audio=audio_array, **asdict(whisper_args))
         resp = self._model.transcribe(**asdict(pred_args))
 
         # resp["text"].strip(" ") # somehow this sometimes repeats the transcribt twice

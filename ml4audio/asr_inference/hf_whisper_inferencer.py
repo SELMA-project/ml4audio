@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 
 from beartype import beartype
 from transformers import (
@@ -16,19 +16,21 @@ from ml4audio.asr_inference.inference import (
     ASRAudioSegmentInferencer,
     StartEndTextsNonOverlap,
 )
-from ml4audio.asr_inference.whisper_inference import fix_start_end, WhisperArgs
+from ml4audio.asr_inference.whisper_inference import (
+    fix_start_end,
+    WhisperArgs,
+    WhisperInferencer,
+)
 from ml4audio.audio_utils.audio_io import ffmpeg_load_trim
 from ml4audio.audio_utils.audio_segmentation_utils import (
-    StartEnd,
     fix_segments_to_non_overlapping,
 )
 
 
 @dataclass
-class HfPipelineWhisperASRSegmentInferencer(ASRAudioSegmentInferencer):
+class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
 
-    model_name: str
-    whisper_args: WhisperArgs = UNDEFINED
+    model_name: str = "openai/whisper-base"
     chunk_length_s: float = 30.0  # see: https://huggingface.co/spaces/openai/whisper/discussions/67#63eb6ec2c6beb750e2cf47e9
     num_beams: int = 5
     hf_pipeline: AutomaticSpeechRecognitionPipeline = field(init=False, repr=False)
@@ -58,10 +60,19 @@ class HfPipelineWhisperASRSegmentInferencer(ASRAudioSegmentInferencer):
             chunk_length_s=self.chunk_length_s
             # , device=args.device
         )
-        whisper_prompt_ids = whisper_pipeline.tokenizer.get_decoder_prompt_ids(
+        self.hf_pipeline = whisper_pipeline  # noqa
+
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
+        del self.hf_pipeline
+
+    def predict_transcribed_with_whisper_args(
+        self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
+    ) -> StartEndTextsNonOverlap:
+        hfp = self.hf_pipeline
+        whisper_prompt_ids = hfp.tokenizer.get_decoder_prompt_ids(
             language=self.whisper_args.language, task=self.whisper_args.task
         )
-        whisper_pipeline.model.config.forced_decoder_ids = whisper_prompt_ids
+        hfp.model.config.forced_decoder_ids = whisper_prompt_ids
         # print(f"{whisper_pipeline.model.config.max_length=}")
         # NB: decoding option
         # limit the maximum number of generated tokens to 225
@@ -69,21 +80,12 @@ class HfPipelineWhisperASRSegmentInferencer(ASRAudioSegmentInferencer):
         # sampling
         # pipe.model.config.do_sample = True
         # beam search
-        whisper_pipeline.model.config.num_beams = self.num_beams
+        hfp.model.config.num_beams = self.num_beams
         # return
-        whisper_pipeline.model.config.return_dict_in_generate = True  # TODO: why?
+        hfp.model.config.return_dict_in_generate = True  # TODO: why?
         # pipe.model.config.output_scores = True
         # pipe.model.config.num_return_sequences = 5
 
-        self.hf_pipeline = whisper_pipeline  # noqa
-
-    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
-        del self.hf_pipeline
-
-    @beartype
-    def predict_transcribed_segments(
-        self, audio_array: NumpyFloat1D
-    ) -> StartEndTextsNonOverlap:
         # audio_dur = float(len(audio_array) / self.sample_rate)
         output = self.hf_pipeline(audio_array, return_timestamps=True)
         return [
@@ -157,7 +159,7 @@ if __name__ == "__main__":
     https://discuss.huggingface.co/t/support-for-asr-inference-on-longer-audiofiles-or-on-live-transcription/30464
 
     """
-    file = "audiomonolith/tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav"
+    file = "tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.opus"
     array = ffmpeg_load_trim(file, sr=16000)
 
     asr = HfPipelineWhisperASRSegmentInferencer(
