@@ -1,23 +1,20 @@
 import os
 from dataclasses import dataclass, field, asdict
-from typing import Any, Optional
+from typing import Any
 
 from beartype import beartype
 
 import whisper as whisper_module
-from misc_utils.beartypes import NumpyFloat1DArray, NeList, NumpyFloat1D
+from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat1D
 from misc_utils.dataclass_utils import UNDEFINED, FillUndefined
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from ml4audio.asr_inference.inference import (
     StartEndTextsNonOverlap,
 )
 from ml4audio.asr_inference.whisper_inference import (
-    fix_start_end,
     WhisperArgs,
     WhisperInferencer,
-)
-from ml4audio.audio_utils.audio_segmentation_utils import (
-    fix_segments_to_non_overlapping,
+    fix_whisper_segments,
 )
 from whisper import Whisper
 
@@ -76,19 +73,6 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
         del self._model
 
     @beartype
-    def parse_whisper_segments(
-        self, whisper_segments: NeList[dict], audio_dur: float
-    ) -> StartEndTextsNonOverlap:
-
-        start_end = [fix_start_end(seg, audio_dur) for seg in whisper_segments]
-        start_end = fix_segments_to_non_overlapping(start_end)
-        return [
-            (start, end, seg["text"])
-            for seg, (start, end) in zip(whisper_segments, start_end)
-        ]
-
-
-    @beartype
     def predict_transcribed_with_whisper_args(
         self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
     ) -> StartEndTextsNonOverlap:
@@ -99,7 +83,10 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
         # resp["text"].strip(" ") # somehow this sometimes repeats the transcribt twice
         whisper_segments = resp["segments"]
         if len(whisper_segments) > 0:
-            start_end_text = self.parse_whisper_segments(whisper_segments, audio_dur)
+            start_end_text = fix_whisper_segments(
+                [(seg["start"], seg["end"], seg["text"]) for seg in whisper_segments],
+                audio_dur,
+            )
         else:
             start_end_text = []
         return start_end_text

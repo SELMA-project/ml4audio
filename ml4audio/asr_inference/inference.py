@@ -28,17 +28,6 @@ class SetupTearDown:
         raise NotImplementedError
 
 
-@dataclass
-class ASRAudioArrayInferencer(SetupTearDown):
-    @property
-    def sample_rate(self) -> int:
-        return 16000
-
-    @abstractmethod
-    def transcribe_audio_array(self, audio_array: NumpyFloat1D) -> str:
-        raise NotImplementedError
-
-
 StartEndTextsNonOverlap = Annotated[
     list[StartEndText],
     Is[is_non_overlapping],

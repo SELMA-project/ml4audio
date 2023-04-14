@@ -4,17 +4,17 @@ from typing import Annotated, Optional, Union
 from beartype import beartype
 from beartype.vale import Is
 
-from misc_utils.beartypes import NumpyFloat1D
+from misc_utils.beartypes import NumpyFloat1D, NeList
 from misc_utils.buildable_data import BuildableData
 from ml4audio.asr_inference.inference import ASRAudioSegmentInferencer, \
     StartEndTextsNonOverlap
-from ml4audio.audio_utils.audio_segmentation_utils import StartEnd
+from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, \
+    fix_segments_to_non_overlapping
 
 
 @beartype
-def fix_start_end(seg: dict, audio_dur: float) -> StartEnd:
-    start = seg["start"]
-    end = seg["end"]
+def fix_start_end(start_end: tuple[float,float], audio_dur: float) -> StartEnd:
+    start,end = start_end
     if start < 0:
         print(f"WTF! whisper gave {start=}")
         start = 0.0
@@ -30,6 +30,18 @@ def fix_start_end(seg: dict, audio_dur: float) -> StartEnd:
         end = min(audio_dur, start + 0.04)
 
     return (start, end)
+
+@beartype
+def fix_whisper_segments(
+    whisper_segments: NeList[tuple[float,float,str]], audio_dur: float
+) -> StartEndTextsNonOverlap:
+
+    start_end = [fix_start_end((s,e), audio_dur) for s,e,_text in whisper_segments]
+    start_end = fix_segments_to_non_overlapping(start_end)
+    return [
+        (start, end, text)
+        for (_,_,text), (start, end) in zip(whisper_segments, start_end)
+    ]
 
 
 @dataclass

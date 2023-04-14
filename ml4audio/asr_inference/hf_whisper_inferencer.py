@@ -24,6 +24,7 @@ from ml4audio.asr_inference.whisper_inference import (
     fix_start_end,
     WhisperArgs,
     WhisperInferencer,
+    fix_whisper_segments,
 )
 from ml4audio.audio_utils.audio_io import ffmpeg_load_trim
 from ml4audio.audio_utils.audio_segmentation_utils import (
@@ -118,13 +119,19 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
         # pipe.model.config.output_scores = True
         # pipe.model.config.num_return_sequences = 5
 
-        # audio_dur = float(len(audio_array) / self.sample_rate)
+        audio_dur = float(len(audio_array) / self.sample_rate)
         output = self.hf_pipeline(audio_array, return_timestamps=True)
-        return [
+        s_e_t = [
             (start, end, o["text"])
             for o in output["chunks"]
             for start, end in [o["timestamp"]]
         ]
+        start_end_text = fix_whisper_segments(
+            s_e_t,
+            audio_dur,
+        )
+
+        return start_end_text
 
 
 @dataclass
