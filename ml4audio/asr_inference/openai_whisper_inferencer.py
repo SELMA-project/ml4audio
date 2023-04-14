@@ -6,11 +6,9 @@ from beartype import beartype
 
 import whisper as whisper_module
 from misc_utils.beartypes import NumpyFloat1DArray, NeList, NumpyFloat1D
-from misc_utils.buildable_data import BuildableData
 from misc_utils.dataclass_utils import UNDEFINED, FillUndefined
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from ml4audio.asr_inference.inference import (
-    ASRAudioSegmentInferencer,
     StartEndTextsNonOverlap,
 )
 from ml4audio.asr_inference.whisper_inference import (
@@ -30,7 +28,7 @@ class WhisperPredictArgs(WhisperArgs, FillUndefined):
 
 
 @dataclass
-class OpenAIWhisperASRSegmentInferencer(BuildableData, WhisperInferencer):
+class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     """
     https://github.com/saharmor/whisper-playground
     """

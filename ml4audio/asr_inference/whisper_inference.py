@@ -5,6 +5,7 @@ from beartype import beartype
 from beartype.vale import Is
 
 from misc_utils.beartypes import NumpyFloat1D
+from misc_utils.buildable_data import BuildableData
 from ml4audio.asr_inference.inference import ASRAudioSegmentInferencer, \
     StartEndTextsNonOverlap
 from ml4audio.audio_utils.audio_segmentation_utils import StartEnd
@@ -50,7 +51,7 @@ class WhisperArgs:
 WHISPER_TASKS = {"transcribe", "translate"}
 
 @dataclass
-class WhisperInferencer(ASRAudioSegmentInferencer):
+class WhisperInferencer(BuildableData,ASRAudioSegmentInferencer):
     whisper_args: Optional[WhisperArgs] = None
 
     @beartype

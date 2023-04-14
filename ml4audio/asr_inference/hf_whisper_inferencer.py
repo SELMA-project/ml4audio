@@ -1,4 +1,6 @@
+import os.path
 from dataclasses import dataclass, field
+from typing import Any
 
 from beartype import beartype
 from transformers import (
@@ -11,7 +13,9 @@ from transformers import (
 )
 
 from misc_utils.beartypes import NeList, NumpyFloat1D
+from misc_utils.buildable_data import SlugStr
 from misc_utils.dataclass_utils import UNDEFINED
+from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from ml4audio.asr_inference.inference import (
     ASRAudioSegmentInferencer,
     StartEndTextsNonOverlap,
@@ -35,6 +39,34 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
     num_beams: int = 5
     hf_pipeline: AutomaticSpeechRecognitionPipeline = field(init=False, repr=False)
 
+    base_dir: PrefixSuffix = field(
+        default_factory=lambda: PrefixSuffix("cache_root", "MODELS/WHISPER_MODELS")
+    )
+
+    @property
+    def name(self) -> SlugStr:
+        return f"hf-pipeline-{self.model_name}"
+
+    @property
+    def _is_data_valid(self) -> bool:
+        """
+        if paranoid one could check that all files exist
+
+        added_tokens.json  generation_config.json  normalizer.json           pytorch_model.bin        tokenizer_config.json  vocab.json
+        config.json        merges.txt              preprocessor_config.json  special_tokens_map.json  tokenizer.json
+
+        """
+        return os.path.isfile(f"{self.data_dir}/pytorch_model.bin")
+
+    def _build_data(self) -> Any:
+        whisper_pipeline = pipeline(
+            "automatic-speech-recognition",
+            model=self.model_name,
+            chunk_length_s=self.chunk_length_s
+            # , device=args.device
+        )
+        whisper_pipeline.save_pretrained(self.data_dir)
+
     @beartype
     def parse_whisper_segments(
         self, whisper_segments: NeList[dict], audio_dur: float
@@ -56,7 +88,7 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
         """
         whisper_pipeline = pipeline(
             "automatic-speech-recognition",
-            model=self.model_name,
+            model=self.data_dir,
             chunk_length_s=self.chunk_length_s
             # , device=args.device
         )
@@ -70,7 +102,7 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
     ) -> StartEndTextsNonOverlap:
         hfp = self.hf_pipeline
         whisper_prompt_ids = hfp.tokenizer.get_decoder_prompt_ids(
-            language=self.whisper_args.language, task=self.whisper_args.task
+            language=whisper_args.language, task=whisper_args.task
         )
         hfp.model.config.forced_decoder_ids = whisper_prompt_ids
         # print(f"{whisper_pipeline.model.config.max_length=}")
@@ -155,6 +187,7 @@ class HfWhisperASRSegmentInferencer(ASRAudioSegmentInferencer):
 
 
 if __name__ == "__main__":
+    BASE_PATHES["cache_root"] = "/tmp/cache_root"
     """
     https://discuss.huggingface.co/t/support-for-asr-inference-on-longer-audiofiles-or-on-live-transcription/30464
 
@@ -163,10 +196,12 @@ if __name__ == "__main__":
     array = ffmpeg_load_trim(file, sr=16000)
 
     asr = HfPipelineWhisperASRSegmentInferencer(
-        model_name="openai/whisper-base",
+        model_name="openai/whisper-tiny",
         # model_name="bofenghuang/whisper-large-v2-cv11-german",
-        whisper_args=WhisperArgs(task="transcribe", language="de"),
     )
+    asr.build()
     with asr:
-        out = asr.predict_transcribed_segments(array)
+        out = asr.predict_transcribed_with_whisper_args(
+            array, WhisperArgs(task="transcribe", language="en")
+        )
         print(f"{out=}")
