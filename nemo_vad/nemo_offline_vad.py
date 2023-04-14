@@ -46,7 +46,7 @@ device = "cpu"  # TODO!
 import logging
 
 logging.getLogger("nemo_logger").setLevel(logging.CRITICAL)
-logging.disable(logging.CRITICAL)
+# logging.disable(logging.CRITICAL) # this disabled ALL logging!
 
 
 @beartype
