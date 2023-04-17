@@ -16,6 +16,7 @@ from misc_utils.beartypes import NeList, NumpyFloat1D
 from misc_utils.buildable_data import SlugStr
 from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
+from misc_utils.utils import slugify_with_underscores
 from ml4audio.asr_inference.inference import (
     ASRAudioSegmentInferencer,
     StartEndTextsNonOverlap,
@@ -46,7 +47,7 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
 
     @property
     def name(self) -> SlugStr:
-        return f"hf-pipeline-{self.model_name}"
+        return slugify_with_underscores(f"hf-pipeline-{self.model_name}")
 
     @property
     def _is_data_valid(self) -> bool:
@@ -135,29 +136,50 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
 
 
 @dataclass
-class HfWhisperASRSegmentInferencer(ASRAudioSegmentInferencer):
+class HfWhisperASRSegmentInferencer(WhisperInferencer):
 
-    model_name: str
-    whisper_args: WhisperArgs = UNDEFINED
+    model_name: str = "openai/whisper-base"
 
     model: WhisperForConditionalGeneration = field(init=False, repr=False)
     processor: WhisperProcessor = field(init=False, repr=False)
+
+    base_dir: PrefixSuffix = field(
+        default_factory=lambda: PrefixSuffix("cache_root", "MODELS/WHISPER_MODELS")
+    )
+
+    @property
+    @beartype
+    def name(self) -> SlugStr:
+        return slugify_with_underscores(f"hf-{self.model_name}")
+
+    @property
+    def _is_data_valid(self) -> bool:
+        return os.path.isfile(f"{self.data_dir}/pytorch_model.bin")
+
+    def _build_data(self) -> Any:
+        model = WhisperForConditionalGeneration.from_pretrained(
+            self.model_name
+        )  # .to(device)
+        model.save_pretrained(self.data_dir)
+
+        processor = WhisperProcessor.from_pretrained(
+            self.model_name,
+            # language="en",
+            # task="translate",
+        )
+        processor.save_pretrained(self.data_dir)
 
     def __enter__(self):
         self._load_and_prepare()
 
     def _load_and_prepare(self):
-        self.model = AutoModelForSpeechSeq2Seq.from_pretrained(
-            self.model_name
+        self.model = WhisperForConditionalGeneration.from_pretrained(
+            self.data_dir
         )  # .to(device)
-        self.processor = AutoProcessor.from_pretrained(
-            self.model_name,
-            language=self.whisper_args.language,
-            task=self.whisper_args.task,
-        )
-        # NB: set forced_decoder_ids for generation utils -> das is auch scheisse!
-        self.model.config.forced_decoder_ids = self.processor.get_decoder_prompt_ids(
-            language=self.whisper_args.language, task=self.whisper_args.task
+        self.processor: WhisperProcessor = WhisperProcessor.from_pretrained(
+            self.data_dir,
+            # language=self.whisper_args.language,
+            # task=self.whisper_args.task,
         )
 
     def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
@@ -165,9 +187,14 @@ class HfWhisperASRSegmentInferencer(ASRAudioSegmentInferencer):
         del self.processor
 
     @beartype
-    def predict_transcribed_segments(
-        self, audio_array: NumpyFloat1D
+    def predict_transcribed_with_whisper_args(
+        self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
     ) -> StartEndTextsNonOverlap:
+        # NB: set forced_decoder_ids for generation utils -> das is auch scheisse!
+        self.model.config.forced_decoder_ids = self.processor.get_decoder_prompt_ids(
+            language=whisper_args.language, task=whisper_args.task
+        )
+
         model_sample_rate = self.processor.feature_extractor.sampling_rate
 
         inputs = self.processor(
@@ -202,7 +229,7 @@ if __name__ == "__main__":
     file = "tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.opus"
     array = ffmpeg_load_trim(file, sr=16000)
 
-    asr = HfPipelineWhisperASRSegmentInferencer(
+    asr = HfWhisperASRSegmentInferencer(
         model_name="openai/whisper-tiny",
         # model_name="bofenghuang/whisper-large-v2-cv11-german",
     )
