@@ -51,6 +51,8 @@ from ml4audio.audio_utils.audio_segmentation_utils import (
     merge_segments_of_same_label,
     fix_segments_to_non_overlapping,
     StartEndLabelNonOverlap,
+    StartEndArray,
+    StartEndArrays,
 )
 from ml4audio.speaker_tasks.speaker_embedding_utils import (
     SubSegment,
@@ -60,9 +62,6 @@ from ml4audio.speaker_tasks.speaker_embedding_utils import (
 
 seed_everything(42)
 StartEndLabel = tuple[float, float, str]  # TODO: why not using TimeSpan here?
-StartEndArrays = NeList[
-    tuple[StartEnd, NumpyFloat1D]
-]  # TODO: why not StartEndArraysNonOverlap ?
 
 LabeledArrays = NeList[tuple[NumpyFloat1D, str]]
 
@@ -79,7 +78,7 @@ def start_end_arrays_for_calibration(
         offset = audio_end + some_gap
         for a, l in labeled_arrays:
             dur = len(a) / SR
-            yield ((offset, offset + dur), a)
+            yield (offset, offset + dur, a)
             offset += dur + some_gap
 
     out = list(_g())
@@ -155,14 +154,14 @@ class UmascanSpeakerClusterer(Buildable):
     @beartype
     def predict(
         self,
-        se_audio: list[tuple[StartEnd, NumpyFloat1D]],
+        s_e_audio: list[StartEndArray],
         ref_labels: Optional[
             NeList[str]
         ] = None,  # TODO: remove this, was only necessary for debugging?
     ) -> tuple[list[StartEndLabel], Optional[list[str]]]:
 
         self.cluster_sels, ref_sels_projected_to_cluster_sels = self._calc_raw_labels(
-            se_audio, ref_labels
+            s_e_audio, ref_labels
         )
         assert len(self.cluster_sels) == self._embeds.shape[0], (
             len(self.cluster_sels),
@@ -178,17 +177,17 @@ class UmascanSpeakerClusterer(Buildable):
             [(s, e, l) for (s, e), (_, _, l) in zip(s_e_fixed, self.cluster_sels)],
             min_gap_dur=self.same_speaker_min_gap_dur,
         )
-        s_e_labels = self._remove_calibration_datas_prediction(se_audio, s_e_labels)
+        s_e_labels = self._remove_calibration_datas_prediction(s_e_audio, s_e_labels)
 
         return s_e_labels, ref_sels_projected_to_cluster_sels
 
     @beartype
     def _remove_calibration_datas_prediction(
         self,
-        s_e_audio: list[tuple[StartEnd, NumpyFloat1D]],
+        s_e_audio: StartEndArrays,
         s_e_labels: StartEndLabelNonOverlap,
-    ):
-        (_start, audio_end), _array = s_e_audio[-1]
+    ) -> StartEndLabelNonOverlap:
+        _start, audio_end, _array = s_e_audio[-1]
         real_idx = [k for k, (s, e, l) in enumerate(s_e_labels) if s <= audio_end]
         s_e_labels = [s_e_labels[idx] for idx in real_idx]
         return s_e_labels
@@ -207,13 +206,13 @@ class UmascanSpeakerClusterer(Buildable):
         #     ref_labels = ["dummy" for _ in range(len(s_e_audio))]
 
         assert self._calib_labeled_arrays is not None
-        _, audio_end = s_e_audio[-1][0]
+        _, audio_end, _ = s_e_audio[-1]
         calib_sea = start_end_arrays_for_calibration(
             labeled_arrays=self._calib_labeled_arrays, audio_end=audio_end
         )
         self._calib_sels = [
             (s, e, l)
-            for ((s, e), a), (_, l) in zip(calib_sea, self._calib_labeled_arrays)
+            for (s, e, a), (_, l) in zip(calib_sea, self._calib_labeled_arrays)
         ]
         calib_labels = [l for _, l in self._calib_labeled_arrays]
 
@@ -257,6 +256,7 @@ class UmascanSpeakerClusterer(Buildable):
 
         return s_e_mapped_labels, mapped_ref_labels
 
+    @beartype
     def _embedd_and_cluster_with_calibration_data(
         self,
         s_e_audio: StartEndArrays,
@@ -300,13 +300,13 @@ class UmascanSpeakerClusterer(Buildable):
     @beartype
     def _extract_embeddings(
         self,
-        s_e_audio: NeList[tuple[StartEnd, NeNumpyFloat1DArray]],
+        s_e_audio: StartEndArrays,
         ref_labels: NeList[str],
     ) -> tuple[NumpyFloat2D, NeList[StartEnd], NeList[str]]:
         SR = 16_000
-        labeled_segments = [(s, e, l) for ((s, e), a), l in zip(s_e_audio, ref_labels)]
+        labeled_segments = [(s, e, l) for (s, e, a), l in zip(s_e_audio, ref_labels)]
         sub_segs: list[SubSegment] = calc_subsegments_for_clustering(
-            chunks=[a for _, a in s_e_audio],
+            chunks=[a for _, _, a in s_e_audio],
             labeled_segments=labeled_segments,
             sample_rate=SR,
             shift=self.step_dur,

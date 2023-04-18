@@ -17,7 +17,7 @@ class UmaspecluDiarizer(SpeakerDiarizationInferencer):
     @beartype
     def predict(self, s_e_a: StartEndArraysNonOverlap) -> StartEndLabelNonOverlap:
         s_e_labels, _ = self.clusterer.predict(
-            se_audio=[((s, e), a) for s, e, a in s_e_a]
+            s_e_audio=[(s, e, a) for s, e, a in s_e_a]
         )
         return s_e_labels
 
@@ -47,6 +47,6 @@ class VadUmaspecluDiarizer(UmaspecluDiarizer):
         ]
         self.vad_segments = [(s, e) for ses, a in vad_se_a for s, e in ses]
         s_e_labels, _ = self.clusterer.predict(
-            se_audio=[((s, e), a) for s, e, a in vad_sea]
+            s_e_audio=[(s, e, a) for s, e, a in vad_sea]
         )
         return s_e_labels
