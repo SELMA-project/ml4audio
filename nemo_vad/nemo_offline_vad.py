@@ -70,7 +70,7 @@ def create_manifest(
         fp.write("\n")
 
 
-VoiceSegments = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
+VoiceSegments = Annotated[list[StartEnd], Is[is_non_overlapping]]
 
 StartEndsVADProbas = tuple[VoiceSegments, list[float]]
 
@@ -335,9 +335,10 @@ class NemoOfflineVAD(BuildableData):
             segments, probas = nemo_offline_vad_infer(
                 self.dictcfg, self._vad_model, tmpfile.name, tmpdir
             )
-        segments = expand_merge_segments(
-            segments, min_gap_dur=self.min_gap_dur, expand_by=self.expand_by
-        )
+        if len(segments) > 0:
+            segments = expand_merge_segments(
+                segments, min_gap_dur=self.min_gap_dur, expand_by=self.expand_by
+            )
         return segments, probas
 
 
