@@ -14,6 +14,7 @@ from misc_utils.beartypes import (
     NumpyFloat1D,
     File,
 )
+from misc_utils.buildable_data import BuildableData
 from ml4audio.audio_utils.audio_segmentation_utils import (
     StartEnd,
     StartEndLabels,
@@ -163,7 +164,7 @@ def calc_subsegments_for_clustering(
 
 
 @dataclass
-class SignalEmbedder:
+class SignalEmbedder(BuildableData):
     @abstractmethod
     def predict(self, arrays: NeList[NumpyFloat1D]) -> NeList[NumpyFloat1D]:
         raise NotImplementedError

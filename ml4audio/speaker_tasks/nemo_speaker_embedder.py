@@ -1,3 +1,4 @@
+import os.path
 from dataclasses import field, dataclass
 from typing import Any
 
@@ -10,13 +11,15 @@ from misc_utils.beartypes import (
     NumpyFloat1D,
 )
 from misc_utils.buildable import Buildable
+from misc_utils.buildable_data import BuildableData, SlugStr
+from misc_utils.dataclass_utils import UNDEFINED
+from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from misc_utils.processing_utils import iterable_to_batches
 from ml4audio.audio_utils.nemo_utils import load_EncDecSpeakerLabelModel
 from ml4audio.speaker_tasks.speaker_embedding_utils import SignalEmbedder
 from nemo.collections.asr.models import EncDecSpeakerLabelModel
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 
 @beartype
@@ -59,14 +62,47 @@ def embed_audio_chunks_with_nemo(
 
     return all_embs
 
+
 @dataclass
-class NemoAudioEmbedder(SignalEmbedder, Buildable):
-    model_name: str
+class NemoAudioEmbedder(SignalEmbedder):
+    model_name: str = UNDEFINED
     _speaker_model: EncDecSpeakerLabelModel = field(init=False, repr=False)
 
-    def _build_self(self) -> Any:
-        self._speaker_model = load_EncDecSpeakerLabelModel(self.model_name)
+    base_dir: PrefixSuffix = field(
+        default_factory=lambda: PrefixSuffix("cache_root", "MODELS/NEMO_MODELS")
+    )
+
+    @property
+    def name(self) -> SlugStr:
+        return f"{self.model_name}"
+
+    @property
+    def _is_data_valid(self) -> bool:
+        return os.path.isfile(self.model_file)
+
+    @property
+    def model_file(self):
+        return f"{self.data_dir}/model.nemo"
+
+    def _build_data(self) -> Any:
+        model = load_EncDecSpeakerLabelModel(self.model_name)
+        model.save_to(self.model_file)
+
+    def __enter__(self):
+        self._speaker_model = EncDecSpeakerLabelModel.restore_from(
+            restore_path=self.model_file
+        )
+
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
+        del self._speaker_model
 
     @beartype
     def predict(self, arrays: NeList[NumpyFloat1D]) -> NeList[NumpyFloat1D]:
         return embed_audio_chunks_with_nemo(self._speaker_model, arrays, batch_size=1)
+
+
+if __name__ == "__main__":
+    BASE_PATHES["cache_root"] = "/tmp/cache_root"
+    embedder = NemoAudioEmbedder(
+        model_name="titanet_large",
+    ).build()
