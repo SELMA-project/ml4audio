@@ -36,16 +36,22 @@ class VadUmaspecluDiarizer(SpeakerDiarizationInferencer, SetupTearDown):
     nemo_vad: NemoOfflineVAD
     clusterer: UmascanSpeakerClusterer
 
+    @property
+    def _is_ready(self) -> bool:
+        return self.nemo_vad._is_ready and self.clusterer._is_ready
+
     def __enter__(self):
         self.nemo_vad.__enter__()
-        self.clusterer.embedder.__enter__()
+        self.clusterer.__enter__()
 
     def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
         self.nemo_vad.__exit__()
-        self.clusterer.embedder.__exit__()
+        self.clusterer.__exit__()
 
     @beartype
-    def predict(self, s_e_a: StartEndArraysNonOverlap) -> StartEndLabelNonOverlap:
+    def predict(
+        self, start_end_arrays: StartEndArraysNonOverlap
+    ) -> StartEndLabelNonOverlap:
         SR = self.nemo_vad.sample_rate
         vad_se_a = [
             (
@@ -55,7 +61,7 @@ class VadUmaspecluDiarizer(SpeakerDiarizationInferencer, SetupTearDown):
                 ],
                 a,
             )
-            for s, e, a in s_e_a
+            for s, e, a in start_end_arrays
         ]
 
         vad_sea = [

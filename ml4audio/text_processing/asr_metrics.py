@@ -1,6 +1,7 @@
 from typing import Tuple
 
 import Levenshtein
+import jiwer as jiwer
 from beartype import beartype
 
 from misc_utils.beartypes import NeList
@@ -56,18 +57,38 @@ def micro_average(errors_lens: NeList[tuple[int, int]]) -> float:
 
 
 @beartype
-def calc_wer(hyps_targets: NeList[Tuple[str, str]]):
+def micro_avg_wer(hyps_targets: NeList[Tuple[str, str]]):
     errors_lens = [calc_num_word_errors(hyp, ref) for hyp, ref in hyps_targets]
     return micro_average(errors_lens)
 
 
 @beartype
-def calc_cer(hyps_targets: NeList[Tuple[str, str]]):
+def micro_avg_cer(hyps_targets: NeList[Tuple[str, str]]):
     errors_lens = [calc_num_char_erros(hyp, ref) for hyp, ref in hyps_targets]
     return micro_average(errors_lens)
 
 
+calc_cer = micro_avg_cer  # old deprecated name
+calc_wer = micro_avg_wer  # old deprecated name
+
+
 @beartype
-def calc_asr_scores(id_hyp_target: NeList[tuple[str, str, str]]) -> dict[str, float]:
+def micro_avg_asr_scores(
+    id_hyp_target: NeList[tuple[str, str, str]]
+) -> dict[str, float]:
     hyp_targets = [(h, t) for _, h, t in id_hyp_target]
-    return {"wer": calc_wer(hyp_targets), "cer": calc_cer(hyp_targets)}
+    # editops=[Levenshtein.editops(h, t) for h,t in hyp_targets]
+    hyps, targets = [list(x) for x in zip(*hyp_targets)]
+    num_chars = sum(len(t) for t in targets)
+    cho = jiwer.process_characters(hyps, targets)
+    return {
+        "wer": micro_avg_wer(hyp_targets),
+        "cer": micro_avg_cer(hyp_targets),
+        "ins": cho.insertions / num_chars,
+        "del": cho.deletions / num_chars,
+        "sub": cho.substitutions / num_chars,
+        "hit": cho.hits / num_chars,
+    }
+
+
+calc_asr_scores = micro_avg_asr_scores  # old deprecated name

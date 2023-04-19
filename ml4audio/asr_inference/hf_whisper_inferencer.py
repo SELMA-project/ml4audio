@@ -116,23 +116,26 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
         # beam search
         hfp.model.config.num_beams = self.num_beams
         # return
-        hfp.model.config.return_dict_in_generate = True  # TODO: why?
+        # hfp.model.config.return_dict_in_generate = True  # TODO: why?
         # pipe.model.config.output_scores = True
         # pipe.model.config.num_return_sequences = 5
 
         audio_dur = float(len(audio_array) / self.sample_rate)
-        output = self.hf_pipeline(audio_array, return_timestamps=True)
-        s_e_t = [
-            (start, end, o["text"])
-            for o in output["chunks"]
-            for start, end in [o["timestamp"]]
-        ]
-        start_end_text = fix_whisper_segments(
-            s_e_t,
-            audio_dur,
+        output = self.hf_pipeline(
+            audio_array,
+            # return_timestamps=True # TODO(tilo): hugginface threw a RuntimeError!
         )
+        # s_e_t = [
+        #     (start, end, o["text"])
+        #     for o in output["chunks"]
+        #     for start, end in [o["timestamp"]]
+        # ]
+        # start_end_text = fix_whisper_segments(
+        #     s_e_t,
+        #     audio_dur,
+        # )
 
-        return start_end_text
+        return [(0.0, audio_dur, output["text"])]
 
 
 @dataclass
@@ -226,16 +229,19 @@ if __name__ == "__main__":
     https://discuss.huggingface.co/t/support-for-asr-inference-on-longer-audiofiles-or-on-live-transcription/30464
 
     """
-    file = "tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.opus"
+    # file = "tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.opus"
+    file = "tests/resources/02dev-einzel-m-hall-gut_wav_00205300_00217000.wav"
     array = ffmpeg_load_trim(file, sr=16000)
+    whisper_args = WhisperArgs(task="transcribe", language="en")
 
-    asr = HfWhisperASRSegmentInferencer(
-        model_name="openai/whisper-tiny",
-        # model_name="bofenghuang/whisper-large-v2-cv11-german",
+    asr = HfPipelineWhisperASRSegmentInferencer(
+        whisper_args=whisper_args,
+        model_name="openai/whisper-medium",
+        chunk_length_s=30.0,
+        num_beams=5,
     )
+
     asr.build()
     with asr:
-        out = asr.predict_transcribed_with_whisper_args(
-            array, WhisperArgs(task="transcribe", language="en")
-        )
+        out = asr.predict_transcribed_with_whisper_args(array, WhisperArgs(task="transcribe", language="de"))
         print(f"{out=}")

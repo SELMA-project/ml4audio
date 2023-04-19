@@ -1,7 +1,7 @@
 import os
 import shutil
 from dataclasses import dataclass
-from typing import Union, Optional
+from typing import Union
 
 from beartype import beartype
 from transformers import set_seed
@@ -9,15 +9,12 @@ from transformers import set_seed
 from misc_utils.beartypes import TorchTensor2D
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
-from ml4audio.asr_inference.inference import ASRAudioArrayInferencer
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     ResamplingASRLogitsInferencer,
     NumpyFloatORInt16_1DArray,
 )
-from ml4audio.asr_inference.transcript_glueing import NonEmptyAlignedTranscript
 from ml4audio.audio_utils.aligned_transcript import (
     LetterIdx,
-    NeAlignedTranscript,
     AlignedTranscript,
 )
 from ml4audio.text_processing.ctc_decoding import BaseCTCDecoder, LogitAlignedTranscript

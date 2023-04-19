@@ -1,5 +1,7 @@
-from dataclasses import dataclass, field
-from typing import Any, Optional, ClassVar, Iterator
+import os.path
+import shutil
+from dataclasses import dataclass, field, InitVar
+from typing import Any, Optional, ClassVar, Iterator, Annotated, Union
 
 # https://github.com/scikit-learn-contrib/hdbscan/issues/457#issuecomment-1006344406
 # strange error: numpy.core._exceptions._UFuncNoLoopError: ufunc 'correct_alternative_cosine' did not contain a loop with signature matching types  <class 'numpy.dtype[float32]'> -> None
@@ -7,7 +9,12 @@ from typing import Any, Optional, ClassVar, Iterator
 import numba
 import numpy as np
 import pynndescent
+from beartype.door import die_if_unbearable
+from beartype.vale import Is
 
+from misc_utils.buildable_data import BuildableData, SlugStr
+from misc_utils.dataclass_utils import UNDEFINED
+from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.audio_utils.audio_data_models import Seconds
 from ml4audio.audio_utils.nemo_utils import load_EncDecSpeakerLabelModel
 from ml4audio.audio_utils.torchaudio_utils import load_resample_with_torch
@@ -112,7 +119,18 @@ def _load_calib_data(
 
 
 @dataclass
-class UmascanSpeakerClusterer(Buildable):
+class CalibrationDatum(Buildable):
+    file: File
+    init_start_end_labels: list
+    start_end_labels: StartEndLabels = field(repr=False, default=None)
+
+    def __post_init__(self):
+        self.start_end_labels = [tuple(x) for x in self.init_start_end_labels]
+        die_if_unbearable(self.start_end_labels, StartEndLabels)
+
+
+@dataclass
+class UmascanSpeakerClusterer(BuildableData):
     """
     UmascanSpeakerClusterer ->Umap+HDBSCAN NeMo Embeddings Speaker Clusterer
     nick-name: umaspeclu
@@ -125,12 +143,12 @@ class UmascanSpeakerClusterer(Buildable):
 
     """
 
-    embedder: SignalEmbedder
+    embedder: SignalEmbedder = UNDEFINED
     window: Seconds = 1.5
     step_dur: Seconds = 0.75
     metric: str = "euclidean"  # cosine
     same_speaker_min_gap_dur: Seconds = 0.1  # TODO: maybe this is not the clusterers responsibility, but some diarizers?
-    calibration_speaker_data: Optional[list[tuple[str, StartEndLabels]]] = None
+    calibration_speaker_data: list[CalibrationDatum] = None
     _calib_labeled_arrays: Optional[LabeledArrays] = field(
         init=False, repr=False, default=None
     )
@@ -145,11 +163,46 @@ class UmascanSpeakerClusterer(Buildable):
         init=False, repr=False
     )  # segments which are used for clustering, labeled given by clustering-algorithm, one could want to investigate those after running predict
 
-    def _build_self(self) -> Any:
+    base_dir: PrefixSuffix = field(
+        default_factory=lambda: PrefixSuffix("cache_root", "MODELS")
+    )
+
+    @property
+    def name(self) -> SlugStr:
+        return f"umaspeclu-{self.embedder.name}"
+
+    @property
+    def _is_data_valid(self) -> bool:
+        calib_data_is_fine = all(
+            [
+                os.path.isfile(self._get_calib_file(cd.file))
+                for cd in self.calibration_speaker_data
+            ]
+        )
+        print(f"{self.embedder._is_ready=},{calib_data_is_fine=}")
+        return self.embedder._is_ready and calib_data_is_fine
+
+    def _get_calib_file(self, file: str) -> str:
+        return f"{self.data_dir}/{file.split('/')[-1]}"
+
+    def _build_data(self) -> Any:
+        for cd in self.calibration_speaker_data:
+            shutil.copyfile(cd.file, self._get_calib_file(cd.file))
+
+    def __enter__(self):
         # if self.calibration_speaker_data is not None:
         self._calib_labeled_arrays = _load_calib_data(
-            self.calibration_speaker_data, self.CALIB_LABEL_PREFIX
+            [
+                (self._get_calib_file(cd.file), cd.start_end_labels)
+                for cd in self.calibration_speaker_data
+            ],
+            self.CALIB_LABEL_PREFIX,
         )
+        self.embedder.__enter__()
+
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
+        self.embedder.__exit__()
+        del self._calib_labeled_arrays
 
     @beartype
     def predict(

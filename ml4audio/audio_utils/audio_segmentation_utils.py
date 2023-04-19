@@ -123,7 +123,7 @@ def groups_to_merge_segments_of_same_label(
 @beartype
 def merge_segments_of_same_label(
     start_end_label: StartEndLabelsNonOverlap, min_gap_dur: float
-) -> StartEndLabelNonOverlap:
+) -> StartEndLabelsNonOverlap:
     """
     should do same as: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py
     but "cleaner"!

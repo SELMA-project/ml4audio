@@ -98,7 +98,7 @@ def aschinglupi_infer_messages(
         transcript_gluer=TranscriptGluer(),
         audio_bufferer=OverlapArrayChunker(
             chunk_size=int(window_dur * SR),
-            minimum_chunk_size=int(1 * SR),  # one second!
+            # minimum_chunk_size=int(1 * SR),  # one second!
             min_step_size=int(step_dur * SR),
         ),
     ).build()
