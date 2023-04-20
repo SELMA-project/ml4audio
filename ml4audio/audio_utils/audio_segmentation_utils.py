@@ -1,7 +1,6 @@
 import os
-from collections import namedtuple
 from dataclasses import dataclass
-from typing import Annotated, Iterable, Union
+from typing import Annotated, Iterable
 
 import soundfile
 from beartype import beartype
@@ -253,9 +252,13 @@ def merge_short_segments(segments: NonOverlSegs, min_dur: float = 1.5) -> NonOve
 
     min_dur_segs: list = list(buffer_segment(segments))
     last_start, last_end = min_dur_segs[-1]
-    if last_end - last_start < min_dur and len(min_dur_segs) > 1:
+    do_merge_the_last_with_the_previous = (
+        last_end - last_start < min_dur and len(min_dur_segs) > 1
+    )
+    if do_merge_the_last_with_the_previous:
         _, last_end = min_dur_segs.pop(-1)
-        min_dur_segs[-1] = (min_dur_segs[-1][0], last_end)
+        previous_start = min_dur_segs[-1][0]
+        min_dur_segs[-1] = (previous_start, last_end)
 
     return min_dur_segs
 
