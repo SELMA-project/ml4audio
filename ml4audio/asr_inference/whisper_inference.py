@@ -6,23 +6,28 @@ from beartype.vale import Is
 
 from misc_utils.beartypes import NumpyFloat1D, NeList
 from misc_utils.buildable_data import BuildableData
-from ml4audio.asr_inference.inference import ASRAudioSegmentInferencer, \
-    StartEndTextsNonOverlap
-from ml4audio.audio_utils.audio_segmentation_utils import StartEnd, \
-    fix_segments_to_non_overlapping
+from ml4audio.asr_inference.inference import (
+    ASRAudioSegmentInferencer,
+    StartEndTextsNonOverlap,
+)
+from ml4audio.audio_utils.audio_segmentation_utils import (
+    StartEnd,
+    fix_segments_to_non_overlapping,
+)
 
 
 @beartype
-def fix_start_end(start_end: tuple[float,float], audio_dur: float) -> StartEnd:
-    start,end = start_end
+def fix_start_end(start_end: tuple[float, float], audio_dur: float) -> StartEnd:
+    start, end = start_end
     if start < 0:
         print(f"WTF! whisper gave {start=}")
         start = 0.0
 
     if end > audio_dur:
-        fixed_end = min(audio_dur, end)
-        print(f"WTF! whisper gave {end=} that is after {audio_dur=} -> {fixed_end=}")
-        end = fixed_end
+        print(f"WTF! whisper gave {end=} that is after {audio_dur=} -> {audio_dur=}")
+        # if end-audio_dur>10.0:
+        #     raise AssertionError(f"thats too much! cannot fix it!")
+        end = audio_dur
 
     if end - start <= 0.08:
         print(f"WTF! whisper gave {(start,end)=}")
@@ -31,16 +36,17 @@ def fix_start_end(start_end: tuple[float,float], audio_dur: float) -> StartEnd:
 
     return (start, end)
 
+
 @beartype
 def fix_whisper_segments(
-    whisper_segments: NeList[tuple[float,float,str]], audio_dur: float
+    whisper_segments: NeList[tuple[float, float, str]], audio_dur: float
 ) -> StartEndTextsNonOverlap:
 
-    start_end = [fix_start_end((s,e), audio_dur) for s,e,_text in whisper_segments]
+    start_end = [fix_start_end((s, e), audio_dur) for s, e, _text in whisper_segments]
     start_end = fix_segments_to_non_overlapping(start_end)
     return [
         (start, end, text)
-        for (_,_,text), (start, end) in zip(whisper_segments, start_end)
+        for (_, _, text), (start, end) in zip(whisper_segments, start_end)
     ]
 
 
@@ -62,8 +68,9 @@ class WhisperArgs:
 
 WHISPER_TASKS = {"transcribe", "translate"}
 
+
 @dataclass
-class WhisperInferencer(BuildableData,ASRAudioSegmentInferencer):
+class WhisperInferencer(BuildableData, ASRAudioSegmentInferencer):
     whisper_args: Optional[WhisperArgs] = None
 
     @beartype
@@ -76,6 +83,6 @@ class WhisperInferencer(BuildableData,ASRAudioSegmentInferencer):
 
     @beartype
     def predict_transcribed_with_whisper_args(
-            self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
+        self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
     ) -> StartEndTextsNonOverlap:
         raise NotImplementedError

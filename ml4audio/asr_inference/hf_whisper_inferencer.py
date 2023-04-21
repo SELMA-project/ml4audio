@@ -69,17 +69,6 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
         )
         whisper_pipeline.save_pretrained(self.data_dir)
 
-    @beartype
-    def parse_whisper_segments(
-        self, whisper_segments: NeList[dict], audio_dur: float
-    ) -> StartEndTextsNonOverlap:
-
-        start_end = [fix_start_end(seg, audio_dur) for seg in whisper_segments]
-        start_end = fix_segments_to_non_overlapping(start_end)
-        return [
-            (start, end, seg["text"])
-            for seg, (start, end) in zip(whisper_segments, start_end)
-        ]
 
     def __enter__(self):
         self._load_and_prepare_hf_pipeline()
@@ -142,6 +131,7 @@ class HfPipelineWhisperASRSegmentInferencer(WhisperInferencer):
 class HfWhisperASRSegmentInferencer(WhisperInferencer):
 
     model_name: str = "openai/whisper-base"
+    num_beams: int = 5
 
     model: WhisperForConditionalGeneration = field(init=False, repr=False)
     processor: WhisperProcessor = field(init=False, repr=False)
@@ -153,7 +143,7 @@ class HfWhisperASRSegmentInferencer(WhisperInferencer):
     @property
     @beartype
     def name(self) -> SlugStr:
-        return slugify_with_underscores(f"hf-{self.model_name}")
+        return slugify_with_underscores(f"hf-{self.model_name}-beams{self.num_beams}")
 
     @property
     def _is_data_valid(self) -> bool:
@@ -208,19 +198,29 @@ class HfWhisperASRSegmentInferencer(WhisperInferencer):
 
         generated_ids = self.model.generate(
             inputs=input_features,
-            max_new_tokens=225,  # TODO(tilo): WTF? see: https://huggingface.co/bofenghuang/whisper-large-v2-cv11-german
+            # max_new_tokens=225,  # TODO(tilo): WTF? see: https://huggingface.co/bofenghuang/whisper-large-v2-cv11-german
             return_timestamps=True,
-        )  # greedy
-        # generated_ids = model.generate(inputs=input_features, max_new_tokens=225, num_beams=5)  # beam search
+            num_beams=self.num_beams,
+        )
 
         output = self.processor.batch_decode(
             generated_ids, skip_special_tokens=True, output_offsets=True
         )[0]
-        return [
+        s_e_t = [
             (start, end, o["text"])
             for o in output["offsets"]
             for start, end in [o["timestamp"]]
         ]
+        audio_dur = float(len(audio_array) / self.sample_rate)
+
+        if len(s_e_t) == 0:
+            start_end_text = [(0.0, audio_dur, "")]
+        else:
+            start_end_text = fix_whisper_segments(
+                s_e_t,
+                audio_dur,
+            )
+        return start_end_text
 
 
 if __name__ == "__main__":
@@ -243,5 +243,7 @@ if __name__ == "__main__":
 
     asr.build()
     with asr:
-        out = asr.predict_transcribed_with_whisper_args(array, WhisperArgs(task="transcribe", language="de"))
+        out = asr.predict_transcribed_with_whisper_args(
+            array, WhisperArgs(task="transcribe", language="de")
+        )
         print(f"{out=}")

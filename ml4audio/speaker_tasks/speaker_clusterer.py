@@ -147,7 +147,7 @@ class UmascanSpeakerClusterer(BuildableData):
     window: Seconds = 1.5
     step_dur: Seconds = 0.75
     metric: str = "euclidean"  # cosine
-    same_speaker_min_gap_dur: Seconds = 0.1  # TODO: maybe this is not the clusterers responsibility, but some diarizers?
+    same_speaker_min_gap_dur: Seconds = 0.0  # TODO: maybe this is not the clusterers responsibility, but some diarizers?
     calibration_speaker_data: list[CalibrationDatum] = None
     _calib_labeled_arrays: Optional[LabeledArrays] = field(
         init=False, repr=False, default=None
@@ -179,7 +179,6 @@ class UmascanSpeakerClusterer(BuildableData):
                 for cd in self.calibration_speaker_data
             ]
         )
-        print(f"{self.embedder._is_ready=},{calib_data_is_fine=}")
         return self.embedder._is_ready and calib_data_is_fine
 
     def _get_calib_file(self, file: str) -> str:
@@ -225,7 +224,7 @@ class UmascanSpeakerClusterer(BuildableData):
 
         s_e_fixed = fix_segments_to_non_overlapping(
             [(s, e) for s, e, _ in self.cluster_sels]
-        )  # TODO: use instead of get_contiguous_stamps
+        )
         s_e_labels = merge_segments_of_same_label(
             [(s, e, l) for (s, e), (_, _, l) in zip(s_e_fixed, self.cluster_sels)],
             min_gap_dur=self.same_speaker_min_gap_dur,

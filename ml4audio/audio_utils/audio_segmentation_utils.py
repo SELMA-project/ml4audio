@@ -93,27 +93,31 @@ def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
     return is_fine
 
 
+SOME_BIG_VALUE = 12.3
+
+
 @beartype
 def groups_to_merge_segments_of_same_label(
-    start_end_label: StartEndLabelsNonOverlap, min_gap_dur: float
+    start_end_label: StartEndLabelsNonOverlap, min_gap_dur: float = SOME_BIG_VALUE
 ) -> NeList[NeList[int]]:
     """
     :param start_end_label:
-    :param min_gap_dur: gaps (of same speaker) smaller than this get merged
+    :param min_gap_dur: gaps (of same speaker) smaller than this get grouped
     """
 
     initial_group = [0]
     mergable_groupds = [initial_group]
     for k in range(len(start_end_label) - 1):
         start, end, label = start_end_label[k]
-        next_start, next_end, next_label = start_end_label[k + 1]
+        next_segment_index = k + 1
+        next_start, next_end, next_label = start_end_label[next_segment_index]
         is_close_enough_to_be_merged = (
             next_start - end < min_gap_dur
         )  # is relaxing "float(end) == float(next_start)", see nvidia-nemo code
         if label == next_label and is_close_enough_to_be_merged:
-            mergable_groupds[-1].append(k + 1)
+            mergable_groupds[-1].append(next_segment_index)
         else:
-            new_group = [k + 1]
+            new_group = [next_segment_index]
             mergable_groupds.append(new_group)
 
     return mergable_groupds
@@ -168,9 +172,10 @@ def fix_segments_to_non_overlapping(
         range(len(start_ends) - 1),
     )
     for i in overlapping_idx:
-        avg = (cont_spans[i].end + cont_spans[i + 1].start) / 2.0
-        cont_spans[i].end = avg
-        cont_spans[i + 1].start = avg
+        # avg = (cont_spans[i].end + cont_spans[i + 1].start) / 2.0
+        # not moving the start, because this could cause a Span to become invalid (end<start) if one span is completely within the other
+        cont_spans[i].end = cont_spans[i + 1].start
+        # cont_spans[i + 1].start = avg
     return [(x.start, x.end) for x in cont_spans]
 
 
