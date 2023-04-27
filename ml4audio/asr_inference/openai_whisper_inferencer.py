@@ -1,8 +1,9 @@
 import os
 from dataclasses import dataclass, field, asdict
-from typing import Any
+from typing import Any, Annotated, Optional, Union
 
 from beartype import beartype
+from beartype.vale import Is
 
 import whisper as whisper_module
 from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat1D
@@ -14,13 +15,37 @@ from ml4audio.asr_inference.inference import (
 from ml4audio.asr_inference.whisper_inference import (
     WhisperArgs,
     WhisperInferencer,
-    fix_whisper_segments,
+    fix_whisper_segments, WHISPER_TASKS,
 )
-from whisper import Whisper
+from whisper import Whisper, DecodingOptions
 
 
-@dataclass
-class WhisperPredictArgs(WhisperArgs, FillUndefined):
+@dataclass(frozen=True)
+class OpenAiWhisperArgs(DecodingOptions):
+    task: Annotated[str, Is[lambda s: s in WHISPER_TASKS]]="transcribe"
+    language: str = "de"
+    temperature: Optional[Union[float, tuple[float, ...], list[float]]] = (
+        0.0,
+        0.2,
+        0.4,
+        0.6,
+        0.8,
+        1.0,
+    )  # this is default in whisper code
+    # don't mess with the temperatures! they are needed for fallback if beam-search fails!
+    beam_size: Optional[int] = None  # default=5 see whisper code
+
+    compression_ratio_threshold: Optional[float] = 2.4
+    logprob_threshold: Optional[float] = -1.0
+    no_speech_threshold: Optional[float] = 0.6
+    condition_on_previous_text: bool = True
+    initial_prompt: Optional[str] = None
+    word_timestamps: bool = False
+    prepend_punctuations: str = "\"'“¿([{-"
+    append_punctuations: str = "\"'.。,，!！?？:：”)]}、"
+
+@dataclass(frozen=True)
+class WhisperPredictArgs(OpenAiWhisperArgs, FillUndefined):
     audio: NumpyFloat1DArray = UNDEFINED
 
 
@@ -31,7 +56,7 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     """
 
     model_name: str = "base"
-
+    whisper_args: Optional[OpenAiWhisperArgs] = None
     _model: Whisper = field(init=False, repr=False)
     base_dir: PrefixSuffix = field(
         default_factory=lambda: PrefixSuffix("cache_root", "MODELS/WHISPER_MODELS")
@@ -74,7 +99,7 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
 
     @beartype
     def predict_transcribed_with_whisper_args(
-        self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
+        self, audio_array: NumpyFloat1D, whisper_args: OpenAiWhisperArgs
     ) -> StartEndTextsNonOverlap:
         audio_dur = float(len(audio_array) / self.sample_rate)
         pred_args = WhisperPredictArgs(audio=audio_array, **asdict(whisper_args))
@@ -96,9 +121,16 @@ if __name__ == "__main__":
     base_path = os.environ.get("BASE_PATH", "/tmp")
     cache_root = f"{base_path}/data/cache"
     BASE_PATHES["cache_root"] = cache_root
-
+    prompt_extlm="die Schule, die Kindertagesstätte, die Kita "
     inferencer = OpenAIWhisperASRSegmentInferencer(
-        model_name="base", whisper_args=WhisperArgs(task="transcribe", language="en")
+        model_name="base",
+        whisper_args=OpenAiWhisperArgs(
+            task="transcribe", language="de",
+            temperature=0.0,
+            beam_size=5,
+            external_lm_model_name="dbmdz/german-gpt2",
+            prompt_for_extlm=prompt_extlm
+        ),
     )
     inferencer.build()
     from ml4audio.audio_utils.audio_io import ffmpeg_load_trim
