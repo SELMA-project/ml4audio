@@ -80,7 +80,7 @@ def micro_avg_asr_scores(
     # editops=[Levenshtein.editops(h, t) for h,t in hyp_targets]
     hyps, targets = [list(x) for x in zip(*hyp_targets)]
     num_chars = sum(len(t) for t in targets)
-    cho = jiwer.process_characters(hyps, targets)
+    cho = jiwer.process_characters(targets, hyps)
     return {
         "wer": micro_avg_wer(hyp_targets),
         "cer": micro_avg_cer(hyp_targets),
