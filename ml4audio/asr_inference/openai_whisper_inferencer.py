@@ -1,11 +1,11 @@
 import os
 from dataclasses import dataclass, field, asdict
-from typing import Any, Annotated, Optional, Union
-
-from beartype import beartype
-from beartype.vale import Is
+from typing import Any, Optional
 
 import whisper as whisper_module
+from beartype import beartype
+from whisper import Whisper, DecodingOptions
+
 from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat1D
 from misc_utils.dataclass_utils import UNDEFINED, FillUndefined
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
@@ -13,27 +13,14 @@ from ml4audio.asr_inference.inference import (
     StartEndTextsNonOverlap,
 )
 from ml4audio.asr_inference.whisper_inference import (
-    WhisperArgs,
     WhisperInferencer,
-    fix_whisper_segments, WHISPER_TASKS,
+    fix_whisper_segments,
+    WhisperArgs,
 )
-from whisper import Whisper, DecodingOptions
 
 
 @dataclass(frozen=True)
-class OpenAiWhisperArgs(DecodingOptions):
-    task: Annotated[str, Is[lambda s: s in WHISPER_TASKS]]="transcribe"
-    language: str = "de"
-    temperature: Optional[Union[float, tuple[float, ...], list[float]]] = (
-        0.0,
-        0.2,
-        0.4,
-        0.6,
-        0.8,
-        1.0,
-    )  # this is default in whisper code
-    # don't mess with the temperatures! they are needed for fallback if beam-search fails!
-    beam_size: Optional[int] = None  # default=5 see whisper code
+class OpenAiWhisperArgs(WhisperArgs, DecodingOptions):
 
     compression_ratio_threshold: Optional[float] = 2.4
     logprob_threshold: Optional[float] = -1.0
@@ -43,6 +30,7 @@ class OpenAiWhisperArgs(DecodingOptions):
     word_timestamps: bool = False
     prepend_punctuations: str = "\"'“¿([{-"
     append_punctuations: str = "\"'.。,，!！?？:：”)]}、"
+
 
 @dataclass(frozen=True)
 class WhisperPredictArgs(OpenAiWhisperArgs, FillUndefined):
@@ -59,7 +47,8 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     whisper_args: Optional[OpenAiWhisperArgs] = None
     _model: Whisper = field(init=False, repr=False)
     base_dir: PrefixSuffix = field(
-        default_factory=lambda: PrefixSuffix("cache_root", "MODELS/WHISPER_MODELS")
+        default_factory=lambda: PrefixSuffix("cache_root", "MODELS/WHISPER_MODELS"),
+        init=False,
     )
 
     def __post_init__(self):
@@ -121,15 +110,16 @@ if __name__ == "__main__":
     base_path = os.environ.get("BASE_PATH", "/tmp")
     cache_root = f"{base_path}/data/cache"
     BASE_PATHES["cache_root"] = cache_root
-    prompt_extlm="die Schule, die Kindertagesstätte, die Kita "
+    prompt_extlm = "die Schule, die Kindertagesstätte, die Kita "
     inferencer = OpenAIWhisperASRSegmentInferencer(
         model_name="base",
         whisper_args=OpenAiWhisperArgs(
-            task="transcribe", language="de",
+            task="transcribe",
+            language="de",
             temperature=0.0,
             beam_size=5,
-            external_lm_model_name="dbmdz/german-gpt2",
-            prompt_for_extlm=prompt_extlm
+            external_lm_model_name=None,  # "dbmdz/german-gpt2",
+            prompt_for_extlm=prompt_extlm,
         ),
     )
     inferencer.build()

@@ -50,7 +50,7 @@ def fix_whisper_segments(
     ]
 
 
-@dataclass
+@dataclass(frozen=True)
 class WhisperArgs:
     task: Annotated[str, Is[lambda s: s in WHISPER_TASKS]]
     language: str = "de"
