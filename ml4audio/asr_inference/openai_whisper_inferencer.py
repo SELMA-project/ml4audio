@@ -21,7 +21,11 @@ from ml4audio.asr_inference.whisper_inference import (
 
 @dataclass(frozen=True)
 class OpenAiWhisperArgs(WhisperArgs, DecodingOptions):
+    """
+    for defaults see transcribe-method
+    """
 
+    model_name: str = "base"
     compression_ratio_threshold: Optional[float] = 2.4
     logprob_threshold: Optional[float] = -1.0
     no_speech_threshold: Optional[float] = 0.6
@@ -43,7 +47,6 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     https://github.com/saharmor/whisper-playground
     """
 
-    model_name: str = "base"
     whisper_args: Optional[OpenAiWhisperArgs] = None
     _model: Whisper = field(init=False, repr=False)
     base_dir: PrefixSuffix = field(
@@ -52,6 +55,7 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     )
 
     def __post_init__(self):
+        self.model_name = self.whisper_args.model_name
         if self.model_name.startswith("openai/whisper-"):
             self.model_name = self.model_name.replace("openai/whisper-", "")
 
