@@ -212,6 +212,9 @@ if __name__ == "__main__":
     BASE_PATHES["cache_root"] = cache_root
     BASE_PATHES["raw_data"] = PrefixSuffix("cache_root", "RAW_DATA")
     BASE_PATHES["processed_data"] = PrefixSuffix("cache_root", "PROCESSED_DATA")
+    BASE_PATHES["russian_text_data"] = PrefixSuffix(
+        "processed_corproa_dir", "RUSSIAN_TEXT_DATA"
+    )
 
     wandb.init(project="nemo-punctcap", name="punctcap_training")
 

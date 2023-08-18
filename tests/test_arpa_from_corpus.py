@@ -15,7 +15,7 @@ from conftest import TEST_RESOURCES
 def test_arpa_from_corpus(vocab):
     test_corpus_dir = TEST_RESOURCES
     normalizer = TranscriptNormalizer(
-        casing=Casing.upper, text_normalizer="en", vocab=vocab
+        casing=Casing.upper, text_cleaner="en", vocab=vocab
     )
 
     with tempfile.TemporaryDirectory() as cache_base:

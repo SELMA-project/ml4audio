@@ -22,7 +22,7 @@ from misc_utils.dataclass_utils import (
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
 from ml4audio.text_processing.character_mappings.text_normalization import (
-    TextNormalizer,
+    TextCleaner,
 )
 
 
@@ -142,7 +142,7 @@ class ModelArgs(Buildable):
     #     default=None,
     #     metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"},
     # )
-    text_normalizer: Union[TextNormalizer, str] = UNDEFINED
+    text_cleaner: Union[TextCleaner, str] = UNDEFINED
     casing: Casing = Casing.upper
 
     new_vocab: Optional[list[str]] = None

@@ -37,6 +37,11 @@ StartEndTextsNonOverlap = Annotated[
 @dataclass
 class ASRAudioSegmentInferencer(SetupTearDown):
     @property
+    @abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
+
+    @property
     def sample_rate(self) -> int:
         return 16000
 

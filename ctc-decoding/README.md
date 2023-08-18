@@ -1,0 +1,1 @@
+# mostly pyctcdecode based ctc-decoding

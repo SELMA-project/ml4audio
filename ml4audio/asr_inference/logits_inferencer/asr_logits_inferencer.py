@@ -1,3 +1,4 @@
+import importlib
 import json
 import os
 import shutil
@@ -5,24 +6,36 @@ from abc import abstractmethod
 
 # >> start of dataclass-patch
 # TODO: WTF! when py-file run from __main__ the dataclass_patch needs explicit call to work!
+import transformers
+from beartype.door import is_bearable
+
 from misc_utils.beartyped_dataclass_patch import (
     beartype_all_dataclasses_of_this_files_parent,
 )
 
 beartype_all_dataclasses_of_this_files_parent(__file__)
 # << end of dataclass-patch
+
+from misc_utils.utils import slugify_with_underscores
+from ml4audio.audio_utils.torchaudio_utils import torchaudio_resample
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, ClassVar, Annotated, Optional, Any
+from typing import Union, ClassVar, Annotated, Optional, Any, Type, TypeVar
 
-import librosa
 import numpy as np
 import torch
 from beartype import beartype
 from beartype.vale import IsAttr, IsEqual
 from numpy import floating, int16
 from numpy.typing import NDArray
-from transformers import set_seed, AutoModel
+from transformers import (
+    set_seed,
+    AutoModel,
+    AutoProcessor,
+    Wav2Vec2ForCTC,
+    PreTrainedModel,
+)
 
 from data_io.readwrite_files import read_file
 from misc_utils.beartypes import (
@@ -91,7 +104,10 @@ def _export_model_files_from_checkpoint_dir(model_name_or_path: str, model_dir: 
 
 @dataclass
 class HfCheckpoint(CachedData):
+    """
     # TODO: I want to replace this by HfModelFromCheckpoint
+    """
+
     # but need to think about __post_init__
     # and name parameter, which is more strict in HfModelFromCheckpoint
     name: Union[_UNDEFINED, NeStr] = UNDEFINED
@@ -126,12 +142,35 @@ class HfCheckpoint(CachedData):
         assert len(self.name) > 0
 
 
+HfPretrainedModelType = str
+
+
 @dataclass
 class HfModelFromCheckpoint(BuildableData):
-    name: Optional[SlugStr] = None
+    name: NeStr = UNDEFINED
     model_name_or_path: Optional[NeStr] = None
-
+    # hf_model_type is necessary cause sometimes model-names are ambiguous, for "facebook/wav2vec2-base-960h" AutoModel resolves to the pretrained wav2vec2 without ctc-finetuning
+    hf_model_type: HfPretrainedModelType = UNDEFINED
     base_dir: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["am_models"])
+
+    def __post_init__(self):
+        if self.model_name_or_path is None:
+            self.model_name_or_path = self.name
+        self.name = slugify_with_underscores(self.name)
+        is_bearable(self.name, SlugStr)
+        assert len(self.name) > 0
+
+    @property
+    def model_dir(self) -> str:
+        return self.data_dir
+
+    @property
+    def model_path(self) -> str:
+        model_folder = self.model_dir
+        if os.path.isdir(model_folder):
+            return model_folder
+        else:
+            return self.model_name_or_path
 
     @property
     def _is_data_valid(self) -> bool:
@@ -147,7 +186,11 @@ class HfModelFromCheckpoint(BuildableData):
         is_valid = all(
             (
                 os.path.isfile(f"{self.data_dir}/{file}")
-                for file in ["pytorch_model.bin", "config.json"]
+                for file in [
+                    "pytorch_model.bin",
+                    "config.json",
+                    "preprocessor_config.json",
+                ]
             )
         )
         return is_valid
@@ -156,11 +199,16 @@ class HfModelFromCheckpoint(BuildableData):
 
         if os.path.isdir(self.model_name_or_path):
             _export_model_files_from_checkpoint_dir(
-                self.model_name_or_path, self.model_dir
+                self.model_name_or_path, self.data_dir
             )
         else:
-            model = AutoModel.from_pretrained(self.model_name_or_path)
-            model.save_pretrained(self.data_dir)
+            clazz = getattr(importlib.import_module("transformers"), self.hf_model_type)
+            clazz.from_pretrained(self.model_name_or_path).save_pretrained(
+                self.data_dir
+            )
+            AutoProcessor.from_pretrained(self.model_name_or_path).save_pretrained(
+                self.data_dir
+            )
 
 
 @dataclass
@@ -275,12 +323,11 @@ class ResamplingASRLogitsInferencer(Buildable):
 
     """
 
-    checkpoint: Union[_UNDEFINED, HfCheckpoint] = UNDEFINED
+    checkpoint: Union[HfCheckpoint, HfModelFromCheckpoint] = UNDEFINED
     # transcript_normalizer: Union[_UNDEFINED, TranscriptNormalizer] = UNDEFINED
     input_sample_rate: int = 16000
     # https://stackoverflow.com/questions/61937520/proper-way-to-create-class-variable-in-data-class
     target_sample_rate: ClassVar[int] = 16000
-    resample_type: str = "kaiser_best"
     do_normalize: bool = True  # TODO: not sure yet what is better at inference time
 
     @property
@@ -317,14 +364,11 @@ class ResamplingASRLogitsInferencer(Buildable):
         if audio.dtype == np.int16:
             audio = audio.astype(np.float32) / MAX_16_BIT_PCM
         if self.input_sample_rate != self.target_sample_rate:
-            # TODO: torchaudio here?
-            audio = librosa.resample(
-                audio.astype(np.float32),
-                self.input_sample_rate,
-                target_sr=self.target_sample_rate,
-                scale=True,
-                res_type=self.resample_type,
-            )
+            audio = torchaudio_resample(
+                signal=torch.from_numpy(audio.astype(np.float32)),
+                sample_rate=self.input_sample_rate,
+                target_sample_rate=self.target_sample_rate,
+            ).numpy()
         return audio
 
     @abstractmethod
@@ -395,12 +439,17 @@ class VocabFromASRLogitsInferencerVolatile(Buildable, list[str]):
 
 #
 #
-# if __name__ == "__main__":
-#
-#     base_path = os.environ["BASE_PATH"]
-#     cache_root = f"{base_path}/data/cache"
-#     BASE_PATHES["cache_root"] = cache_root
-#     BASE_PATHES["am_models"] = PrefixSuffix("cache_root", "AM_MODELS")
+if __name__ == "__main__":
+
+    # base_path = os.environ["BASE_PATH"]
+    # cache_root = f"{base_path}/data/cache"
+    # BASE_PATHES["cache_root"] = cache_root
+    # BASE_PATHES["am_models"] = PrefixSuffix("cache_root", "AM_MODELS")
+    model = AutoModel.from_pretrained("facebook/wav2vec2-base-960h")
+    model.save_pretrained("./dings")
+    model = AutoProcessor.from_pretrained("facebook/wav2vec2-base-960h")
+    model.save_pretrained("./dings")
+
 #
 #     model=HfModelFromCheckpoint(
 #         name="mpoyraz-wav2vec2-xls-r-300m-cv8-turkish",

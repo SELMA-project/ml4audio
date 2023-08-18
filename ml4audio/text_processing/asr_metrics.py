@@ -36,7 +36,7 @@ def calc_num_word_errors(hyp: str, ref: str) -> Tuple[int, int]:
 
 
 @beartype
-def calc_num_char_erros(hyp: str, ref: str) -> Tuple[int, int]:
+def calc_num_char_errors(hyp: str, ref: str) -> Tuple[int, int]:
     """
     based on: https://github.com/SeanNaren/deepspeech.pytorch/blob/78f7fb791f42c44c8a46f10e79adad796399892b/deepspeech_pytorch/decoder.py#L62
     """
@@ -64,7 +64,7 @@ def micro_avg_wer(hyps_targets: NeList[Tuple[str, str]]):
 
 @beartype
 def micro_avg_cer(hyps_targets: NeList[Tuple[str, str]]):
-    errors_lens = [calc_num_char_erros(hyp, ref) for hyp, ref in hyps_targets]
+    errors_lens = [calc_num_char_errors(hyp, ref) for hyp, ref in hyps_targets]
     return micro_average(errors_lens)
 
 

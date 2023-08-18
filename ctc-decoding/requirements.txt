@@ -1,0 +1,1 @@
+kenlm@git+https://github.com/kpu/kenlm.git@master#egg=kenlm@996d7a6454b001337e9b8ea3d2ac1532f13c8e44

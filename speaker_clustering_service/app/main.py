@@ -68,9 +68,9 @@ async def upload_and_process_audio_file(file: UploadFile, segments: str = Form()
 
     audio = await read_uploaded_audio_file(file)
 
-    s_e_times = expand_merge_segments(segments, max_gap_dur=0.7, expand_by=0.1)
+    s_e_times = expand_merge_segments(segments, min_gap_dur=0.7, expand_by=0.1)
     s_e_times = merge_short_segments(s_e_times, min_dur=1.5)
-    s_e_audio = [((s, e), audio[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
+    s_e_audio = [(s, e, audio[round(s * SR) : round(e * SR)]) for s, e in s_e_times]
     assert all((len(a) > 1000 for (s, e), a in s_e_audio))
 
     s_e_labels, _ = inferencer.predict(s_e_audio)

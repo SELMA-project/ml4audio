@@ -23,7 +23,7 @@ from misc_utils.dataclass_utils import (
 #     return mapping
 from ml4audio.text_processing.character_mappings.text_normalization import (
     CHARACTER_MAPPINGS,
-    TextNormalizer, TextCleaner,
+    TextCleaner,
 )
 
 SILENCE_SYMBOL = "|"
@@ -66,22 +66,22 @@ class Casing(str, Enum):
 def normalize_filter_text(
     text: str,
     vocab: list[str],
-    text_normalizer: Union[str, TextNormalizer],
+    text_cleaner: Union[str, TextCleaner],
     casing: Casing,
 ) -> str:
-    text = normalize_upper_lower_text(text, text_normalizer, casing)
+    text = normalize_upper_lower_text(text, text_cleaner, casing)
     return filter_by_vocab(text, vocab)
 
 
 @beartype
 def normalize_upper_lower_text(
-    text, text_normalizer: Union[str, TextNormalizer], casing: Casing = Casing.original
+    text, text_cleaner: Union[str, TextCleaner], casing: Casing = Casing.original
 ):
-    if isinstance(text_normalizer, str):
-        text = CHARACTER_MAPPINGS[text_normalizer](text).strip(" ")
+    if isinstance(text_cleaner, str):
+        text = CHARACTER_MAPPINGS[text_cleaner](text).strip(" ")
         text = casing.apply(text)
     else:
-        text = text_normalizer(text).strip(" ")
+        text = text_cleaner(text).strip(" ")
     return text
 
 
@@ -134,9 +134,7 @@ class TranscriptNormalizer(Buildable):
 
     def apply(self, text: str) -> str:
         assert len(self.vocab) > 0
-        return normalize_filter_text(
-            text, self.vocab, self.text_cleaner, self.casing
-        )
+        return normalize_filter_text(text, self.vocab, self.text_cleaner, self.casing)
 
 
 # if __name__ == "__main__":

@@ -3,14 +3,9 @@ misc-utils@git+https://github.com/dertilo/misc-utils@main#egg=misc-utils
 transformers
 jiwer
 beartype
+librosa
+ffmpeg-python
 
 # TODO: in extras ?
-# librosa
-# ffmpeg-python
 # for turkish see: https://emre.github.io/unicode_tr/
 # unicode_tr
-# torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.11.0%2Bcpu-cp39-cp39-linux_x86_64.whl
-# torchaudio@https://download.pytorch.org/whl/cpu/torchaudio-0.12.0%2Bcpu-cp39-cp39-linux_x86_64.whl # version 0.12 got ctc_decoder
-# torchaudio -> # install gpu version
-# datasets
-# speechbrain

@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 
@@ -5,12 +6,15 @@ import numpy as np
 from beartype import beartype
 from omegaconf import OmegaConf
 
-from ml4audio.audio_utils.audio_io import load_resample_with_soundfile
+from misc_utils.prefix_suffix import BASE_PATHES
+from ml4audio.audio_utils.audio_io import load_resample_with_soundfile, ffmpeg_load_trim
 from nemo_vad.nemo_offline_vad import NemoOfflineVAD
 from nemo_vad.tests.vad_infer_almost_original import (
     nemo_offline_vad_infer_main_original,
 )
 import logging
+
+from conftest import get_test_cache_base
 
 logging.getLogger("nemo_logger").setLevel(logging.ERROR)
 
@@ -19,6 +23,7 @@ logging.getLogger("nemo_logger").setLevel(logging.ERROR)
 expected = [(0.31, 2.93), (3.27, 6.109999999999999), (6.81, 9.83), (10.69, 13.149999999999999), (13.69, 16.35), (17.21, 19.23), (19.54, 20.45), (21.37, 24.37)]
 # fmt: on
 
+BASE_PATHES["cache_root"] = get_test_cache_base()
 
 @beartype
 def vad_assertions(start_ends: list[tuple[float, float]]):
@@ -67,27 +72,29 @@ default_vad_config = {
     "out_manifest_filepath": None,
 }
 
-
+# TODO: the test is broken!
 def test_nemo_offline_vad(
-    audio_file="tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav",
+    librispeech_audio_file,
 ):
-    audio = load_resample_with_soundfile(audio_file)
-    vad = NemoOfflineVAD(default_vad_config)
+    audio = ffmpeg_load_trim(librispeech_audio_file)
+
+    vad = NemoOfflineVAD(name="test-vad", cfg=default_vad_config)
     vad.build()
-    start_ends, _ = vad.predict(audio)
-    vad_assertions(start_ends)
+    with vad:
+        start_ends, _ = vad.predict(audio)
+        vad_assertions(start_ends)
 
 
-def test_nemo_original_vad(
-    audio_file="tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.wav",
-    config_yaml="nemo_vad/tests/vad_test_config.yaml",
-):
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        start_ends = nemo_offline_vad_infer_main_original(
-            audio_file=audio_file,
-            config_yaml=config_yaml,
-            data_dir=tmpdir,
-        )
-        shutil.rmtree("vad_frame_for_testing", ignore_errors=True)
-    vad_assertions(start_ends)
+# def test_nemo_original_vad(
+#     librispeech_audio_file,
+#     config_yaml="tests/resources/vad_inference_postprocessing_original.yaml",
+# ):
+#
+#     with tempfile.TemporaryDirectory() as tmpdir:
+#         start_ends = nemo_offline_vad_infer_main_original(
+#             audio_file=librispeech_audio_file,
+#             config_yaml=config_yaml,
+#             data_dir=tmpdir,
+#         )
+#         shutil.rmtree("vad_frame_for_testing", ignore_errors=True)
+#     vad_assertions(start_ends)

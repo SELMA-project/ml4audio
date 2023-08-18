@@ -18,6 +18,7 @@ from misc_utils.dataclass_utils import (
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from ml4audio.text_processing.word_based_text_corpus import WordBasedLMCorpus
 
+# TODO: move this to its own package? cause it depends on kenlm
 
 @dataclass
 class ArpaArgs:

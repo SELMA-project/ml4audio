@@ -74,7 +74,7 @@ StartEndArraysNonOverlap = Annotated[
 NonOverlSegs = Annotated[NeList[StartEnd], Is[is_non_overlapping]]
 
 
-def is_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
+def segment_starts_are_weakly_monoton_increasing(seq: NeList[StartEnd]) -> bool:
     """
     rename to starts_are_weakly_monoton_increasing ?
     """
@@ -160,7 +160,9 @@ NonOverlappingMonotonIncreasingSegments = (
 
 @beartype
 def fix_segments_to_non_overlapping(
-    start_ends: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
+    start_ends: Annotated[
+        NeList[StartEnd], Is[segment_starts_are_weakly_monoton_increasing]
+    ],
 ) -> NonOverlSegs:
     """
     based on: get_contiguous_stamps from https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/utils/speaker_utils.py#L230
@@ -172,16 +174,17 @@ def fix_segments_to_non_overlapping(
         range(len(start_ends) - 1),
     )
     for i in overlapping_idx:
-        # avg = (cont_spans[i].end + cont_spans[i + 1].start) / 2.0
-        # not moving the start, because this could cause a Span to become invalid (end<start) if one span is completely within the other
-        cont_spans[i].end = cont_spans[i + 1].start
-        # cont_spans[i + 1].start = avg
+        avg = (cont_spans[i].end + cont_spans[i + 1].start) / 2.0
+        cont_spans[i].end = avg
+        cont_spans[i + 1].start = avg
     return [(x.start, x.end) for x in cont_spans]
 
 
 @beartype
 def expand_segments(
-    segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
+    segments: Annotated[
+        NeList[StartEnd], Is[segment_starts_are_weakly_monoton_increasing]
+    ],
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
 ) -> NonOverlSegs:
     raw_expaned = [
@@ -193,10 +196,10 @@ def expand_segments(
 @beartype
 def expand_merge_segments_labelaware(
     start_end_labels: Annotated[
-        NeList[StartEndLabel], Is[is_weakly_monoton_increasing]
+        NeList[StartEndLabel], Is[segment_starts_are_weakly_monoton_increasing]
     ],
     expand_by: float,
-    max_gap_dur: float,
+    min_gap_dur: float,
 ) -> StartEndLabelNonOverlap:
     """
     used for post-clustering resegmentation
@@ -206,14 +209,16 @@ def expand_merge_segments_labelaware(
     )
     s_e_labels = merge_segments_of_same_label(
         [(s, e, l) for (s, e), (_, _, l) in zip(s_e_exp, start_end_labels)],
-        min_gap_dur=max_gap_dur,
+        min_gap_dur=min_gap_dur,
     )
     return s_e_labels
 
 
 @beartype
 def expand_merge_segments(
-    segments: Annotated[NeList[StartEnd], Is[is_weakly_monoton_increasing]],
+    segments: Annotated[
+        NeList[StartEnd], Is[segment_starts_are_weakly_monoton_increasing]
+    ],
     min_gap_dur: float = 0.2,  # gap within a segment -> shorter than this gets merged
     expand_by: Annotated[float, Is[lambda x: x > 0]] = 0.1,
 ) -> NonOverlSegs:

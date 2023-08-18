@@ -1,8 +1,14 @@
 # punctuation via sequence tagging -> recovering Casing and `,.?`
-* WTF! this exclamation mark `!` is missing !!!
-* this repo is work in progress! currently not much more than a first draft!
-* everything is based on this [NeMo tutorial](https://github.com/NVIDIA/NeMo/blob/main/tutorials/nlp/Punctuation_and_Capitalization.ipynb) and [NeMo punctuation_capitalization_train_evaluate](https://github.com/NVIDIA/NeMo/blob/main/examples/nlp/token_classification/punctuation_capitalization_train_evaluate.py)
-
+### "tutorial"
+1. git clone
+2. pip install
+3. run python script
+4. manually trigger lenta-data preparation (just for learning, getting used to the code)
+```commandline
+export BASE_PATH=<some-where>
+python punctcap_training/lenta_data.py
+# this downloads or resuses "lenta-ru-news.csv.bz2" in /nm-raid/audio/data/corpora/processed_corpora/RUSSIAN_TEXT_DATA/russian-lenta-data
+```
 ### some motivating examples
 ```commandline
 query='von der farbetonbeziehung zur farblichtmusik in jörg jewanski natalie sidler hrsg farbe lichtmusik synästhesie und farblichtmusik s 131–209 friedemann kawohl alexander moser – chemiker künstlerfotograf und konstrukteur eines lichtklaviers für alexander skrjabins prométhée in schriften des vereins für geschichte und naturgeschichte der baar 56 2013 71–90 josefhorst lederer die funktion der lucestimme in skrjabins op graz 1980 universal edition studien'

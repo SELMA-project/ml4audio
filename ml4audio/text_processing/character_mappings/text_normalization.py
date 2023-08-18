@@ -2,7 +2,6 @@ import abc
 import re
 import string
 
-from unicode_tr import unicode_tr
 
 from ml4audio.text_processing.character_mappings.cyrillic_character_maps import (
     NO_JO,
@@ -40,17 +39,14 @@ def register_normalizer_plugin(name):
     return register_wrapper
 
 
-class TextNormalizer(abc.ABC):
+class TextCleaner(abc.ABC):
     # TODO: rename to TextCleaner ?
     @abc.abstractmethod
     def __call__(self, text: str) -> str:
         pass
 
 
-TextCleaner = TextNormalizer
-
-
-class CharacterMapping(TextNormalizer):
+class CharacterMapping(TextCleaner):
     @property
     @abc.abstractmethod
     def mapping(self) -> dict[str, str]:
@@ -90,7 +86,7 @@ class NoCharacterMappingAtAllLowerVeryFirst(CharacterMapping):
         return {}
 
     def __call__(self, text: str) -> str:
-        if len(text)>0:
+        if len(text) > 0:
             text = text[0].lower() + text[1:]
         return super().__call__(text)
 
@@ -160,29 +156,6 @@ class RussianTextNormalizer(CharacterMapping):
             ).items()
             if k not in white_list
         }
-
-
-@register_normalizer_plugin("tr")
-class TurkishTextCleaner(TextCleaner):
-    @property
-    def mapping(self) -> dict[str, str]:
-        turkish_white_list = ["ç", "ö", "ü", "ğ", "ı", "ş"]
-
-        return {
-            k: v for k, v in REMOVE_EVERYTHING.items() if k not in turkish_white_list
-        } | REPLACE_ALL_PUNCT_WITH_SPACE
-
-    def __init__(self) -> None:
-        # https://stackoverflow.com/questions/265960/best-way-to-strip-punctuation-from-a-string-in-python
-        self.table = str.maketrans(self.mapping)
-
-    def __call__(self, text: str) -> str:
-        text = text.translate(self.table)
-        for k, v in SAME_SAME_BUT_DIFFERENT.items():
-            text = text.replace(k, v)
-        text = re.sub(r"\s+", " ", text)
-        instance_of_subclass_of_str_overring_upper_lower_methods = unicode_tr(text)
-        return instance_of_subclass_of_str_overring_upper_lower_methods
 
 
 @register_normalizer_plugin("es")

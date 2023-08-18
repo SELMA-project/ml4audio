@@ -39,7 +39,7 @@ def create_finetuner(
 
     model_args = ModelArgs(
         model_to_finetune=model_to_finetune,
-        text_normalizer="de",
+        text_cleaner="de",
         # casing=Casing.upper
         casing=Casing.lower,
         new_vocab=new_vocab,

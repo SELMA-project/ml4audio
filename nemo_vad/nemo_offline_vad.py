@@ -1,3 +1,4 @@
+raise NotImplementedError("the test is failing!")
 import json
 import os
 import shutil
@@ -16,7 +17,7 @@ from omegaconf import DictConfig, OmegaConf
 from misc_utils.beartypes import NumpyFloat1D, NeList, File
 from misc_utils.buildable_data import BuildableData
 from misc_utils.dataclass_utils import UNDEFINED
-from misc_utils.prefix_suffix import PrefixSuffix
+from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from misc_utils.utils import (
     set_val_in_nested_dict,
     get_val_from_nested_dict,
@@ -118,7 +119,7 @@ def nemo_offline_vad_infer(
     vad_model.setup_test_data(
         test_data_config={
             "vad_stream": True,  # TODO(tilo): whats the meaning of this?
-            "sample_rate": 16000,
+            "sample_rate": cfg.sample_rate,
             "manifest_filepath": manifest_vad_input,
             "labels": [
                 "infer",
@@ -203,7 +204,7 @@ DEFAULT_NEMO_VAD_CONFIG = {
     "sample_rate": 16000,
     "gen_seg_table": True,
     "write_to_manifest": True,
-    "prepare_manifest": {"auto_split": True, "split_duration": 400},
+    "prepare_manifest": {"auto_split": True, "split_duration": 30},
     "vad": {
         "model_path": "vad_marblenet",
         "parameters": {
@@ -290,7 +291,7 @@ class NemoOfflineVAD(BuildableData):
     @beartype
     def model_file_name(self) -> str:
         if self.dictcfg.vad.model_path.split(".")[-1] not in ["nemo", "ckpt"]:
-            model_name = self.dictcfg.vad.model_path
+            model_name = f"{self.dictcfg.vad.model_path}.nemo"
 
         else:
             model_name = self.dictcfg.vad.model_path.split("/")[-1]
@@ -305,14 +306,12 @@ class NemoOfflineVAD(BuildableData):
     def _download_model(self) -> File:
 
         if self.dictcfg.vad.model_path.split(".")[-1] not in ["nemo", "ckpt"]:
-            model_name = self.model_file_name
-            (
-                _,
-                nemo_model_file_in_cache,
-            ) = EncDecClassificationModel._get_ngc_pretrained_model_info(
-                model_name=model_name
+            model_name = self.dictcfg.vad.model_path
+            nemo_model_file_in_cache = str(
+                EncDecClassificationModel._get_ngc_pretrained_model_info(
+                    model_name=model_name
+                )[1]
             )
-            assert nemo_model_file_in_cache.endswith(model_name)
             source_file = nemo_model_file_in_cache
 
         elif os.path.isfile(self.dictcfg.vad.model_path):
@@ -342,10 +341,3 @@ class NemoOfflineVAD(BuildableData):
         return segments, probas
 
 
-if __name__ == "__main__":
-    model_name = "vad_marblenet"
-    (
-        class_,
-        nemo_model_file_in_cache,
-    ) = EncDecClassificationModel._get_ngc_pretrained_model_info(model_name=model_name)
-    shutil.copy(nemo_model_file_in_cache, f"./")
