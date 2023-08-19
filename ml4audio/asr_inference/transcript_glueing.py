@@ -17,7 +17,6 @@ from typing import Tuple, Annotated
 
 import numpy as np
 
-# LETTER_BUFFER_LEN = 100
 
 DEBUG = os.environ.get("DEBUG_GLUER", "False").lower() != "false"
 if DEBUG:
@@ -45,33 +44,20 @@ def glue_left_right_update_hyp_buffer(
     sm: difflib.SequenceMatcher,
 ) -> tuple[str, str, NonEmptyAlignedTranscript]:
 
-    # if DEBUG:
-    #     print(
-    #         f"left: {hyp_buffer.text=}, {hyp_buffer.offset=}, right: {new_trans.text=}, {new_trans.offset=}"
-    #     )
-
     # glueing may fail due to too few overlap
-    ending_to_be_removed, glued = just_try(
+    glue_index, glued = just_try(
         lambda: glue_left_right(left=hyp_buffer, right=new_trans, sm=sm),
         default=(
-            "",
+            len(hyp_buffer),
             hyp_buffer,
         ),  # a failed glue does not add anything! In the hope that overlap is big enough so that it can be recovered by next glue!
         verbose=DEBUG,
         print_stacktrace=False,
     )
-    assert hyp_buffer.text.endswith(
-        ending_to_be_removed
-    ), f"{glued.text=} does not end with {ending_to_be_removed=}"
     assert len(glued.letters) > 0  # , f"{hyp_buffer.text=}, {new_trans.text=}"
     assert glued.letters[0].r_idx == 0
-    # TODO: ring-buffer?
-    # letters = glued.letters[-LETTER_BUFFER_LEN:]
-    # curr_transcr = AlignedTranscript(
-    #     letters, TARGET_SAMPLE_RATE, glued.offset
-    # ).update_offset()
-    stable_len = len(hyp_buffer) - len(ending_to_be_removed)
-    ending_to_be_appended = glued.text[stable_len:]
+    ending_to_be_appended = glued.text[(glue_index):]
+    ending_to_be_removed = hyp_buffer.text[(glue_index):]
     return ending_to_be_removed, ending_to_be_appended, glued
 
 
@@ -80,7 +66,7 @@ def glue_left_right(
     left: NonEmptyAlignedTranscript,
     right: NonEmptyAlignedTranscript,
     sm: difflib.SequenceMatcher,
-) -> tuple[str, NonEmptyAlignedTranscript]:
+) -> tuple[int, NonEmptyAlignedTranscript]:
     """
     two overlapping sequences
 
@@ -98,21 +84,19 @@ def glue_left_right(
     """
     sr = right.sample_rate
 
-    letters_left, ending_to_be_removed, letters_right = left_right_letters(
-        left, right, sm
-    )
+    glue_index, letters_right = left_right_letters(left, right, sm)
 
     index_difference = right.offset - left.offset
     letters_right = update_letter_index(letters_right, index_difference)
 
     if DEBUG:
         print(
-            f"GLUED left: {AlignedTranscript(letters_left, sr).text}, right: {AlignedTranscript(letters_right, sr).text}"
+            f"GLUED left: {AlignedTranscript(left.letters[:(glue_index)], sr).text}, right: {AlignedTranscript(letters_right, sr).text}"
         )
     glued = AlignedTranscript(
-        letters_left + letters_right, sr, offset=left.offset
+        left.letters[:(glue_index)] + letters_right, sr, offset=left.offset
     ).update_offset()
-    return ending_to_be_removed, glued
+    return glue_index, glued
 
 
 @beartype
@@ -120,49 +104,29 @@ def left_right_letters(
     left: NonEmptyAlignedTranscript,
     right: NonEmptyAlignedTranscript,
     sm: difflib.SequenceMatcher,
-) -> tuple[NeList[LetterIdx], str, NeList[LetterIdx]]:
+) -> tuple[int, NeList[LetterIdx]]:
     sr = right.sample_rate
     assert sr == left.sample_rate
     is_overlapping = left.abs_idx(left.letters[-1]) > right.abs_idx(right.letters[0])
-    ending_to_be_removed = ""
     if not is_overlapping:
-        # if DEBUG:
-        #     print("NOTHING to GLUE!")
-        letters_left, letters_right = not_glueing_but_simply_appending(left, right)
+        letters_right = prepent_space_letter(right)
+        glue_index = len(left)
 
     else:
         left_cut, matches = cut_left_calc_matches(left, right, sm, sr)
         if len(matches) > 0:
-
-            ending_to_be_removed, letters_left, letters_right = __do_glue(
-                left, left_cut, matches, right
-            )
+            glue_point_left_cut, glue_point_right = calc_glue_points(left_cut, matches)
+            glue_index = (
+                glue_point_left_cut + (len(left) - len(left_cut)) + 1
+            )  # +1 for exclusive
+            letters_right = right.letters[(glue_point_right + 1) :]
         else:
             if DEBUG:
                 print(f"not glueing but simply appending")
-            letters_left, letters_right = not_glueing_but_simply_appending(left, right)
+            letters_right = prepent_space_letter(left, right)
+            glue_index = len(left)
 
-    return letters_left, ending_to_be_removed, letters_right
-
-
-@beartype
-def __do_glue(
-    left: AlignedTranscript,
-    left_cut: AlignedTranscript,
-    matches: NeList[difflib.Match],
-    right: AlignedTranscript,
-) -> Tuple[str, NeList[LetterIdx], NeList[LetterIdx]]:
-    glue_point_left, glue_point_right = calc_glue_points(left_cut, matches)
-    letters_right = right.letters[(glue_point_right + 1) :]
-    k_to_be_removed = len(left_cut) - glue_point_left - 1
-    letters_left = left.letters[:-k_to_be_removed]
-    letters_left_removed = left.letters[-k_to_be_removed:]
-    ending_to_be_removed = "".join([l.letter for l in letters_left_removed])
-    if DEBUG:
-        print(f"{matches=}, {left.text=},{left_cut.text=},{right.text=}")
-    if has_no_text_at_all(letters_left) or has_no_text_at_all(letters_right):
-        raise AssertionError(f"{matches=}, {left.text=},{left_cut.text=},{right.text=}")
-    return ending_to_be_removed, letters_left, letters_right
+    return glue_index, letters_right
 
 
 @beartype
@@ -174,21 +138,16 @@ def calc_glue_points(left_cut, matches):
     return glue_point_left, glue_point_right
 
 
-def has_no_text_at_all(letters):
-    return len("".join([l.letter for l in letters if l.letter != " "])) == 0
-
-
 @beartype
-def not_glueing_but_simply_appending(
-    left: NonEmptyAlignedTranscript, right: NonEmptyAlignedTranscript
-) -> tuple[list[LetterIdx], list[LetterIdx]]:
-    letters_left = left.letters
+def prepent_space_letter(right: NonEmptyAlignedTranscript) -> list[LetterIdx]:
     space_letter = LetterIdx(" ", right.letters[0].r_idx)
     letters_right = [space_letter] + right.letters
-    return letters_left, letters_right
+    return letters_right
 
 
-def update_letter_index(letters, index_difference):
+def update_letter_index(
+    letters: list[LetterIdx], index_difference: int
+) -> list[LetterIdx]:
     return list(
         map(
             lambda x: LetterIdx(x.letter, x.r_idx + index_difference),
@@ -204,9 +163,12 @@ def cut_left_calc_matches(
     sm: difflib.SequenceMatcher,
     sr: int,
 ) -> tuple[AlignedTranscript, list[difflib.Match]]:
-    tol = round(0.5 * sr)
+    tol = round(0.5 * sr)  # for some reason I wanted half a second "space" to the left
+    letter_after_start_of_right = [
+        s for s in left.letters if left.abs_idx(s) >= right.offset - tol
+    ]
     left_cut = AlignedTranscript(
-        letters=[s for s in left.letters if left.abs_idx(s) >= right.offset - tol],
+        letters=letter_after_start_of_right,
         sample_rate=sr,
         offset=left.offset,
     )
