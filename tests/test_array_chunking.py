@@ -72,16 +72,16 @@ test_case_0 = TestCase(
 premature_chunk = [0, 1]
 
 test_case_premature = TestCase(
-    build_test_chunks(
+    input_chunks=build_test_chunks(
         [
             list(chunk_test_data([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 2)),
         ]
     ),
-    4,
-    2,
-    premature_chunk + [0, 1, 2, 3, 2, 3, 4, 5, 4, 5, 6, 7, 6, 7, 8, 9],
+    chunk_size=4,
+    step_size=2,
+    expected=premature_chunk + [0, 1, 2, 3, 2, 3, 4, 5, 4, 5, 6, 7, 6, 7, 8, 9],
     # + [8, 9],  # cropped,
-    2,
+    minimum_chunk_size=2,
 )
 premature_chunk_1 = [0, 1]
 premature_chunk_2 = [0, 1, 2, 3]
@@ -92,15 +92,15 @@ test_case_premature_1 = TestCase(
             list(chunk_test_data([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 1)),
         ]
     ),
-    6,  # chunk_size
-    2,  # step_size
-    premature_chunk_1
+    chunk_size=6,
+    step_size=2,
+    expected=premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]
     + [2, 3, 4, 5, 6, 7]
     + [4, 5, 6, 7, 8, 9],
     # + [ 6, 7, 8, 9], # do not yield this cropped
-    2,
+    minimum_chunk_size=2,
 )
 test_case_premature_2 = TestCase(
     build_test_chunks(
@@ -108,15 +108,15 @@ test_case_premature_2 = TestCase(
             list(chunk_test_data([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 2)),
         ]
     ),
-    6,  # chunk_size
-    2,  # step_size
-    premature_chunk_1
+    chunk_size=6,
+    step_size=2,
+    expected=premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]
     + [2, 3, 4, 5, 6, 7]
     + [4, 5, 6, 7, 8, 9],
     # + [ 6, 7, 8, 9], # do not yield this cropped
-    2,
+    minimum_chunk_size=2,
 )
 
 premature_2_flush_no_cropped = TestCase(
@@ -125,9 +125,9 @@ premature_2_flush_no_cropped = TestCase(
             list(chunk_test_data([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 1)),
         ]
     ),
-    6,  # chunk_size
-    2,  # step_size
-    premature_chunk_1
+    chunk_size=6,
+    step_size=2,
+    expected=premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]
     + [2, 3, 4, 5, 6, 7]
@@ -140,7 +140,7 @@ premature_2_flush_no_cropped = TestCase(
         9,
         10,
     ],  # flushed ending, here stepped by one! even though step-size is not variable!
-    2,
+    minimum_chunk_size=2,
 )
 
 test_case_premature_3_no_cropped = TestCase(
@@ -149,15 +149,15 @@ test_case_premature_3_no_cropped = TestCase(
             list(chunk_test_data([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 1)),
         ]
     ),
-    6,  # chunk_size
-    2,  # step_size
-    premature_chunk_1
+    chunk_size=6,
+    step_size=2,
+    expected=premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]
     + [2, 3, 4, 5, 6, 7]
     + [4, 5, 6, 7, 8, 9],
     # + [6, 7, 8, 9],  # no cropped!
-    2,
+    minimum_chunk_size=2,
 )
 
 test_case_premature_3_varlen = TestCase(
@@ -166,9 +166,9 @@ test_case_premature_3_varlen = TestCase(
             [[0], [1], [2, 3], [4, 5], [6, 7, 8, 9], [10, 11]],
         ]
     ),
-    chunk_size=6,  # chunk_size
-    step_size=1,  # step_size
-    expected=[0]  # premature_chunk_0
+    chunk_size=6,
+    step_size=1,
+    expected=[0]
     + premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]

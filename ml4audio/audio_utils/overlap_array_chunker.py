@@ -128,7 +128,7 @@ class OverlapArrayChunker:
     chunk_size: int
     min_step_size: int  # if step_size==chunk_size it produced non-overlapping segments
     _buffer: Optional[Numpy1DArray] = field(init=False, repr=False, default=None)
-    minimum_chunk_size: Union[  # TODO: just for streaming-live-asr
+    minimum_chunk_size: Union[
         int, _DONT_EMIT_PREMATURE_CHUNKS
     ] = DONT_EMIT_PREMATURE_CHUNKS
     max_step_size: Optional[int] = None
