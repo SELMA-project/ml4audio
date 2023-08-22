@@ -101,12 +101,6 @@ class TranscriptGluer(Buildable):
                 )
             else:
                 assert self._hyp_buffer is not None
-                # if detect_offset_shift(
-                #     earlier=al_tr.aligned_transcript.offset, later=self.hyp_buffer.offset
-                # ):
-                #     raise NotImplementedError("TODO!!!")
-                #     self.hyp_buffer.offset -= OFFSET_SHIFT
-                #     print("offset-shift has happended!")
                 (
                     ending_to_be_removed,
                     text,
@@ -114,7 +108,14 @@ class TranscriptGluer(Buildable):
                 ) = glue_left_right_update_hyp_buffer(
                     inp.aligned_transcript, self._hyp_buffer, self.seqmatcher
                 )
-                self._hyp_buffer = hyp_buffer
+                NUM_LETTERS_TO_KEEP_IN_BUFFER = 100  # was not working with 40
+                self._hyp_buffer = AlignedTranscript(
+                    letters=hyp_buffer.letters[-NUM_LETTERS_TO_KEEP_IN_BUFFER:],
+                    sample_rate=hyp_buffer.sample_rate,
+                    logits_score=hyp_buffer.logits_score,
+                    lm_score=hyp_buffer.lm_score,
+                    frame_id=hyp_buffer.frame_id,
+                ).update_offset(hyp_buffer.offset)
                 new_suffix = f"{text}{' ' if inp.end_of_message else ''}"
 
         elif inp.end_of_message:
