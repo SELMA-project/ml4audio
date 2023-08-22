@@ -34,11 +34,12 @@ os.environ["DEBUG_GLUER"] = "True"
 @pytest.mark.parametrize(
     "step_dur,window_dur,max_CER,num_responses",
     [
-        (1.0, 2.0, 0.09, 25),  # got worse due to using opus instead of wav
-        (1.0, 4.0, 0.017, 25),
-        (2.0, 4.0, 0.017, 13),
-        (4.0, 8.0, 0.01, 7),
-        (1.0, 8.0, 0.023, 25),
+        (1.0, 2.0, 0.085, 25),  # got worse due to using opus instead of wav
+        (1.5, 3.0, 0.02, 17),
+        (1.0, 4.0, 0.0098, 25),
+        (2.0, 4.0, 0.0065, 13),
+        (4.0, 8.0, 0.0033, 7),
+        (1.0, 8.0, 0.0, 25),
     ],
 )
 def test_ASRStreamInferencer(
@@ -111,4 +112,4 @@ def test_ASRStreamInferencer(
     print(
         f"CER: {cer},start-up took: {startup_time}, inference took: {inference_duration} seconds"
     )
-    assert cer < max_CER
+    assert cer <= max_CER

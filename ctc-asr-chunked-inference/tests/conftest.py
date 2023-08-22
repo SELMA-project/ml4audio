@@ -51,7 +51,7 @@ def asr_decode_inferencer(request):
         checkpoint=HfModelFromCheckpoint(
             name=model,
             model_name_or_path=model,
-            hf_model_type=Wav2Vec2ForCTC,
+            hf_model_type="Wav2Vec2ForCTC",
             base_dir=cache_base,
         ),
         input_sample_rate=expected_sample_rate,
