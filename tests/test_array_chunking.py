@@ -51,7 +51,7 @@ def build_test_chunks(input_data: Iterable[TestSequence]) -> list[AudioMessageCh
 class TestCase:
     input_chunks: list[AudioMessageChunk]
     chunk_size: int
-    step_size: Optional[int]
+    min_step_size: int
     expected: list[int]
     minimum_chunk_size: Union[int, _DONT_EMIT_PREMATURE_CHUNKS]
     max_step_size: Optional[int] = None
@@ -64,7 +64,7 @@ test_case_0 = TestCase(
         ]
     ),
     chunk_size=4,
-    step_size=2,
+    min_step_size=2,
     expected=[0, 1, 2, 3, 2, 3, 4, 5, 4, 5, 6, 7, 6, 7, 8, 9],
     # + [8, 9],  # cropped,
     minimum_chunk_size=DONT_EMIT_PREMATURE_CHUNKS,
@@ -78,7 +78,7 @@ test_case_premature = TestCase(
         ]
     ),
     chunk_size=4,
-    step_size=2,
+    min_step_size=2,
     expected=premature_chunk + [0, 1, 2, 3, 2, 3, 4, 5, 4, 5, 6, 7, 6, 7, 8, 9],
     # + [8, 9],  # cropped,
     minimum_chunk_size=2,
@@ -93,7 +93,7 @@ test_case_premature_1 = TestCase(
         ]
     ),
     chunk_size=6,
-    step_size=2,
+    min_step_size=2,
     expected=premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]
@@ -109,7 +109,7 @@ test_case_premature_2 = TestCase(
         ]
     ),
     chunk_size=6,
-    step_size=2,
+    min_step_size=2,
     expected=premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]
@@ -126,7 +126,7 @@ premature_2_flush_no_cropped = TestCase(
         ]
     ),
     chunk_size=6,
-    step_size=2,
+    min_step_size=2,
     expected=premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]
@@ -150,7 +150,7 @@ test_case_premature_3_no_cropped = TestCase(
         ]
     ),
     chunk_size=6,
-    step_size=2,
+    min_step_size=2,
     expected=premature_chunk_1
     + premature_chunk_2
     + [0, 1, 2, 3, 4, 5]
@@ -167,7 +167,7 @@ test_case_premature_3_varlen = TestCase(
         ]
     ),
     chunk_size=6,
-    step_size=1,
+    min_step_size=1,
     expected=[0]
     + premature_chunk_1
     + premature_chunk_2
@@ -196,7 +196,7 @@ def test_OverlapArrayChunker(test_case: TestCase):
 
     ab = OverlapArrayChunker(
         test_case.chunk_size,
-        test_case.step_size,
+        min_step_size=test_case.min_step_size,
         minimum_chunk_size=test_case.minimum_chunk_size,
         max_step_size=test_case.max_step_size,
     )

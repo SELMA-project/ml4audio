@@ -17,6 +17,7 @@ from ml4audio.asr_inference.whisper_inference import (
     fix_whisper_segments,
     WhisperArgs,
 )
+from whisper.utils import exact_div
 
 
 @dataclass(frozen=True)
@@ -25,7 +26,6 @@ class OpenAiWhisperArgs(WhisperArgs, DecodingOptions):
     for defaults see transcribe-method
     """
 
-    model_name: str = "base"
     compression_ratio_threshold: Optional[float] = 2.4
     logprob_threshold: Optional[float] = -1.0
     no_speech_threshold: Optional[float] = 0.6
@@ -47,6 +47,7 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     https://github.com/saharmor/whisper-playground
     """
 
+    model_name: str = "base"
     whisper_args: Optional[OpenAiWhisperArgs] = None
     _model: Whisper = field(init=False, repr=False)
     base_dir: PrefixSuffix = field(
@@ -55,7 +56,6 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     )
 
     def __post_init__(self):
-        self.model_name = self.whisper_args.model_name
         if self.model_name.startswith("openai/whisper-"):
             self.model_name = self.model_name.replace("openai/whisper-", "")
 
@@ -93,7 +93,13 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     @beartype
     def predict_transcribed_with_whisper_args(
         self, audio_array: NumpyFloat1D, whisper_args: OpenAiWhisperArgs
-    ) -> StartEndTextsNonOverlap:
+    ):  # -> StartEndTextsNonOverlap:
+        from whisper import audio
+
+        audio.CHUNK_LENGTH = whisper_args.chunk_length
+        audio.N_SAMPLES = audio.CHUNK_LENGTH * audio.SAMPLE_RATE
+        audio.N_FRAMES = exact_div(audio.N_SAMPLES, audio.HOP_LENGTH)
+
         audio_dur = float(len(audio_array) / self.sample_rate)
         pred_args = WhisperPredictArgs(audio=audio_array, **asdict(whisper_args))
         resp = self._model.transcribe(**asdict(pred_args))
@@ -101,35 +107,14 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
         # resp["text"].strip(" ") # somehow this sometimes repeats the transcribt twice
         whisper_segments = resp["segments"]
         if len(whisper_segments) > 0:
+            raw_whisper_segments = [
+                (seg["start"], seg["end"], seg["text"]) for seg in whisper_segments
+            ]
             start_end_text = fix_whisper_segments(
-                [(seg["start"], seg["end"], seg["text"]) for seg in whisper_segments],
+                raw_whisper_segments,
                 audio_dur,
             )
         else:
             start_end_text = []
         return start_end_text
 
-
-if __name__ == "__main__":
-    base_path = os.environ.get("BASE_PATH", "/tmp")
-    cache_root = f"{base_path}/data/cache"
-    BASE_PATHES["cache_root"] = cache_root
-    prompt_extlm = "die Schule, die Kindertagesstätte, die Kita "
-    inferencer = OpenAIWhisperASRSegmentInferencer(
-        model_name="base",
-        whisper_args=OpenAiWhisperArgs(
-            task="transcribe",
-            language="de",
-            temperature=0.0,
-            beam_size=5,
-            external_lm_model_name=None,  # "dbmdz/german-gpt2",
-            prompt_for_extlm=prompt_extlm,
-        ),
-    )
-    inferencer.build()
-    from ml4audio.audio_utils.audio_io import ffmpeg_load_trim
-
-    file = "tests/resources/LibriSpeech_dev-other_116_288046_116-288046-0011.opus"
-    array = ffmpeg_load_trim(file)
-    with inferencer:
-        print(f"{inferencer.predict_transcribed_segments(array)=}")

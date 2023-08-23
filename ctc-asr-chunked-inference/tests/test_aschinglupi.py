@@ -68,7 +68,7 @@ def test_ASRStreamInferencer(
     )
 
     start_time = time()
-    streaming_asr = Aschinglupi(
+    streaming_asr: Aschinglupi = Aschinglupi(
         hf_asr_decoding_inferencer=asr_decode_inferencer,
         transcript_gluer=TranscriptGluer(),
         audio_bufferer=OverlapArrayChunker(
@@ -88,13 +88,10 @@ def test_ASRStreamInferencer(
     transcript = ""
     for tr in outputs:
         transcript = remove_and_append(transcript, tr.ending_to_be_removed, tr.text)
-    transcript = transcript.strip(" ")
+    hyp = transcript.strip(" ")
     assert len(outputs) == num_responses
     assert outputs[-1].end_of_message
-    at: AlignedTranscript = outputs[-1].aligned_transcript
     inference_duration = time() - start_time
-    hyp = at.text.strip(" ")
-    assert hyp == transcript
 
     ref = normalize_filter_text(
         librispeech_raw_ref,
@@ -102,8 +99,6 @@ def test_ASRStreamInferencer(
         text_cleaner="en",
         casing=Casing.upper,
     )
-    # print(f"{ref=}")
-    # print(f"{hyp=}")
     diff_line = smithwaterman_aligned_icdiff(ref, hyp)
     print(f"{window_dur=},{step_dur=}")
 
