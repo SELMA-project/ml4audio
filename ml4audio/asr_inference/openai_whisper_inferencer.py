@@ -36,10 +36,6 @@ class OpenAiWhisperArgs(WhisperArgs, DecodingOptions):
     append_punctuations: str = "\"'.。,，!！?？:：”)]}、"
 
 
-@dataclass(frozen=True)
-class WhisperPredictArgs(OpenAiWhisperArgs, FillUndefined):
-    audio: NumpyFloat1DArray = UNDEFINED
-
 
 @dataclass
 class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
@@ -101,8 +97,7 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
         audio.N_FRAMES = exact_div(audio.N_SAMPLES, audio.HOP_LENGTH)
 
         audio_dur = float(len(audio_array) / self.sample_rate)
-        pred_args = WhisperPredictArgs(audio=audio_array, **asdict(whisper_args))
-        resp = self._model.transcribe(**asdict(pred_args))
+        resp = self._model.transcribe(audio=audio_array,**asdict(whisper_args))
 
         # resp["text"].strip(" ") # somehow this sometimes repeats the transcribt twice
         whisper_segments = resp["segments"]
