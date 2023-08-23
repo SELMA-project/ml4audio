@@ -1,67 +1,34 @@
-import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
-import whisper as whisper_module
+import faster_whisper
 from beartype import beartype
-from whisper import Whisper, DecodingOptions
+from faster_whisper import download_model, WhisperModel
 
-from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat1D
-from misc_utils.dataclass_utils import UNDEFINED, FillUndefined
-from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
-from ml4audio.asr_inference.inference import (
-    StartEndTextsNonOverlap,
-)
+import whisper as whisper_module
+from misc_utils.beartypes import NumpyFloat1D
+from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.asr_inference.whisper_inference import (
     WhisperInferencer,
-    fix_whisper_segments,
     WhisperArgs,
 )
-from whisper.utils import exact_div
-
-
-@dataclass(frozen=True)
-class OpenAiWhisperArgs(WhisperArgs, DecodingOptions):
-    """
-    for defaults see transcribe-method
-    """
-
-    compression_ratio_threshold: Optional[float] = 2.4
-    logprob_threshold: Optional[float] = -1.0
-    no_speech_threshold: Optional[float] = 0.6
-    condition_on_previous_text: bool = True
-    initial_prompt: Optional[str] = None
-    word_timestamps: bool = False
-    prepend_punctuations: str = "\"'“¿([{-"
-    append_punctuations: str = "\"'.。,，!！?？:：”)]}、"
-
-
-@dataclass(frozen=True)
-class WhisperPredictArgs(OpenAiWhisperArgs, FillUndefined):
-    audio: NumpyFloat1DArray = UNDEFINED
 
 
 @dataclass
-class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
-    """
-    https://github.com/saharmor/whisper-playground
-    """
+class FasterWhisperASRSegmentInferencer(WhisperInferencer):
 
     model_name: str = "base"
-    whisper_args: Optional[OpenAiWhisperArgs] = None
-    _model: Whisper = field(init=False, repr=False)
+    whisper_args: Optional[WhisperArgs] = None
+    num_threads: int = 4
+    _model: WhisperModel = field(init=False, repr=False)
     base_dir: PrefixSuffix = field(
         default_factory=lambda: PrefixSuffix("cache_root", "MODELS/WHISPER_MODELS"),
         init=False,
     )
 
-    def __post_init__(self):
-        if self.model_name.startswith("openai/whisper-"):
-            self.model_name = self.model_name.replace("openai/whisper-", "")
-
     @property
     def name(self) -> str:
-        return f"whisper-{self.model_name}"
+        return f"faster-whisper-{self.model_name}"
 
     @property
     def sample_rate(self) -> int:
@@ -69,52 +36,46 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
 
     @property
     def _is_data_valid(self) -> bool:
-        return os.path.isfile(self._checkpoint_file)
-
-    @property
-    def _checkpoint_file(self) -> str:
-        """
-        see: whisper/__init__.py _download method
-        """
-        return f"{self.data_dir}/{os.path.basename(whisper_module._MODELS[self.model_name])}"
+        try:
+            download_model(
+                self.model_name,
+                local_files_only=True,
+                cache_dir=self.data_dir,
+            )
+            found_it = True
+        except FileNotFoundError:
+            found_it = False
+        return found_it
 
     def _build_data(self) -> Any:
-        checkpoint_file = whisper_module._download(
-            whisper_module._MODELS[self.model_name], self.data_dir, in_memory=False
+        model_path = download_model(
+            self.model_name,
+            local_files_only=False,
+            cache_dir=self.data_dir,
         )
-        assert checkpoint_file == self._checkpoint_file
 
     def __enter__(self):
-        self._model = whisper_module.load_model(self._checkpoint_file)
+        model_path = download_model(
+            self.model_name,
+            local_files_only=True,
+            cache_dir=self.data_dir,
+        )
+        self._model = faster_whisper.WhisperModel(
+            model_path, device="cpu", compute_type="int8", cpu_threads=self.num_threads
+        )
 
     def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
         del self._model
 
     @beartype
     def predict_transcribed_with_whisper_args(
-        self, audio_array: NumpyFloat1D, whisper_args: OpenAiWhisperArgs
+        self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
     ):  # -> StartEndTextsNonOverlap:
-        from whisper import audio
-
-        audio.CHUNK_LENGTH = whisper_args.chunk_length
-        audio.N_SAMPLES = audio.CHUNK_LENGTH * audio.SAMPLE_RATE
-        audio.N_FRAMES = exact_div(audio.N_SAMPLES, audio.HOP_LENGTH)
-
-        audio_dur = float(len(audio_array) / self.sample_rate)
-        pred_args = WhisperPredictArgs(audio=audio_array, **asdict(whisper_args))
-        resp = self._model.transcribe(**asdict(pred_args))
-
-        # resp["text"].strip(" ") # somehow this sometimes repeats the transcribt twice
-        whisper_segments = resp["segments"]
-        if len(whisper_segments) > 0:
-            raw_whisper_segments = [
-                (seg["start"], seg["end"], seg["text"]) for seg in whisper_segments
-            ]
-            start_end_text = fix_whisper_segments(
-                raw_whisper_segments,
-                audio_dur,
-            )
-        else:
-            start_end_text = []
-        return start_end_text
-
+        segments, _ = self._model.transcribe(
+            audio_array,
+            beam_size=5,
+            word_timestamps=True,
+            # initial_prompt="Welcome to the software engineering courses channel.",
+        )
+        segments = list(segments)
+        return [(seg.start, seg.end, seg.text) for seg in segments]
