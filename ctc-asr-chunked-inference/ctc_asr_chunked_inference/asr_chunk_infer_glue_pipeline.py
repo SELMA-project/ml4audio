@@ -19,8 +19,10 @@ from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
 )
-from ml4audio.asr_inference.transcript_glueing import NO_NEW_SUFFIX, \
-    accumulate_transcript_suffixes
+from ml4audio.asr_inference.transcript_glueing import (
+    NO_NEW_SUFFIX,
+    accumulate_transcript_suffixes,
+)
 from ml4audio.asr_inference.transcript_gluer import (
     TranscriptGluer,
     ASRStreamInferenceOutput,
@@ -75,7 +77,7 @@ class Aschinglupi(Buildable):
 
     @property
     def sample_rate(self) -> int:
-        return self.hf_asr_decoding_inferencer.sample_rate
+        return self.hf_asr_decoding_inferencer.input_sample_rate
 
     @property
     def name(self):

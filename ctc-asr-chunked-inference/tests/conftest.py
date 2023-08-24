@@ -1,8 +1,9 @@
 import os
 import sys
 
-from transformers import Wav2Vec2ForCTC
-
+from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import (
+    HfModelFromCheckpoint,
+)
 from ml4audio.audio_utils.test_utils import (
     get_test_vocab,
     get_test_cache_base,
@@ -18,10 +19,6 @@ from ctc_asr_chunked_inference.hfwav2vec2_asr_decode_inferencer import (
     HFASRDecodeInferencer,
 )
 from ctc_decoding.ctc_decoding import GreedyDecoder
-from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
-    HfCheckpoint,
-    HfModelFromCheckpoint,
-)
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
 )
@@ -42,9 +39,9 @@ def asr_decode_inferencer(request):
     cache_base = get_test_cache_base()
 
     if not hasattr(request, "param"):
-        expected_sample_rate = 16000
+        input_sample_rate = 16000
     else:
-        expected_sample_rate = request.param
+        input_sample_rate = request.param
 
     model = "facebook/wav2vec2-base-960h"
     logits_inferencer = HFWav2Vec2LogitsInferencer(
@@ -54,11 +51,11 @@ def asr_decode_inferencer(request):
             hf_model_type="Wav2Vec2ForCTC",
             base_dir=cache_base,
         ),
-        input_sample_rate=expected_sample_rate,
     )
     asr = HFASRDecodeInferencer(
         logits_inferencer=logits_inferencer,
         decoder=GreedyDecoder(tokenizer_name_or_path=model),
+        input_sample_rate=input_sample_rate,
     )
     asr.build()
     return asr

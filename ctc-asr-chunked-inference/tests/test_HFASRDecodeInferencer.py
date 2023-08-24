@@ -30,7 +30,7 @@ def test_HFASRDecodeInferencer(
         -> model gets downloaded from hf-hub
     """
 
-    expected_sample_rate = asr_decode_inferencer.logits_inferencer.input_sample_rate
+    expected_sample_rate = asr_decode_inferencer.input_sample_rate
     audio_array = load_and_resample_16bit_PCM(
         librispeech_audio_file, expected_sample_rate
     )
@@ -43,9 +43,7 @@ def test_HFASRDecodeInferencer(
     # write_lines("vocab.txt",target_dictionary)
 
     start_time = time()
-    transcript = asr_decode_inferencer.transcribe_audio_array(
-        audio_array.squeeze()
-    )
+    transcript = asr_decode_inferencer.transcribe_audio_array(audio_array.squeeze())
     inference_duration = time() - start_time
     hyp = transcript.letters
     cd = icdiff.ConsoleDiff(cols=120)

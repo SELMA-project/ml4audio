@@ -62,9 +62,7 @@ def test_ASRStreamInferencer(
 ):
     print(f"{step_dur=},{window_dur=}")
 
-    SR = (
-        expected_sample_rate
-    ) = asr_decode_inferencer.logits_inferencer.input_sample_rate
+    SR = expected_sample_rate = asr_decode_inferencer.input_sample_rate
     asr_input = list(
         audio_messages_from_file(
             librispeech_audio_file, expected_sample_rate, chunk_duration=chunk_dur
