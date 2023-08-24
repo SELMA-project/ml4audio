@@ -86,21 +86,29 @@ def calc_new_suffix(
                 right.letters[(glue_point_right):],
                 right.timestamps[(glue_point_right):],
             )
-            time_diff = (
-                left_cut.timestamps[glue_point_left_cut]
-                - right.timestamps[glue_point_right]
+            _fix_new_suffixs_start_timestamps(
+                new_suffix, left_end=left_cut.timestamps[glue_point_left_cut]
             )
-            only_shift_to_past = time_diff < 0
-            if only_shift_to_past:
-                # shift only the very first letter to exactly match the timestamp of the last letter in "left"
-                new_suffix.timestamps[0] += time_diff
-            new_suffix.validate_data()
         else:
             new_suffix = NO_NEW_SUFFIX
             if DEBUG:
                 print(f"not matches for: {left.letters} and {right.letters}")
 
     return new_suffix
+
+
+def _fix_new_suffixs_start_timestamps(new_suffix: TimestampedLetters, left_end: float):
+    time_diff = left_end - new_suffix.timestamps[0]
+    # shift only the very first letter to exactly match the timestamp of the last letter in "left"
+    new_suffix.timestamps[0] += time_diff
+    for k in range(len(new_suffix.timestamps)):
+        if new_suffix.timestamps[k] >= new_suffix.timestamps[k + 1]:
+            new_suffix.timestamps[k + 1] = new_suffix.timestamps[k] + 0.001
+        else:
+            break
+    if k > 2:
+        print(f"needed to correct {k} following timestamps!")
+    new_suffix.validate_data()
 
 
 @beartype

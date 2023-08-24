@@ -102,7 +102,6 @@ class Aschinglupi(Buildable):
             letters = self.hf_asr_decoding_inferencer.transcribe_audio_array(
                 chunk.array
             )
-            assert self.sample_rate==16000
             letters.timestamps += (chunk.frame_idx) / self.sample_rate
             new_suffix = self.transcript_gluer.calc_transcript_suffix(letters)
             if new_suffix is not NO_NEW_SUFFIX:

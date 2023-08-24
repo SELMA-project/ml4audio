@@ -1,5 +1,6 @@
 import os
 from time import time
+from typing import Optional
 
 import numpy as np
 import pytest
@@ -33,14 +34,19 @@ os.environ["DEBUG_GLUER"] = "True"
 
 
 @pytest.mark.parametrize(
-    "step_dur,window_dur,max_CER,num_responses",
+    "step_dur,window_dur,max_step_dur,chunk_dur,max_CER,num_responses",
     [
-        (1.0, 2.0, 0.085, 25),  # got worse due to using opus instead of wav
-        (1.5, 3.0, 0.02, 17),
-        (1.0, 4.0, 0.0098, 25),
-        (2.0, 4.0, 0.0065, 13),
-        (4.0, 8.0, 0.0033, 7),
-        (1.0, 8.0, 0.0, 25),
+        # fmt: off
+        (1.0, 2.0, None,0.1, 0.085, 25),  # got worse due to using opus instead of wav
+        (1.5, 3.0, None,0.1, 0.02, 17),
+        (1.0, 4.0, None,0.1, 0.0098, 25),
+
+        (2.0, 4.0, None, 0.1, 0.0065, 13),
+        (1.0, 4.0, 2.0, 2.0, 0.0065, 13), # same as above cause max_step_dur == chunk_dur == 2.0, the min_step_dur is kind of ignored, cause chunk_dur is fixed
+
+        (4.0, 8.0, None,0.1, 0.0033, 7),
+        (1.0, 8.0, None,0.1, 0.0, 25),
+        # fmt: on
     ],
 )
 def test_ASRStreamInferencer(
@@ -49,15 +55,20 @@ def test_ASRStreamInferencer(
     librispeech_raw_ref,
     step_dur: float,
     window_dur: float,
+    max_step_dur: Optional[float],
+    chunk_dur: float,
     max_CER: float,
     num_responses: int,
 ):
+    print(f"{step_dur=},{window_dur=}")
 
     SR = (
         expected_sample_rate
     ) = asr_decode_inferencer.logits_inferencer.input_sample_rate
     asr_input = list(
-        audio_messages_from_file(librispeech_audio_file, expected_sample_rate)
+        audio_messages_from_file(
+            librispeech_audio_file, expected_sample_rate, chunk_duration=chunk_dur
+        )
     )
     assert asr_input[-1].end_of_signal
     audio_signal = np.concatenate([ac.array for ac in asr_input])
@@ -66,7 +77,6 @@ def test_ASRStreamInferencer(
     assert audio_signal.shape[0] == wav_length + opus_is_alittle_longer
     # audio_duration = audio_signal.shape[0] / SR
 
-    start_time = time()
     streaming_asr: Aschinglupi = Aschinglupi(
         hf_asr_decoding_inferencer=asr_decode_inferencer,
         transcript_gluer=TranscriptGluer(),
@@ -74,23 +84,22 @@ def test_ASRStreamInferencer(
             chunk_size=int(window_dur * SR),
             minimum_chunk_size=int(1 * SR),  # one second!
             min_step_size=int(step_dur * SR),
+            max_step_size=int(max_step_dur * SR) if max_step_dur is not None else None,
         ),
     ).build()
-    startup_time = time() - start_time
-    start_time = time()
 
     streaming_asr.reset()
 
     outputs: list[ASRStreamInferenceOutput] = [
         t for inpt in asr_input for t in streaming_asr.handle_inference_input(inpt)
     ]
-    inference_duration = time() - start_time
-    suffixes_g = (tr.aligned_transcript for tr in outputs)
-    transcript = accumulate_transcript_suffixes(suffixes_g)
-
-    hyp = transcript.letters.strip(" ")
     assert len(outputs) == num_responses
     assert outputs[-1].end_of_message
+
+    suffixes_g = (tr.aligned_transcript for tr in outputs)
+    transcript = accumulate_transcript_suffixes(suffixes_g)
+    hyp = transcript.letters.strip(" ")
+
     # print(f"{audio_duration,prefix.timestamps[-1]}")
     ref = normalize_filter_text(
         librispeech_raw_ref,
@@ -99,11 +108,7 @@ def test_ASRStreamInferencer(
         casing=Casing.upper,
     )
     diff_line = smithwaterman_aligned_icdiff(ref, hyp)
-    print(f"{window_dur=},{step_dur=}")
 
     print(diff_line)
     cer = calc_cer([(hyp, ref)])
-    print(
-        f"CER: {cer},start-up took: {startup_time}, inference took: {inference_duration} seconds"
-    )
     assert cer <= max_CER

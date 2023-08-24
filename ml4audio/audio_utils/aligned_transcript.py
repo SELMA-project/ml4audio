@@ -1,12 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Optional, Union, Iterable
 
 import numpy as np
 from beartype import beartype
-from numpy._typing import NDArray
-
-from misc_utils.beartypes import NeList, NeNumpyFloat1DArray
-from misc_utils.dataclass_utils import UNDEFINED
+from numpy.typing import NDArray
+from misc_utils.beartypes import NeNumpyFloat1DArray
 
 
 @dataclass
@@ -15,6 +12,9 @@ class TimestampedLetters:
     timestamps: NeNumpyFloat1DArray
 
     def __post_init__(self):
+        self.validate_data()
+
+    def validate_data(self):
         strictly_increasing = np.all(np.diff(self.timestamps) > 0)
         assert strictly_increasing, f"{self.timestamps=}"
         assert len(self.letters) == len(self.timestamps)

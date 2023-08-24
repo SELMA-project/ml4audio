@@ -57,11 +57,11 @@ DONT_EMIT_PREMATURE_CHUNKS = _DONT_EMIT_PREMATURE_CHUNKS()
 
 @beartype
 def audio_messages_from_file(
-    audio_filepath: str, client_sample_rate: int
+    audio_filepath: str, client_sample_rate: int, chunk_duration: float = 0.1
 ) -> Iterator[AudioMessageChunk]:
     chunks = list(
         read_audio_chunks_from_file(
-            audio_filepath, client_sample_rate, chunk_duration=0.1
+            audio_filepath, client_sample_rate, chunk_duration=chunk_duration
         )
     )
     yield from audio_messages_from_chunks(audio_filepath, chunks)
@@ -196,7 +196,6 @@ class OverlapArrayChunker:
                     if not self.is_very_start
                     else 0
                 )
-
                 self._buffer = self._buffer[step_size:]
                 self.frame_counter = (
                     self.frame_counter + step_size
