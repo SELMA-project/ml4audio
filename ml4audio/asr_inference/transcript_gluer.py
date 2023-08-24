@@ -1,7 +1,7 @@
 import difflib
 import os
 from dataclasses import field, dataclass
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 from beartype import beartype
@@ -11,6 +11,7 @@ from misc_utils.utils import just_try
 from ml4audio.asr_inference.transcript_glueing import (
     calc_new_suffix,
     NO_NEW_SUFFIX,
+    _NO_NEW_SUFFIX,
 )
 from ml4audio.audio_utils.aligned_transcript import (
     TimestampedLetters,
@@ -58,31 +59,45 @@ class TranscriptGluer(Buildable):
         self.seqmatcher = difflib.SequenceMatcher()
 
     @beartype
-    def calc_transcript_suffix(self, inp: TimestampedLetters) -> TimestampedLetters:
+    def calc_transcript_suffix(
+        self, inp: TimestampedLetters
+    ) -> Union[TimestampedLetters, _NO_NEW_SUFFIX]:
 
         if self._prefix is None:
             self._prefix, new_suffix = inp, inp
         else:
-            self._prefix, new_suffix = self._calc_prefix_suffix(self._prefix, inp)
+            self._prefix, new_suffix = self._calc_glued_and_suffix(self._prefix, inp)
 
         return new_suffix
 
-    def _calc_prefix_suffix(self, prefix: TimestampedLetters, inp: TimestampedLetters):
+    @beartype
+    def _calc_glued_and_suffix(
+        self, prefix: TimestampedLetters, inp: TimestampedLetters
+    ) -> tuple[TimestampedLetters, Union[TimestampedLetters, _NO_NEW_SUFFIX]]:
         new_suffix = just_try(
             lambda: calc_new_suffix(left=prefix, right=inp, sm=self.seqmatcher),
             default=NO_NEW_SUFFIX,
             # a failed glue does not add anything! In the hope that overlap is big enough so that it can be recovered by next glue!
             verbose=DEBUG,
-            print_stacktrace=False,
+            print_stacktrace=True,
             reraise=False,
         )
+        if new_suffix is not NO_NEW_SUFFIX:
+            glued_trimmed = self._glue_and_trim(prefix, new_suffix)
+        else:
+            glued_trimmed = prefix
+        return glued_trimmed, new_suffix
+
+    def _glue_and_trim(self, prefix, new_suffix):
         KEEP_DURATION = 100  # was not working with 40
-        prefix = prefix.slice(np.argwhere(prefix.timestamps < new_suffix.timestamps[0]))
-        prefix = TimestampedLetters(
-            prefix.letters + new_suffix.letters,
-            np.concatenate([prefix.timestamps, new_suffix.timestamps]),
+        prefix_to_keep = prefix.slice(
+            np.argwhere(prefix.timestamps < new_suffix.timestamps[0])
         )
-        prefix = prefix.slice(
-            np.argwhere(prefix.timestamps > prefix.timestamps[-1] - KEEP_DURATION)
+        glued = TimestampedLetters(
+            prefix_to_keep.letters + new_suffix.letters,
+            np.concatenate([prefix_to_keep.timestamps, new_suffix.timestamps]),
         )
-        return prefix, new_suffix
+        glued_trimmed = glued.slice(
+            np.argwhere(glued.timestamps > glued.timestamps[-1] - KEEP_DURATION)
+        )
+        return glued_trimmed
