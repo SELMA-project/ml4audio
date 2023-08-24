@@ -3,9 +3,11 @@ import shutil
 from dataclasses import dataclass
 from typing import Union
 
+import numpy as np
 from beartype import beartype
 from transformers import set_seed
 
+from ctc_decoding.ctc_decoding import BaseCTCDecoder, LogitAlignedTranscript
 from misc_utils.beartypes import TorchTensor2D
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
@@ -14,10 +16,8 @@ from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     NumpyFloatORInt16_1DArray,
 )
 from ml4audio.audio_utils.aligned_transcript import (
-    LetterIdx,
-    AlignedTranscript,
+    TimestampedLetters,
 )
-from ctc_decoding.ctc_decoding import BaseCTCDecoder, LogitAlignedTranscript
 
 DEBUG = False
 counter = 0
@@ -63,14 +63,14 @@ class HFASRDecodeInferencer(Buildable):
     @beartype
     def transcribe_audio_array(
         self, audio_array: NumpyFloatORInt16_1DArray
-    ) -> AlignedTranscript:
+    ) -> TimestampedLetters:
         logits = self.logits_inferencer.resample_calc_logits(audio_array)
         return self.__aligned_decode(logits, len(audio_array))
 
     @beartype
     def __aligned_decode(
         self, logits: TorchTensor2D, audio_array_seq_len: int
-    ) -> AlignedTranscript:
+    ) -> TimestampedLetters:
         """
         letters aligned to audio-frames
 
@@ -79,16 +79,11 @@ class HFASRDecodeInferencer(Buildable):
 
         logits_seq_len = logits.size()[0]
         audio_to_logits_ratio = audio_array_seq_len / logits_seq_len
-        projected_array_index = [
-            round(audio_to_logits_ratio * i) for i in dec_out.logit_ids
+        timestamps = [
+            audio_to_logits_ratio * i / self.logits_inferencer.input_sample_rate
+            for i in dec_out.logit_ids
         ]
-        letters = [
-            LetterIdx(letter=l, r_idx=i)
-            for l, i in zip(dec_out.text, projected_array_index)
-        ]
-        return AlignedTranscript(
-            letters=letters,
-            sample_rate=self.logits_inferencer.input_sample_rate,
-            logits_score=dec_out.logits_score,
-            lm_score=dec_out.lm_score,
-        ).update_offset()
+
+        return TimestampedLetters(
+            dec_out.text,np.array(timestamps)
+        )  # ,dec_out.logits_score,dec_out.lm_score

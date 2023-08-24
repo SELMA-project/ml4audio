@@ -1,8 +1,8 @@
 import os
+from time import time
 
 import numpy as np
 import pytest
-from time import time
 
 from conftest import get_test_cache_base
 from ctc_asr_chunked_inference.asr_chunk_infer_glue_pipeline import Aschinglupi
@@ -10,12 +10,13 @@ from ctc_asr_chunked_inference.hfwav2vec2_asr_decode_inferencer import (
     HFASRDecodeInferencer,
 )
 from misc_utils.prefix_suffix import BASE_PATHES
-from ml4audio.asr_inference.transcript_glueing import remove_and_append
+from ml4audio.asr_inference.transcript_glueing import (
+    accumulate_transcript_suffixes,
+)
 from ml4audio.asr_inference.transcript_gluer import (
     TranscriptGluer,
     ASRStreamInferenceOutput,
 )
-from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
 from ml4audio.audio_utils.overlap_array_chunker import (
     audio_messages_from_file,
     OverlapArrayChunker,
@@ -63,9 +64,7 @@ def test_ASRStreamInferencer(
     wav_length = 393920
     opus_is_alittle_longer = 70
     assert audio_signal.shape[0] == wav_length + opus_is_alittle_longer
-    print(
-        f"got audio of {sum(len(a.array) for a in asr_input)/expected_sample_rate:.2f} seconds"
-    )
+    # audio_duration = audio_signal.shape[0] / SR
 
     start_time = time()
     streaming_asr: Aschinglupi = Aschinglupi(
@@ -85,14 +84,14 @@ def test_ASRStreamInferencer(
     outputs: list[ASRStreamInferenceOutput] = [
         t for inpt in asr_input for t in streaming_asr.handle_inference_input(inpt)
     ]
-    transcript = ""
-    for tr in outputs:
-        transcript = remove_and_append(transcript, tr.ending_to_be_removed, tr.text)
-    hyp = transcript.strip(" ")
+    inference_duration = time() - start_time
+    suffixes_g = (tr.aligned_transcript for tr in outputs)
+    transcript = accumulate_transcript_suffixes(suffixes_g)
+
+    hyp = transcript.letters.strip(" ")
     assert len(outputs) == num_responses
     assert outputs[-1].end_of_message
-    inference_duration = time() - start_time
-
+    # print(f"{audio_duration,prefix.timestamps[-1]}")
     ref = normalize_filter_text(
         librispeech_raw_ref,
         asr_decode_inferencer.logits_inferencer.vocab,

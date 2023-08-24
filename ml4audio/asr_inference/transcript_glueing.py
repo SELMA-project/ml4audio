@@ -3,19 +3,15 @@ import sys
 from dataclasses import dataclass
 
 from beartype import beartype
-from beartype.vale import Is
 
-from misc_utils.beartypes import NeList
-from misc_utils.utils import just_try, Singleton
+from misc_utils.utils import Singleton
 from ml4audio.audio_utils.aligned_transcript import (
-    AlignedTranscript,
-    LetterIdx,
     TimestampedLetters,
 )
 
 sys.path.append(".")
 import difflib
-from typing import Tuple, Annotated, Union
+from typing import Union, Iterable
 
 import numpy as np
 
@@ -24,10 +20,7 @@ DEBUG = os.environ.get("DEBUG_GLUER", "False").lower() != "false"
 if DEBUG:
     print("DEBUGGING MODE for glue_left_right")
 
-NonEmptyAlignedTranscript = Annotated[
-    AlignedTranscript, Is[lambda x: x.len_not_space > 0]
-]
-# TODO: can this ever be empty?
+
 
 """
 ───▄▄▄
@@ -145,3 +138,18 @@ def cut_left_calc_matches(
     sm.set_seqs(left_cut.letters, cut_right_just_to_help_alingment.letters)
     matches = [m for m in sm.get_matching_blocks() if m.size > 0]
     return left_cut, matches
+
+def accumulate_transcript_suffixes(
+    suffixes_g: Iterable[TimestampedLetters],
+) -> TimestampedLetters:
+    prefix = None
+    for suffix in suffixes_g:
+        if prefix is not None:
+            prefix = prefix.slice(np.argwhere(prefix.timestamps < suffix.timestamps[0]))
+            prefix = TimestampedLetters(
+                prefix.letters + suffix.letters,
+                np.concatenate([prefix.timestamps, suffix.timestamps]),
+            )
+        else:
+            prefix = suffix
+    return prefix

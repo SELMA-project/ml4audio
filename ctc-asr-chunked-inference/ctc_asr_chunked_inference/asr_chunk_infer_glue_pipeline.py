@@ -4,7 +4,7 @@
 3. glue transcripts -> buffering
 """
 from dataclasses import dataclass, field
-from typing import Iterator, Union, Optional, Iterable, Annotated, Any
+from typing import Iterator, Optional, Iterable, Annotated, Any
 
 import numpy as np
 from beartype import beartype
@@ -18,15 +18,14 @@ from misc_utils.beartypes import Numpy1D, NumpyInt16_1D, NeList
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
-    _UNDEFINED,
 )
-from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
-from ml4audio.asr_inference.asr_array_stream_inference import ASRMessage
+from ml4audio.asr_inference.transcript_glueing import NO_NEW_SUFFIX, \
+    accumulate_transcript_suffixes
 from ml4audio.asr_inference.transcript_gluer import (
     TranscriptGluer,
     ASRStreamInferenceOutput,
 )
-from ml4audio.audio_utils.aligned_transcript import AlignedTranscript, LetterIdx
+from ml4audio.audio_utils.aligned_transcript import TimestampedLetters
 from ml4audio.audio_utils.audio_io import (
     convert_to_16bit_array,
     break_array_into_chunks,
@@ -100,46 +99,22 @@ class Aschinglupi(Buildable):
     ) -> Iterator[ASRStreamInferenceOutput]:
         for chunk in self.audio_bufferer.handle_datum(inpt):
             chunk: AudioMessageChunk
-            altr = self.hf_asr_decoding_inferencer.transcribe_audio_array(chunk.array)
-            if altr.len_not_space > 0:
-                altr.frame_id = chunk.frame_idx
-                altr.update_offset(chunk.frame_idx)
-                message = ASRMessage(
-                    message_id=chunk.message_id,
-                    aligned_transcript=altr,
+            letters = self.hf_asr_decoding_inferencer.transcribe_audio_array(
+                chunk.array
+            )
+            assert self.sample_rate==16000
+            letters.timestamps += (chunk.frame_idx) / self.sample_rate
+            new_suffix = self.transcript_gluer.calc_transcript_suffix(letters)
+            if new_suffix is not NO_NEW_SUFFIX:
+                yield ASRStreamInferenceOutput(
+                    id=chunk.message_id,
+                    aligned_transcript=new_suffix,
                     end_of_message=chunk.end_of_signal,
                 )
-                glued_transcript = self.transcript_gluer.handle_message(message)
-                yield glued_transcript
-
-    @beartype
-    def transcribe_audio_array(self, array: Numpy1D) -> AlignedTranscript:
-        return transcribe_audio_array(self, array)
 
     @property
     def vocab(self) -> list[str]:
         return self.hf_asr_decoding_inferencer.vocab
-
-
-@beartype
-def gather_final_aligned_transcripts(
-    aschinglupi: Aschinglupi, asr_input: Iterable[AudioMessageChunk]
-) -> Iterator[AlignedTranscript]:
-    """
-    gather/accumulate intermediate transcripts until final is received
-    """
-    aschinglupi.reset()
-    last_response: Optional[AlignedTranscript] = None
-
-    for inpt in asr_input:
-        for t in aschinglupi.handle_inference_input(inpt):
-            # print(f"{t.aligned_transcript=}")
-            last_response = t.aligned_transcript
-
-        if inpt.end_of_signal:
-            aschinglupi.reset()
-            if last_response is not None:
-                yield last_response
 
 
 @beartype
@@ -155,24 +130,9 @@ NO_TRANSCRIPT = " ... "
 
 
 @beartype
-def calc_final_transcript(
-    inferencer: Aschinglupi,
-    audio_messages: CompleteMessage,
-) -> AlignedTranscript:
-    last_responses = list(gather_final_aligned_transcripts(inferencer, audio_messages))
-    if len(last_responses) == 1:
-        return last_responses[0]
-    else:
-        return AlignedTranscript(
-            letters=[LetterIdx(NO_TRANSCRIPT, 0)],
-            sample_rate=inferencer.sample_rate,
-        )
-
-
-@beartype
 def aschinglupi_transcribe_chunks(
     inferencer: Aschinglupi, chunks: Iterable[NumpyInt16_1D]
-) -> AlignedTranscript:
+) -> TimestampedLetters:
     audio_messages = list(
         audio_messages_from_chunks(
             signal_id="nobody_cares",
@@ -180,15 +140,20 @@ def aschinglupi_transcribe_chunks(
         )
     )
     inferencer.reset()
-    at = calc_final_transcript(inferencer, audio_messages)
+
+    outputs: list[ASRStreamInferenceOutput] = [
+        t for inpt in audio_messages for t in inferencer.handle_inference_input(inpt)
+    ]
+    suffixes_g = (tr.aligned_transcript for tr in outputs)
+    transcript = accumulate_transcript_suffixes(suffixes_g)
     inferencer.reset()
-    return at
+    return transcript
 
 
 @beartype
 def transcribe_audio_array(
     inferencer: Aschinglupi, array: Numpy1D, chunk_dur: float = 4.0
-) -> AlignedTranscript:
+) -> TimestampedLetters:
     if array.dtype is not np.int16:
         array = convert_to_16bit_array(array)
     chunks = break_array_into_chunks(array, int(inferencer.sample_rate * chunk_dur))
