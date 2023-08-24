@@ -4,12 +4,12 @@ from ml4audio.asr_inference.transcript_glueing import NonEmptyAlignedTranscript
 
 
 # TODO remove this file!
-
-@dataclass
-class ASRMessage:
-    message_id: str
-    aligned_transcript: NonEmptyAlignedTranscript  # TODO: enforce being non-empty?
-    end_of_message: bool
+#
+# @dataclass
+# class ASRMessage:
+#     message_id: str
+#     aligned_transcript: NonEmptyAlignedTranscript  # TODO: enforce being non-empty?
+#     end_of_message: bool
 
 
 # @beartype

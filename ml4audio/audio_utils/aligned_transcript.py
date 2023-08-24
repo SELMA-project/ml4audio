@@ -4,8 +4,11 @@ copypasted from: https://github.com/dertilo/speech-to-text
 from dataclasses import dataclass
 from typing import List, Optional, Union, Iterable
 
+import numpy as np
 from beartype import beartype
-from misc_utils.beartypes import NeList
+from numpy._typing import NDArray
+
+from misc_utils.beartypes import NeList, NeNumpyFloat1DArray
 from misc_utils.dataclass_utils import UNDEFINED
 
 
@@ -13,6 +16,34 @@ from misc_utils.dataclass_utils import UNDEFINED
 class LetterIdx:
     letter: str
     r_idx: int  # TODO: rename to audio_frame_idx
+
+
+@dataclass
+class TimestampedLetters:
+    letters: str
+    timestamps: NeNumpyFloat1DArray
+
+    def __post_init__(self):
+        strictly_increasing = np.all(np.diff(self.timestamps) > 0)
+        assert strictly_increasing,f"{self.timestamps=}"
+        assert len(self.letters) == len(self.timestamps)
+
+    def __len__(self):
+        return len(self.letters)
+
+    # def slice_segment(self, start: Optional[float] = None, end: Optional[float] = None):
+    #     start = self.timestamps[0] if start is None else start
+    #     end = self.timestamps[-1] if end is None else end
+    #     those = np.argwhere(start <= self.timestamps < end)
+    #     return self.slice(those)
+
+    @beartype
+    def slice(self, those:NDArray[np.int]):
+        those=those.squeeze()
+        sliced = TimestampedLetters(
+            "".join([self.letters[i] for i in those]), self.timestamps[those]
+        )
+        return sliced
 
 
 def letter_to_words(letters: Iterable[LetterIdx]) -> Iterable[list[LetterIdx]]:
@@ -39,9 +70,10 @@ class AlignedTranscript:
     sample_rate: int
     offset: int = 0  # TODO: rename to audio_frame_offset
 
-    logits_score: Optional[float] = None  # TODO: who needs this?
-    lm_score: Optional[float] = None
-    frame_id: Optional[int] = None  # TODO: rename to audio_segment_frame_idx
+    # TODO: can I remove those?
+    # logits_score: Optional[float] = None
+    # lm_score: Optional[float] = None
+    # frame_id: Optional[int] = None
 
     def __post_init__(self):
         letters = self.letters

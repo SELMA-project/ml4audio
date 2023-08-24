@@ -1,19 +1,19 @@
 import difflib
 import os
 from dataclasses import field, dataclass
-from typing import Iterator, Tuple, AsyncIterable, AsyncIterator
 from typing import Optional
 
+import numpy as np
 from beartype import beartype
 
 from misc_utils.buildable import Buildable
-from ml4audio.asr_inference.asr_array_stream_inference import ASRMessage
+from misc_utils.utils import just_try
 from ml4audio.asr_inference.transcript_glueing import (
-    glue_left_right_update_hyp_buffer,
-    NonEmptyAlignedTranscript,
+    calc_new_suffix,
+    NO_NEW_SUFFIX,
 )
 from ml4audio.audio_utils.aligned_transcript import (
-    AlignedTranscript,
+    TimestampedLetters,
 )
 
 DEBUG = os.environ.get("DEBUG", "False").lower() != "false"
@@ -24,9 +24,7 @@ if DEBUG:
 @dataclass
 class ASRStreamInferenceOutput:
     id: str
-    ending_to_be_removed: str  # end of transcript that should be removed
-    text: str
-    aligned_transcript: AlignedTranscript  # TODO: why WAS this optional?
+    aligned_transcript: TimestampedLetters  # TODO: rename
     end_of_message: bool = False
 
 
@@ -41,7 +39,7 @@ class TranscriptGluer(Buildable):
 
     """
 
-    _hyp_buffer: Optional[NonEmptyAlignedTranscript] = field(
+    _hyp_buffer: Optional[TimestampedLetters] = field(
         init=False, repr=False, default=None
     )
     seqmatcher: Optional[difflib.SequenceMatcher] = field(
@@ -55,89 +53,42 @@ class TranscriptGluer(Buildable):
         pass
 
     def reset(self) -> None:
-        self._hyp_buffer: Optional[NonEmptyAlignedTranscript] = None
+        self._hyp_buffer: Optional[TimestampedLetters] = None
 
     def _build_self(self):
         self.reset()
         self.seqmatcher = difflib.SequenceMatcher()
 
     @beartype
-    def handle_message(self, inp: ASRMessage) -> ASRStreamInferenceOutput:
-        suffix_to_be_removed, new_suffix = self._calc_suffix(inp)
-        if DEBUG:
-            print(
-                f"{inp.aligned_transcript.text=}, {suffix_to_be_removed=},{new_suffix=},{self._hyp_buffer.text=}"
-            )
-        return ASRStreamInferenceOutput(
-            id=inp.message_id,
-            ending_to_be_removed=suffix_to_be_removed,
-            text=new_suffix,
-            aligned_transcript=self._hyp_buffer,
-            end_of_message=inp.end_of_message,
-        )
+    def calc_transcript_suffix(self, inp: TimestampedLetters) -> TimestampedLetters:
 
-    @beartype
-    def _calc_suffix(self, inp: ASRMessage) -> tuple[str, str]:
-
-        if (
-            inp.aligned_transcript.len_not_space > 0
-        ):  # TODO: message can be fine and end_of_message at same time!
-            is_very_start_of_stream = inp.aligned_transcript.frame_id == 0
-            do_overwrite_everything = (
-                is_very_start_of_stream or self._hyp_buffer is None
-            )
-            if do_overwrite_everything:
-                ending_to_be_removed = self._get_ending_to_be_removed(
-                    self._hyp_buffer, inp
-                )
-
-                self._hyp_buffer = inp.aligned_transcript
-
-                text = inp.aligned_transcript.text
-                new_suffix = (
-                    " " + text
-                    if not is_very_start_of_stream and len(text.replace(" ", "")) > 0
-                    else text
-                )
-            else:
-                assert self._hyp_buffer is not None
-                (
-                    ending_to_be_removed,
-                    text,
-                    hyp_buffer,
-                ) = glue_left_right_update_hyp_buffer(
-                    inp.aligned_transcript, self._hyp_buffer, self.seqmatcher
-                )
-                NUM_LETTERS_TO_KEEP_IN_BUFFER = 100  # was not working with 40
-                self._hyp_buffer = AlignedTranscript(
-                    letters=hyp_buffer.letters[-NUM_LETTERS_TO_KEEP_IN_BUFFER:],
-                    sample_rate=hyp_buffer.sample_rate,
-                    logits_score=hyp_buffer.logits_score,
-                    lm_score=hyp_buffer.lm_score,
-                    frame_id=hyp_buffer.frame_id,
-                ).update_offset(hyp_buffer.offset)
-                new_suffix = f"{text}{' ' if inp.end_of_message else ''}"
-
-        elif inp.end_of_message:
-            if DEBUG:
-                print("zero message just for end_of_message flag")
-            ending_to_be_removed = ""
-            new_suffix = ""
+        if self._hyp_buffer is None:
+            self._hyp_buffer = inp
+            new_suffix = inp
         else:
-            if DEBUG:
-                print(f"NOT fine and NOT end_of_message!!")
-            ending_to_be_removed = ""
-            new_suffix = ""
+            new_suffix = just_try(
+                lambda: calc_new_suffix(
+                    left=self._hyp_buffer, right=inp, sm=self.seqmatcher
+                ),
+                default=NO_NEW_SUFFIX,
+                # a failed glue does not add anything! In the hope that overlap is big enough so that it can be recovered by next glue!
+                verbose=DEBUG,
+                print_stacktrace=False,
+                reraise=True,
+            )
+            KEEP_DURATION = 100  # was not working with 40
+            self._hyp_buffer = self._hyp_buffer.slice(
+                np.argwhere(self._hyp_buffer.timestamps < new_suffix.timestamps[0])
+            )
+            self._hyp_buffer = TimestampedLetters(
+                self._hyp_buffer.letters + new_suffix.letters,
+                np.concatenate([self._hyp_buffer.timestamps, new_suffix.timestamps]),
+            )
+            self._hyp_buffer = self._hyp_buffer.slice(
+                np.argwhere(
+                    self._hyp_buffer.timestamps
+                    > self._hyp_buffer.timestamps[-1] - KEEP_DURATION
+                )
+            )
 
-        input_not_fine_but_final = self._hyp_buffer is None
-        if input_not_fine_but_final:
-            self._hyp_buffer = inp.aligned_transcript
-        return ending_to_be_removed, new_suffix
-
-    def _get_ending_to_be_removed(self, hyp_buffer, inp):
-        if hyp_buffer is not None:
-            ending_to_be_removed = hyp_buffer.text
-            assert len(ending_to_be_removed) > 0, inp.aligned_transcript.text
-        else:
-            ending_to_be_removed = ""
-        return ending_to_be_removed
+        return new_suffix
