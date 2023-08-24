@@ -39,9 +39,7 @@ class TranscriptGluer(Buildable):
 
     """
 
-    _hyp_buffer: Optional[TimestampedLetters] = field(
-        init=False, repr=False, default=None
-    )
+    _prefix: Optional[TimestampedLetters] = field(init=False, repr=False, default=None)
     seqmatcher: Optional[difflib.SequenceMatcher] = field(
         init=False, repr=False, default=None
     )
@@ -53,7 +51,7 @@ class TranscriptGluer(Buildable):
         pass
 
     def reset(self) -> None:
-        self._hyp_buffer: Optional[TimestampedLetters] = None
+        self._prefix: Optional[TimestampedLetters] = None
 
     def _build_self(self):
         self.reset()
@@ -62,33 +60,29 @@ class TranscriptGluer(Buildable):
     @beartype
     def calc_transcript_suffix(self, inp: TimestampedLetters) -> TimestampedLetters:
 
-        if self._hyp_buffer is None:
-            self._hyp_buffer = inp
-            new_suffix = inp
+        if self._prefix is None:
+            self._prefix, new_suffix = inp, inp
         else:
-            new_suffix = just_try(
-                lambda: calc_new_suffix(
-                    left=self._hyp_buffer, right=inp, sm=self.seqmatcher
-                ),
-                default=NO_NEW_SUFFIX,
-                # a failed glue does not add anything! In the hope that overlap is big enough so that it can be recovered by next glue!
-                verbose=DEBUG,
-                print_stacktrace=False,
-                reraise=True,
-            )
-            KEEP_DURATION = 100  # was not working with 40
-            self._hyp_buffer = self._hyp_buffer.slice(
-                np.argwhere(self._hyp_buffer.timestamps < new_suffix.timestamps[0])
-            )
-            self._hyp_buffer = TimestampedLetters(
-                self._hyp_buffer.letters + new_suffix.letters,
-                np.concatenate([self._hyp_buffer.timestamps, new_suffix.timestamps]),
-            )
-            self._hyp_buffer = self._hyp_buffer.slice(
-                np.argwhere(
-                    self._hyp_buffer.timestamps
-                    > self._hyp_buffer.timestamps[-1] - KEEP_DURATION
-                )
-            )
+            self._prefix, new_suffix = self._calc_prefix_suffix(self._prefix, inp)
 
         return new_suffix
+
+    def _calc_prefix_suffix(self, prefix: TimestampedLetters, inp: TimestampedLetters):
+        new_suffix = just_try(
+            lambda: calc_new_suffix(left=prefix, right=inp, sm=self.seqmatcher),
+            default=NO_NEW_SUFFIX,
+            # a failed glue does not add anything! In the hope that overlap is big enough so that it can be recovered by next glue!
+            verbose=DEBUG,
+            print_stacktrace=False,
+            reraise=False,
+        )
+        KEEP_DURATION = 100  # was not working with 40
+        prefix = prefix.slice(np.argwhere(prefix.timestamps < new_suffix.timestamps[0]))
+        prefix = TimestampedLetters(
+            prefix.letters + new_suffix.letters,
+            np.concatenate([prefix.timestamps, new_suffix.timestamps]),
+        )
+        prefix = prefix.slice(
+            np.argwhere(prefix.timestamps > prefix.timestamps[-1] - KEEP_DURATION)
+        )
+        return prefix, new_suffix

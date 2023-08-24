@@ -21,7 +21,6 @@ if DEBUG:
     print("DEBUGGING MODE for glue_left_right")
 
 
-
 """
 ───▄▄▄
 ─▄▀░▄░▀▄
@@ -66,7 +65,7 @@ def calc_new_suffix(
             one_ms_before_start = np.array([right.timestamps[0] - 0.001])
             new_suffix = TimestampedLetters(
                 " " + right.letters,
-                np.concatenate(one_ms_before_start, right.timestamps),
+                np.concatenate([one_ms_before_start, right.timestamps]),
             )
         else:
             new_suffix = right
@@ -91,9 +90,11 @@ def calc_new_suffix(
                 left_cut.timestamps[glue_point_left_cut]
                 - right.timestamps[glue_point_right]
             )
-            new_suffix.timestamps[
-                0
-            ] += time_diff  # shift only the very first letter to exactly match the timestamp of the last letter in "left"
+            only_shift_to_past = time_diff < 0
+            if only_shift_to_past:
+                # shift only the very first letter to exactly match the timestamp of the last letter in "left"
+                new_suffix.timestamps[0] += time_diff
+            new_suffix.validate_data()
         else:
             new_suffix = NO_NEW_SUFFIX
             if DEBUG:
@@ -138,6 +139,7 @@ def cut_left_calc_matches(
     sm.set_seqs(left_cut.letters, cut_right_just_to_help_alingment.letters)
     matches = [m for m in sm.get_matching_blocks() if m.size > 0]
     return left_cut, matches
+
 
 def accumulate_transcript_suffixes(
     suffixes_g: Iterable[TimestampedLetters],
