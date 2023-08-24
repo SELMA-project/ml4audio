@@ -17,9 +17,9 @@ from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 from ctc_decoding.ctc_decoding import (
     BaseCTCDecoder,
     AlignedBeams,
-    LogitAlignedTranscript,
-    HFCTCDecoder,
 )
+from ctc_decoding.huggingface_ctc_decoding import HFCTCDecoder
+from ctc_decoding.logit_aligned_transcript import LogitAlignedTranscript
 from ctc_decoding.lm_model_for_pyctcdecode import (
     KenLMForPyCTCDecode,
     KenLMBinaryUnigramsFile,

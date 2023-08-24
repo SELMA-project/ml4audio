@@ -1,7 +1,7 @@
 import icdiff
 import numpy as np
 
-from ctc_decoding.ctc_decoding import GreedyDecoder
+from ctc_decoding.huggingface_ctc_decoding import HFCTCGreedyDecoder
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 from ml4audio.text_processing.asr_metrics import calc_cer
 
@@ -14,7 +14,7 @@ def test_GreedyDecoder(
     librispeech_ref,
 ):
     logits = np.load(librispeech_logtis_file, allow_pickle=True)
-    decoder = GreedyDecoder(
+    decoder = HFCTCGreedyDecoder(
         tokenizer_name_or_path="facebook/wav2vec2-base-960h"
     ).build()
     transcript = decoder.decode(
