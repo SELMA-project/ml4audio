@@ -303,7 +303,6 @@ class OnnxedHFCheckpoint(HfCheckpoint):
 class ResamplingASRLogitsInferencer(Buildable):
     """
         Resampling  Asr Connectionis temporal classification (CTC) Logits Inference
-        Reascoteclloin
         TODO: decouple resampling from asr-inferencer! who is dependency of whom?
         current issue: input_sample_rate triggers almost identical cache!
 
@@ -402,43 +401,6 @@ class ResamplingASRLogitsInferencer(Buildable):
             lpz = softmax(logits).cpu().numpy()
         return lpz
 
-
-@dataclass
-class VocabFromASRLogitsInferencer(CachedList):
-    inferencer: Union[_UNDEFINED, ResamplingASRLogitsInferencer] = UNDEFINED
-
-    cache_base: PrefixSuffix = field(
-        default_factory=lambda: BASE_PATHES["processed_data"]
-    )
-
-    @property
-    def name(self):
-        return f"vocab-for-{self.inferencer.name}"
-
-    @beartype
-    def _build_data(self) -> NeList[str]:
-        return self.inferencer.vocab
-
-
-@dataclass
-class VocabFromASRLogitsInferencerVolatile(Buildable, list[str]):
-    inferencer: Union[_UNDEFINED, ResamplingASRLogitsInferencer] = UNDEFINED
-
-    @beartype
-    def _build_self(self) -> NeList[str]:
-        assert len(self) == 0
-        vocab = self.inferencer.vocab
-        # if self.inferencer.name.startswith("jonatasgrosman"):
-        #     # TODO: vocab fix, did huggingface change its logic? Orthography-thing?
-        #     vocab = [c.upper() for c in vocab]
-        # if "<s>" not in vocab:
-        #     vocab.append("<s>")
-        self.extend(vocab)
-        return vocab
-
-
-#
-#
 if __name__ == "__main__":
 
     # base_path = os.environ["BASE_PATH"]

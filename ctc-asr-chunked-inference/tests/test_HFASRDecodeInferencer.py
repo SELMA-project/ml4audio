@@ -6,7 +6,6 @@ import pytest
 from ctc_asr_chunked_inference.hfwav2vec2_asr_decode_inferencer import (
     HFASRDecodeInferencer,
 )
-from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
 from ml4audio.audio_utils.audio_io import load_and_resample_16bit_PCM
 from ml4audio.text_processing.asr_metrics import calc_cer
 
@@ -15,8 +14,8 @@ from ml4audio.text_processing.asr_metrics import calc_cer
     "asr_decode_inferencer,max_CER",
     [
         (16_000, 0.0),  # WTF! this model reaches 0% CER! overfitted?
-        (8_000, 0.01),
-        (4_000, 0.11),
+        (8_000, 0.0033),
+        (4_000, 0.091),
     ],
     indirect=["asr_decode_inferencer"],
 )
@@ -44,11 +43,11 @@ def test_HFASRDecodeInferencer(
     # write_lines("vocab.txt",target_dictionary)
 
     start_time = time()
-    transcript: AlignedTranscript = asr_decode_inferencer.transcribe_audio_array(
+    transcript = asr_decode_inferencer.transcribe_audio_array(
         audio_array.squeeze()
     )
     inference_duration = time() - start_time
-    hyp = transcript.text
+    hyp = transcript.letters
     cd = icdiff.ConsoleDiff(cols=120)
     diff_line = "\n".join(
         cd.make_table(

@@ -72,22 +72,14 @@ class HFWav2Vec2LogitsInferencer(ResamplingASRLogitsInferencer):
 
     @beartype
     def calc_logits(self, audio: NumpyFloat1DArray) -> TorchTensor2D:
-        # debug_dir = "debug_wav_files"
-        # os.makedirs(debug_dir, exist_ok=True)
-        # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-        # soundfile.write(f"{debug_dir}/audio-{timestamp}.wav", audio, 16000)
 
-        inputs = self._processor(
+        features = self._processor(
             audio,
             sampling_rate=HFWAV2VEC2_SAMPLE_RATE,
             return_tensors="pt",
             # padding=True, #TODO why was this set to true?
             # return_attention_mask=True,
         )
-        return self._infer_logits(inputs)
-
-    @beartype
-    def _infer_logits(self, features: BatchFeature) -> TorchTensor2D:
         device = next(self._model.parameters()).device
         with torch.no_grad():
             logits = (

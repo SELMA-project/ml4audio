@@ -24,7 +24,7 @@ class TimestampedLetters:
 
     @beartype
     def slice(self, those: NDArray[np.int]):
-        those = those.squeeze()
+        those = those.squeeze(1)
         sliced = TimestampedLetters(
             "".join([self.letters[i] for i in those]), self.timestamps[those]
         )
