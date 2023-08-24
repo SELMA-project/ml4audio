@@ -17,9 +17,7 @@ def test_GreedyDecoder(
     decoder = HFCTCGreedyDecoder(
         tokenizer_name_or_path="facebook/wav2vec2-base-960h"
     ).build()
-    transcript = decoder.decode(
-        MessageChunk(message_id="foo", frame_idx=0, array=logits.squeeze())
-    )[0]
+    transcript = decoder.ctc_decode(logits.squeeze())[0]
     hyp = transcript.text
 
     cd = icdiff.ConsoleDiff(cols=120)

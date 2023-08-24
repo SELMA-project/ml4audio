@@ -12,6 +12,7 @@ from transformers.models.wav2vec2.tokenization_wav2vec2 import (
 
 from ctc_decoding.ctc_decoding import BaseCTCDecoder, AlignedBeams
 from ctc_decoding.logit_aligned_transcript import LogitAlignedTranscript
+from misc_utils.beartypes import NumpyFloat2DArray
 from misc_utils.buildable import Buildable
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
@@ -33,10 +34,6 @@ class HFCTCDecoder(BaseCTCDecoder, Buildable):
     def vocab(self):
         return list(self._tokenizer.get_vocab().keys())
 
-    @abstractmethod
-    def decode(self, chunk: MessageChunk) -> AlignedBeams:
-        raise NotImplementedError
-
 
 @dataclass
 class HFCTCGreedyDecoder(HFCTCDecoder):
@@ -50,9 +47,9 @@ class HFCTCGreedyDecoder(HFCTCDecoder):
     """
 
     @beartype
-    def decode(self, chunk: MessageChunk) -> AlignedBeams:
+    def ctc_decode(self, logits: NumpyFloat2DArray) -> AlignedBeams:
 
-        greedy_path = torch.argmax(torch.from_numpy(chunk.array), dim=-1).squeeze()
+        greedy_path = torch.argmax(torch.from_numpy(logits), dim=-1).squeeze()
         out: Wav2Vec2CTCTokenizerOutput = self._tokenizer.decode(  # noqa
             token_ids=greedy_path,
             output_char_offsets=True,

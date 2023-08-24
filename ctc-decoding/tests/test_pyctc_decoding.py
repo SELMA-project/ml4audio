@@ -108,9 +108,7 @@ def test_PyCTCKenLMDecoder(
         lm_data=lm_data,
     )
     decoder.build()
-    transcript = decoder.decode(
-        MessageChunk(message_id="foo", frame_idx=0, array=logits.squeeze())
-    )[0]
+    transcript = decoder.ctc_decode(logits.squeeze())[0]
     ref = librispeech_ref
     hyp = transcript.text
     assert_transcript_cer(hyp, ref, max_cer)

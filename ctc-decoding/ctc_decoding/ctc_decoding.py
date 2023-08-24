@@ -16,11 +16,5 @@ BatchOfAlignedBeams = list[AlignedBeams]
 @dataclass
 class BaseCTCDecoder:
     @abstractmethod
-    def decode(self, chunk: MessageChunk) -> AlignedBeams:
+    def ctc_decode(self, logits: NumpyFloat2DArray) -> AlignedBeams:
         raise NotImplementedError
-
-    @beartype
-    def decode_logits(self, logits: NumpyFloat2DArray) -> AlignedBeams:
-        return self.decode(
-            MessageChunk(message_id="foo", frame_idx=0, array=logits.squeeze())
-        )

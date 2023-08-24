@@ -6,7 +6,7 @@ from beartype import beartype
 from beartype.vale import Is
 
 from data_io.readwrite_files import read_lines
-from misc_utils.beartypes import NeList
+from misc_utils.beartypes import NeList, NumpyFloat2DArray
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
@@ -112,14 +112,14 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
         )
 
     @beartype
-    def decode(
+    def ctc_decode(
         self,
-        chunk: MessageChunk,
+        logits: NumpyFloat2DArray,
     ) -> AlignedBeams:
         beams = [
             OutputBeamDc(*b)
             for b in self._pyctc_decoder.decode_beams(
-                chunk.array,
+                logits,
                 beam_width=self.beam_size,
             )
         ]
