@@ -1,10 +1,17 @@
 import os
 import sys
+from dataclasses import dataclass
 
 from ctc_decoding.lm_model_for_pyctcdecode import GzippedArpaAndUnigramsForPyCTCDecode
 from ctc_decoding.pyctc_decoder import PyCTCKenLMDecoder
+from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
+    ASRLogitsInferencer,
+)
 from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import (
     HfModelFromCheckpoint,
+)
+from ml4audio.asr_inference.logits_inferencer.nemo_asr_logits_inferencer import (
+    NemoASRLogitsInferencer,
 )
 from ml4audio.audio_utils.test_utils import (
     get_test_vocab,
@@ -40,23 +47,42 @@ cache_base = get_test_cache_base()
 TEST_MODEL_NAME = "facebook/wav2vec2-base-960h"
 
 
+@dataclass(frozen=True)
+class TestParams:
+    input_sample_rate: int = 16000
+    inferencer_name: str = "hf-wav2vec2"
+    decoder_name: str = "greedy"
+
+
 @pytest.fixture
 def vocab():
     return get_test_vocab()
 
 
-def build_decoder(name: str):
+def build_decoder(name: str, vocab: list[str]):
     NAME2DECODER = {
         "greedy": HFCTCGreedyDecoder(tokenizer_name_or_path=TEST_MODEL_NAME),
         "beamsearch": PyCTCKenLMDecoder(
-            vocab=VocabFromHFTokenizer(TEST_MODEL_NAME),
+            vocab=vocab,
             lm_weight=1.0,
             beta=0.5,
             ngram_lm_model=GzippedArpaAndUnigramsForPyCTCDecode(
                 base_dir=cache_base,
                 raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/lm.arpa"),
                 transcript_normalizer=TranscriptNormalizer(
-                    casing=Casing.upper, text_cleaner="en", vocab=get_test_vocab()
+                    casing=Casing.upper, text_cleaner="en", vocab=vocab
+                ),
+            ),
+        ),
+        "beamsearch-stupidlm": PyCTCKenLMDecoder(
+            vocab=vocab,
+            lm_weight=1.0,
+            beta=0.5,
+            ngram_lm_model=GzippedArpaAndUnigramsForPyCTCDecode(
+                base_dir=cache_base,
+                raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/stupid_lm.arpa"),
+                transcript_normalizer=TranscriptNormalizer(
+                    casing=Casing.upper, text_cleaner="en", vocab=vocab
                 ),
             ),
         ),
@@ -64,26 +90,33 @@ def build_decoder(name: str):
     return NAME2DECODER[name]
 
 
+def build_logits_inferencer(name: str) -> ASRLogitsInferencer:
+    # SMALL_CTC_CONFORMER = "nvidia/stt_en_conformer_ctc_small"
+    SMALL_CTC_CONFORMER = "stt_en_conformer_ctc_small"
+    NAME2INFERENCER = {
+        "hf-wav2vec2": HFWav2Vec2LogitsInferencer(
+            checkpoint=HfModelFromCheckpoint(
+                name=TEST_MODEL_NAME,
+                model_name_or_path=TEST_MODEL_NAME,
+                hf_model_type="Wav2Vec2ForCTC",
+                base_dir=cache_base,
+            ),
+        ),
+        "nemo-conformer": NemoASRLogitsInferencer(SMALL_CTC_CONFORMER),
+    }
+    return NAME2INFERENCER[name].build()
+
+
 @pytest.fixture
 def asr_hf_inferencer(request):
 
-    if not hasattr(request, "param"):
-        input_sample_rate, decoder_name = 16000, "greedy"
-    else:
-        input_sample_rate, decoder_name = request.param
+    tp: TestParams = request.param
 
-    logits_inferencer = HFWav2Vec2LogitsInferencer(
-        checkpoint=HfModelFromCheckpoint(
-            name=TEST_MODEL_NAME,
-            model_name_or_path=TEST_MODEL_NAME,
-            hf_model_type="Wav2Vec2ForCTC",
-            base_dir=cache_base,
-        ),
-    )
+    inferencer = build_logits_inferencer(tp.inferencer_name)
     asr = HFASRDecodeInferencer(
-        logits_inferencer=logits_inferencer,
-        decoder=build_decoder(decoder_name),
-        input_sample_rate=input_sample_rate,
+        logits_inferencer=inferencer,
+        decoder=build_decoder(tp.decoder_name, inferencer.vocab),
+        input_sample_rate=tp.input_sample_rate,
     )
     asr.build()
     return asr

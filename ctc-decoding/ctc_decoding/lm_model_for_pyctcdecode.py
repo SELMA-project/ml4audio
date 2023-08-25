@@ -93,6 +93,13 @@ class GzippedArpaAndUnigramsForPyCTCDecode(NgramLmAndUnigrams):
         return f"{self.data_dir}/unigrams.txt.gz"
 
     def _build_data(self) -> Any:
+        self._gzip_or_copy_arpa()
+        unigrams = build_unigrams_from_arpa(
+            self.ngramlm_filepath, transcript_normalizer=self.transcript_normalizer
+        )
+        write_lines(self.unigrams_filepath, unigrams)
+
+    def _gzip_or_copy_arpa(self):
         raw_arpa_file = self.raw_arpa.arpa_filepath
         assert os.path.isfile(raw_arpa_file), f"could not find {self.raw_arpa=}"
         if not raw_arpa_file.endswith(".gz"):
@@ -101,10 +108,6 @@ class GzippedArpaAndUnigramsForPyCTCDecode(NgramLmAndUnigrams):
         else:
             shutil.copy(raw_arpa_file, self.ngramlm_filepath)
         assert os.path.isfile(self.ngramlm_filepath)
-        unigrams = build_unigrams_from_arpa(
-            self.ngramlm_filepath, transcript_normalizer=self.transcript_normalizer
-        )
-        write_lines(self.unigrams_filepath, unigrams)
 
 
 @dataclass
