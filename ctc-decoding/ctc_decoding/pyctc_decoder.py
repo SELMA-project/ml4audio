@@ -4,6 +4,7 @@ from typing import Optional, Union, Annotated, Any
 
 from beartype import beartype
 from beartype.vale import Is
+from pyctcdecode.constants import DEFAULT_UNK_LOGP_OFFSET
 
 from data_io.readwrite_files import read_lines
 from misc_utils.beartypes import NeList, NumpyFloat2DArray
@@ -23,6 +24,7 @@ from ctc_decoding.logit_aligned_transcript import LogitAlignedTranscript
 from ctc_decoding.lm_model_for_pyctcdecode import (
     GzippedArpaAndUnigramsForPyCTCDecode,
     KenLMBinaryUnigramsFile,
+    NgramLmAndUnigrams,
 )
 from pyctcdecode.decoder import (
     WordFrames,
@@ -82,20 +84,17 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
     # cannot do this with beartype NeList[str] for vocab, cause it might be a CachedList
     # vocab: Union[_UNDEFINED, list[str]] = UNDEFINED
 
-    ngram_lm_model: Union[
-        GzippedArpaAndUnigramsForPyCTCDecode, _UNDEFINED
-    ] = UNDEFINED  # TODO: rename lm_data to lm_model
+    ngram_lm_model: NgramLmAndUnigrams = UNDEFINED  #
 
     num_best: int = 1  # number of beams to return
     beam_size: int = 100
+    unk_offset: float = DEFAULT_UNK_LOGP_OFFSET
 
     _pyctc_decoder: Optional[BeamSearchDecoderCTC] = field(
         init=False, repr=False, default=None
     )
 
     def _build_self(self) -> Any:
-        super()._build_self()
-        # TODO: use binary-kenlm model instead of arpa
         unigrams = list(read_lines(self.ngram_lm_model.unigrams_filepath))
         if len(unigrams) < 10_000:
             print(f"{self.ngram_lm_model.name} only got {len(unigrams)} unigrams")
@@ -103,11 +102,11 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
         print(f"{len(unigrams)=}")
         self._pyctc_decoder = build_ctcdecoder(
             labels=self.vocab,
-            kenlm_model_path=self.ngram_lm_model.arpa_filepath,
+            kenlm_model_path=self.ngram_lm_model.ngramlm_filepath,
             unigrams=unigrams,
             alpha=self.lm_weight,  # tuned on a val set
             beta=self.beta,  # tuned on a val set
-            # unk_score_offset=unk_offset,
+            unk_score_offset=self.unk_offset,
             # is_bpe=True,
         )
 
@@ -137,52 +136,4 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
             self._pyctc_decoder.cleanup()  # one has to manually cleanup!
 
 
-@dataclass
-class PyCTCBinKenLMDecoder(BaseCTCDecoder, Buildable):
-    """
-    TODO: refactor!
-    """
-
-    lm_weight: Union[_UNDEFINED, float] = UNDEFINED
-    beta: Union[_UNDEFINED, float] = UNDEFINED
-    vocab: NeList[str] = UNDEFINED
-
-    kenlm_binary_unigrams_file: KenLMBinaryUnigramsFile = UNDEFINED
-    num_best: int = 1  # number of beams to return
-    beam_size: int = 100
-
-    _pyctc_decoder: Optional[BeamSearchDecoderCTC] = field(
-        init=False, repr=False, default=None
-    )
-    # lm_data: Optional[Any] = field(init=False, repr=False, default=None)
-
-    def _build_self(self) -> None:
-
-        unigrams = list(read_lines(self.kenlm_binary_unigrams_file.unigrams_filepath))
-
-        self._pyctc_decoder = build_ctcdecoder(
-            labels=self.vocab,
-            kenlm_model_path=self.kenlm_binary_unigrams_file.kenlm_binary_filepath,
-            unigrams=unigrams,
-            alpha=self.lm_weight,  # tuned on a val set
-            beta=self.beta,  # tuned on a val set
-            unk_score_offset=-10.0,  # see jonatas russian model
-            # is_bpe=True,
-        )
-
-    @beartype
-    def decode(self, chunk: MessageChunk) -> AlignedBeams:
-        beams = [
-            OutputBeamDc(*b)
-            for b in self._pyctc_decoder.decode_beams(
-                chunk.array,
-                beam_width=self.beam_size,
-            )
-        ]
-
-        return [
-            LogitAlignedTranscript.create_from_token_spans(
-                b.text_frames, b.logit_score, b.lm_score
-            )
-            for b in itertools.islice(beams, self.num_best)
-        ]
+PyCTCBinKenLMDecoder = PyCTCKenLMDecoder

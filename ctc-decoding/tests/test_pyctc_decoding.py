@@ -4,9 +4,6 @@ import shutil
 import kenlm
 import numpy as np
 import pytest
-from data_io.readwrite_files import read_lines
-from misc_utils.buildable import BuildableList
-from misc_utils.prefix_suffix import PrefixSuffix
 from pyctcdecode import BeamSearchDecoderCTC, Alphabet, LanguageModel
 from pyctcdecode.constants import (
     DEFAULT_BEAM_WIDTH,
@@ -23,15 +20,18 @@ from conftest import (
     load_hfwav2vec2_base_tokenizer,
     assert_transcript_cer,
 )
-from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
-from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
+from ctc_decoding.huggingface_ctc_decoding import VocabFromHFTokenizer
 from ctc_decoding.lm_model_for_pyctcdecode import (
     GzippedArpaAndUnigramsForPyCTCDecodeFromArpa,
     GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus,
     GzippedArpaAndUnigramsForPyCTCDecode,
 )
 from ctc_decoding.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
+from data_io.readwrite_files import read_lines
+from misc_utils.buildable import BuildableList
+from misc_utils.prefix_suffix import PrefixSuffix
+from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
+from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
 from ml4audio.text_processing.word_based_text_corpus import (
     WordBasedLMCorpus,
     RglobRawCorpus,
@@ -53,17 +53,17 @@ tn = TranscriptNormalizer(
     "ngram_lm_model,max_cer",
     [
         (
-                GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
+            GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
                 name="test",
-                cache_base=cache_base,
+                base_dir=cache_base,
                 arpa_file=f"{TEST_RESOURCES}/lm.arpa",
                 transcript_normalizer=tn,
             ),
-                0.007,
+            0.007,
         ),
         (
-                GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus(
-                cache_base=cache_base,
+            GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus(
+                base_dir=cache_base,
                 transcript_normalizer=tn,
                 arpa_builder=ArpaBuilder(
                     cache_base=cache_base,
@@ -87,7 +87,7 @@ tn = TranscriptNormalizer(
                     ),
                 ),
             ),
-                0.0035,
+            0.0035,
         ),
     ],
 )
@@ -102,7 +102,7 @@ def test_PyCTCKenLMDecoder(
     logits = np.load(librispeech_logtis_file, allow_pickle=True)
 
     decoder = PyCTCKenLMDecoder(
-        tokenizer_name_or_path="facebook/wav2vec2-base-960h",
+        vocab=VocabFromHFTokenizer("facebook/wav2vec2-base-960h"),
         lm_weight=1.0,
         beta=0.5,
         ngram_lm_model=ngram_lm_model,
@@ -114,12 +114,14 @@ def test_PyCTCKenLMDecoder(
     assert_transcript_cer(hyp, ref, max_cer)
 
 
-lm_data: GzippedArpaAndUnigramsForPyCTCDecodeFromArpa = GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
-    name="test",
-    cache_base=cache_base,
-    arpa_file=f"{TEST_RESOURCES}/lm.arpa",
-    transcript_normalizer=tn,
-).build()
+lm_data: GzippedArpaAndUnigramsForPyCTCDecodeFromArpa = (
+    GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
+        name="test",
+        base_dir=cache_base,
+        arpa_file=f"{TEST_RESOURCES}/lm.arpa",
+        transcript_normalizer=tn,
+    ).build()
+)
 unigrams = list(read_lines(lm_data.unigrams_filepath))
 
 
@@ -132,7 +134,7 @@ unigrams = list(read_lines(lm_data.unigrams_filepath))
                     list(load_hfwav2vec2_base_tokenizer().get_vocab().keys())
                 ),
                 language_model=LanguageModel(
-                    kenlm_model=kenlm.Model(lm_data.arpa_filepath),
+                    kenlm_model=kenlm.Model(lm_data.ngramlm_filepath),
                     unigrams=unigrams,
                     alpha=1.0,
                     beta=0.5,

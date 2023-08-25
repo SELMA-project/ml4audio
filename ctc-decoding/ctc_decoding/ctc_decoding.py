@@ -15,3 +15,7 @@ class BaseCTCDecoder:
     @abstractmethod
     def ctc_decode(self, logits: NumpyFloat2DArray) -> AlignedBeams:
         raise NotImplementedError
+
+    # @property # TODO: needed?
+    # def vocab(self):
+    #     return list(self._tokenizer.get_vocab().keys())

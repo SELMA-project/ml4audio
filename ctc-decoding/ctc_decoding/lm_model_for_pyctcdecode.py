@@ -1,9 +1,11 @@
 import os
 import shutil
+import subprocess
+import sys
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, Annotated
+from typing import Union, Annotated, Any
 
 from beartype import beartype
 from beartype.vale import Is
@@ -11,6 +13,7 @@ from tqdm import tqdm
 
 from data_io.readwrite_files import read_lines, write_lines
 from misc_utils.beartypes import NeList
+from misc_utils.buildable_data import BuildableData
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
@@ -58,10 +61,30 @@ def build_unigrams_from_arpa(
 
 
 @dataclass
-class GzippedArpaAndUnigramsForPyCTCDecode(CachedData):
+class NgramLmAndUnigrams(BuildableData):
+    base_dir: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_models"])
+
+    @property
+    @abstractmethod
+    def ngramlm_filepath(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def unigrams_filepath(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def _is_data_valid(self) -> bool:
+        return all(
+            [os.path.isfile(f) for f in [self.ngramlm_filepath, self.unigrams_filepath]]
+        )
+
+
+@dataclass
+class GzippedArpaAndUnigramsForPyCTCDecode(NgramLmAndUnigrams):
 
     transcript_normalizer: Union[_UNDEFINED, TranscriptNormalizer] = UNDEFINED
-    cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_models"])
 
     @property
     @abstractmethod
@@ -69,50 +92,97 @@ class GzippedArpaAndUnigramsForPyCTCDecode(CachedData):
         raise NotImplementedError
 
     @property
-    def arpa_filepath(self) -> str:
-        return self.prefix_cache_dir("lm.arpa.gz")
+    def name(self):
+        return "gzipped_arpa_unigrams"
+
+    @property
+    def ngramlm_filepath(self) -> str:
+        return f"{self.data_dir}/lm.arpa.gz"
 
     @property
     def unigrams_filepath(self) -> str:
-        return self.prefix_cache_dir("unigrams.txt.gz")
+        return f"{self.data_dir}/unigrams.txt.gz"
 
-    def _build_cache(self):
+    def _build_data(self) -> Any:
         assert os.path.isfile(
             self._raw_arpa_filepath
         ), f"could not find {self._raw_arpa_filepath=}"
         if not self._raw_arpa_filepath.endswith(".gz"):
             out_err = exec_command(
-                f"gzip -c {self._raw_arpa_filepath} > {self.arpa_filepath}"
+                f"gzip -c {self._raw_arpa_filepath} > {self.ngramlm_filepath}"
             )
             print(f"{out_err=}")
         else:
-            shutil.copy(self._raw_arpa_filepath, self.arpa_filepath)
+            shutil.copy(self._raw_arpa_filepath, self.ngramlm_filepath)
 
         unigrams = build_unigrams_from_arpa(
-            self.arpa_filepath, transcript_normalizer=self.transcript_normalizer
+            self.ngramlm_filepath, transcript_normalizer=self.transcript_normalizer
         )
         write_lines(self.unigrams_filepath, unigrams)
 
 
 @dataclass
-class KenLMBinaryUnigramsFile(CachedData):
+class KenLMBinaryUnigramsFile(NgramLmAndUnigrams):
 
     name: str = UNDEFINED
-    kenlm_binary_file: PrefixSuffix = UNDEFINED  # TODO: rename lm_data to lm_model
-    unigrams_file: PrefixSuffix = UNDEFINED  # TODO: rename lm_data to lm_model
-    cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_models"])
+    kenlm_binary_file: PrefixSuffix = UNDEFINED
+    unigrams_file: PrefixSuffix = UNDEFINED
 
     @property
-    def kenlm_binary_filepath(self) -> str:
-        return self.prefix_cache_dir(Path(str(self.kenlm_binary_file)).name)
+    def ngramlm_filepath(self) -> str:
+        return f"{self.data_dir}/{Path(str(self.kenlm_binary_file)).name}"
 
     @property
     def unigrams_filepath(self) -> str:
-        return self.prefix_cache_dir(Path(str(self.unigrams_file)).name)
+        return f"{self.data_dir}/{Path(str(self.unigrams_file)).name}"
 
-    def _build_cache(self):
-        shutil.copy(str(self.kenlm_binary_file), self.kenlm_binary_filepath)
+    def _build_data(self) -> Any:
+        shutil.copy(str(self.kenlm_binary_file), self.ngramlm_filepath)
         shutil.copy(str(self.unigrams_file), self.unigrams_filepath)
+
+
+def build_binary_kenlm(kenlm_bin_path: str, arpa_file: str, kenlm_binary_file: str):
+    """
+    based on: "make_kenlm" method from https://github.com/NVIDIA/NeMo/blob/e859e43ef85cc6bcdde697f634bb3b16ee16bc6b/scripts/asr_language_modeling/ngram_lm/ngram_merge.py#L286
+    Builds a language model from an ARPA format file using the KenLM toolkit.
+    """
+    sh_args = [
+        os.path.join(kenlm_bin_path, "build_binary"),
+        "trie",
+        "-i",
+        arpa_file,
+        kenlm_binary_file,
+    ]
+    return subprocess.run(
+        sh_args,
+        capture_output=False,
+        text=True,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+    )
+
+
+@dataclass
+class KenLMBinaryUnigramsFromArpa(NgramLmAndUnigrams):
+
+    name: str = UNDEFINED
+    arpa_unigrams: GzippedArpaAndUnigramsForPyCTCDecode = UNDEFINED
+
+    @property
+    def ngramlm_filepath(self) -> str:
+        return f"{self.data_dir}/kenlm.bin"
+
+    @property
+    def unigrams_filepath(self) -> str:
+        return f"{self.data_dir}/unigrams.txt.gz"
+
+    def _build_data(self) -> Any:
+        build_binary_kenlm(
+            "/opt/kenlm/bin",
+            self.arpa_unigrams.ngramlm_filepath,
+            self.ngramlm_filepath,
+        )
+        shutil.copy(str(self.arpa_unigrams.unigrams_filepath), self.unigrams_filepath)
 
 
 @dataclass
@@ -134,7 +204,7 @@ class GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus(
 
     @property
     def name(self):
-        return self.arpa_builder.name
+        return f"gzipped-{self.arpa_builder.name}"
 
     @property
     def _raw_arpa_filepath(self) -> str:

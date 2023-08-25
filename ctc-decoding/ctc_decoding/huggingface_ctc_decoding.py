@@ -12,31 +12,48 @@ from transformers.models.wav2vec2.tokenization_wav2vec2 import (
 
 from ctc_decoding.ctc_decoding import BaseCTCDecoder, AlignedBeams
 from ctc_decoding.logit_aligned_transcript import LogitAlignedTranscript
-from misc_utils.beartypes import NumpyFloat2DArray
+from misc_utils.beartypes import NumpyFloat2DArray, NeList
 from misc_utils.buildable import Buildable
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 
 
 @dataclass
-class HFCTCDecoder(BaseCTCDecoder, Buildable):
-
+class VocabFromHFTokenizer(Buildable, list[str]):
     tokenizer_name_or_path: Union[str, PrefixSuffix]
-    _tokenizer: PreTrainedTokenizer = field(init=False)  # default=UNDEFINED ?
 
-    def _build_self(self) -> Any:
+    @beartype
+    def _build_self(self) -> NeList[str]:
+        assert len(self) == 0
         self._tokenizer = AutoTokenizer.from_pretrained(
             str(self.tokenizer_name_or_path)
         )
-        return self
+        vocab = list(self._tokenizer.get_vocab().keys())
 
-    @property
-    def vocab(self):
-        return list(self._tokenizer.get_vocab().keys())
+        self.extend(vocab)
+        return vocab
 
 
 @dataclass
-class HFCTCGreedyDecoder(HFCTCDecoder):
+class HFCTCDecoder(BaseCTCDecoder, Buildable):
+    # TODO: remove this?
+    vocab: NeList[str]
+    # tokenizer_name_or_path: Union[str, PrefixSuffix]
+    # _tokenizer: PreTrainedTokenizer = field(init=False)  # default=UNDEFINED ?
+
+    # def _build_self(self) -> Any:
+    #     self._tokenizer = AutoTokenizer.from_pretrained(
+    #         str(self.tokenizer_name_or_path)
+    #     )
+    #     return self
+    #
+    # @property
+    # def vocab(self):
+    #     return list(self._tokenizer.get_vocab().keys())
+
+
+@dataclass
+class HFCTCGreedyDecoder(BaseCTCDecoder, Buildable):
     """
     huggingface does not have a "proper" greedy decoder, but does argmax somewhere in the asr-pipeline
     see: https://github.com/huggingface/transformers/blob/7999ec125fc31428ed6879bf01bb013483daf704/src/transformers/pipelines/automatic_speech_recognition.py#L323
@@ -45,6 +62,18 @@ class HFCTCGreedyDecoder(HFCTCDecoder):
     see: https://github.com/huggingface/transformers/blob/7999ec125fc31428ed6879bf01bb013483daf704/src/transformers/models/wav2vec2/tokenization_wav2vec2.py#L254
     does ctc to text conversion (collapsing the sequence)
     """
+
+    tokenizer_name_or_path: Union[str, PrefixSuffix]
+    _tokenizer: PreTrainedTokenizer = field(init=False)  # default=UNDEFINED ?
+
+    def _build_self(self) -> Any:
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            str(self.tokenizer_name_or_path)
+        )
+
+    @property
+    def vocab(self):
+        return list(self._tokenizer.get_vocab().keys())
 
     @beartype
     def ctc_decode(self, logits: NumpyFloat2DArray) -> AlignedBeams:
