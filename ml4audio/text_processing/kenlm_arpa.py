@@ -1,13 +1,17 @@
 import os
 import shutil
 import subprocess
+from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Union, Optional
+from pathlib import Path
+from typing import Union, Optional, Annotated
 
 import sys
 from beartype import beartype
+from beartype.vale import Is
 
 from data_io.readwrite_files import read_lines
+from misc_utils.beartypes import NeStr
 from misc_utils.cached_data import CachedData
 
 # based on: https://github.com/mozilla/DeepSpeech/blob/master/data/lm/generate_lm.py
@@ -20,6 +24,7 @@ from ml4audio.text_processing.word_based_text_corpus import WordBasedLMCorpus
 
 # TODO: move this to its own package? cause it depends on kenlm
 
+
 @dataclass
 class ArpaArgs:
     order: int = 3
@@ -29,15 +34,35 @@ class ArpaArgs:
     vocab_size: Optional[int] = None
 
 
+arpa_suffixes = [".arpa.gz", ".arpa", ".gz"]  # TODO: WTF! who calls a arpa "lm.gz"?
+ArpaFile = Annotated[
+    str,
+    Is[lambda s: any(s.endswith(suffix) for suffix in arpa_suffixes)],
+]
+
+
+class GotArpaFile:
+    name: NeStr
+    arpa_filepath: ArpaFile = field(init=False)
+
+
 @dataclass
-class ArpaBuilder(CachedData):
+class AnArpaFile(GotArpaFile):
+    arpa_filepath: ArpaFile = field(init=True)
+
+    def __post_init__(self):
+        self.name = Path(self.arpa_filepath).name
+
+
+@dataclass
+class ArpaBuilder(CachedData, GotArpaFile):
     arpa_args: Union[_UNDEFINED, ArpaArgs] = UNDEFINED
     corpus: Union[_UNDEFINED, WordBasedLMCorpus] = UNDEFINED
     cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_models"])
 
     @property
     def name(self):
-        return self.corpus.name
+        return f"arpa-{self.corpus.name}"
 
     @property
     def arpa_filepath(self) -> str:
