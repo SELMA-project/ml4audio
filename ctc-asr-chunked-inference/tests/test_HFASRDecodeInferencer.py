@@ -11,39 +11,29 @@ from ml4audio.text_processing.asr_metrics import calc_cer
 
 
 @pytest.mark.parametrize(
-    "asr_decode_inferencer,max_CER",
+    "asr_hf_inferencer,max_CER",
     [
-        (16_000, 0.0),  # WTF! this model reaches 0% CER! overfitted?
-        (8_000, 0.0033),
-        (4_000, 0.091),
+        ((16_000, "greedy"), 0.0),  # WTF! this model reaches 0% CER! overfitted?
+        ((8_000, "greedy"), 0.0033),
+        ((4_000, "greedy"), 0.091),
+        # ((4_000,"beamsearch"), 0.091),
     ],
-    indirect=["asr_decode_inferencer"],
+    indirect=["asr_hf_inferencer"],
 )
 def test_HFASRDecodeInferencer(
-    asr_decode_inferencer: HFASRDecodeInferencer,
+    asr_hf_inferencer: HFASRDecodeInferencer,
     librispeech_audio_file,
     librispeech_raw_ref,
     max_CER,
 ):
-    """
-    TODO: how much sense do these tests that depend on external data make?
-        -> model gets downloaded from hf-hub
-    """
 
-    expected_sample_rate = asr_decode_inferencer.input_sample_rate
+    expected_sample_rate = asr_hf_inferencer.input_sample_rate
     audio_array = load_and_resample_16bit_PCM(
         librispeech_audio_file, expected_sample_rate
     )
-    # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # soundfile.write(f"audio-{timestamp}.wav", audio_array, 16000)
-    # logits=wav2vec2_base_greedy.logits_inferencer.resample_calc_logits(audio_array.squeeze())
-    # logits_file = f"logits.npy"
-    # np.save(logits_file, logits)
-    # target_dictionary = wav2vec2_base_greedy.logits_inferencer.vocab
-    # write_lines("vocab.txt",target_dictionary)
 
     start_time = time()
-    transcript = asr_decode_inferencer.transcribe_audio_array(audio_array.squeeze())
+    transcript = asr_hf_inferencer.transcribe_audio_array(audio_array.squeeze())
     inference_duration = time() - start_time
     hyp = transcript.letters
     cd = icdiff.ConsoleDiff(cols=120)

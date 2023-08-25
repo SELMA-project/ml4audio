@@ -50,7 +50,7 @@ os.environ["DEBUG_GLUER"] = "True"
     ],
 )
 def test_ASRStreamInferencer(
-    asr_decode_inferencer: HFASRDecodeInferencer,
+    asr_hf_inferencer: HFASRDecodeInferencer,
     librispeech_audio_file,
     librispeech_raw_ref,
     step_dur: float,
@@ -62,7 +62,7 @@ def test_ASRStreamInferencer(
 ):
     print(f"{step_dur=},{window_dur=}")
 
-    SR = expected_sample_rate = asr_decode_inferencer.input_sample_rate
+    SR = expected_sample_rate = asr_hf_inferencer.input_sample_rate
     asr_input = list(
         audio_messages_from_file(
             librispeech_audio_file, expected_sample_rate, chunk_duration=chunk_dur
@@ -76,7 +76,7 @@ def test_ASRStreamInferencer(
     # audio_duration = audio_signal.shape[0] / SR
 
     streaming_asr: Aschinglupi = Aschinglupi(
-        hf_asr_decoding_inferencer=asr_decode_inferencer,
+        hf_asr_decoding_inferencer=asr_hf_inferencer,
         transcript_gluer=TranscriptGluer(),
         audio_bufferer=OverlapArrayChunker(
             chunk_size=int(window_dur * SR),
@@ -101,7 +101,7 @@ def test_ASRStreamInferencer(
     # print(f"{audio_duration,prefix.timestamps[-1]}")
     ref = normalize_filter_text(
         librispeech_raw_ref,
-        asr_decode_inferencer.logits_inferencer.vocab,
+        asr_hf_inferencer.logits_inferencer.vocab,
         text_cleaner="en",
         casing=Casing.upper,
     )
