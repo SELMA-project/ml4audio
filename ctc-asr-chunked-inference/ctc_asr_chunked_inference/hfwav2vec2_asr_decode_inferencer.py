@@ -88,7 +88,7 @@ class HFASRDecodeInferencer(Buildable):
         letters aligned to audio-frames
 
         """
-        dec_out: LogitAlignedTranscript = self.decoder.decode_logits(logits.numpy())[0]
+        dec_out: LogitAlignedTranscript = self.decoder.ctc_decode(logits.numpy())[0]
 
         logits_seq_len = logits.size()[0]
         audio_to_logits_ratio = audio_array_seq_len / logits_seq_len
