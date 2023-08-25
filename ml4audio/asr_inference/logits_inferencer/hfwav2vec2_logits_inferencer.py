@@ -1,15 +1,9 @@
 from dataclasses import field, dataclass
+from functools import cached_property
 from typing import Union, Optional
 
-import numpy as np
 import torch
 from beartype import beartype
-from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
-    ASRLogitsInferencer,
-)
-from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import (
-    HfModelFromCheckpoint,
-)
 from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 from misc_utils.beartypes import (
@@ -18,6 +12,12 @@ from misc_utils.beartypes import (
     NeStr,
 )
 from misc_utils.dataclass_utils import UNDEFINED
+from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
+    ASRLogitsInferencer,
+)
+from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import (
+    HfModelFromCheckpoint,
+)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -54,9 +54,14 @@ class HFWav2Vec2LogitsInferencer(ASRLogitsInferencer):
         pr.feature_extractor.return_attention_mask = True
         return pr
 
-    @property
+    @cached_property
     def vocab(self) -> list[str]:
-        return list(self._processor.tokenizer.get_vocab().keys())
+        return [
+            k
+            for k, i in sorted(
+                self._processor.tokenizer.get_vocab().items(), key=lambda x: x[1]
+            )
+        ]
 
     @beartype
     def calc_logits(self, audio: NumpyFloat1DArray) -> TorchTensor2D:

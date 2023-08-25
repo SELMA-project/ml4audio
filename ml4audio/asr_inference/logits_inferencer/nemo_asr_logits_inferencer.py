@@ -1,52 +1,50 @@
 import os
-from dataclasses import dataclass
-from tempfile import TemporaryDirectory
-from typing import Optional
+from dataclasses import dataclass, field
 
 import nemo.collections.asr as nemo_asr
-import numpy as np
 import torch
 from beartype import beartype
+from nemo.collections.asr.models import EncDecCTCModel
 
-from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
-    ASRLogitsInferencer,
-)
 from misc_utils.beartypes import (
     NumpyFloat1DArray,
-    NumpyFloat2DArray,
     NeList,
     NeStr,
     TorchTensor2D,
 )
-from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM
+from misc_utils.dataclass_utils import UNDEFINED
+from misc_utils.utils import slugify_with_underscores
+from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
+    ASRLogitsInferencer,
+)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-import soundfile as sf
 
 
 @dataclass
 class NemoASRLogitsInferencer(ASRLogitsInferencer):
-    name: str
-    model_name_or_path: Optional[str] = None
+    model_name_or_path: str = UNDEFINED
+    _model: EncDecCTCModel = field(init=False)
 
-    def __post_init__(self):
-        if self.model_name_or_path is None:
-            self.model_name_or_path = self.name
+    @property
+    def name(self) -> NeStr:
+        return slugify_with_underscores(self.model_name_or_path)
 
     def _build_self(self):
         # see: tools/ctc_segmentation/scripts/run_ctc_segmentation.py in nemo-code
         model_name = self.model_name_or_path
         if os.path.exists(model_name):
+            raise NotImplementedError
             self._model = nemo_asr.models.EncDecCTCModel.restore_from(model_name)
-        elif model_name in nemo_asr.models.EncDecCTCModel.get_available_model_names():
-            self._model = nemo_asr.models.EncDecCTCModel.from_pretrained(
+        else:
+            self._model = nemo_asr.models.EncDecCTCModelBPE.from_pretrained(
                 model_name, strict=False
             )
-        else:
-            raise ValueError(
-                f"{model_name} not a valid model name or path. Provide path to the pre-trained checkpoint "
-                f"or choose from {nemo_asr.models.EncDecCTCModel.list_available_models()}"
-            )
+        # else:
+        #     raise ValueError(
+        #         f"{model_name} not a valid model name or path. Provide path to the pre-trained checkpoint "
+        #         f"or choose from {nemo_asr.models.EncDecCTCModelBPE.list_available_models()}"
+        #     )
         self._model.eval()
         self._model = self._model.to(DEVICE)
         return self
@@ -55,8 +53,7 @@ class NemoASRLogitsInferencer(ASRLogitsInferencer):
     @beartype
     def vocab(self) -> NeList[str]:
         vocabulary = self._model.cfg.decoder.vocabulary
-        # see: tools/ctc_segmentation/scripts/run_ctc_segmentation.py in nemo-code
-        vocabulary = ["ε"] + list(vocabulary)
+        vocabulary = list(vocabulary)
         return vocabulary
 
     @beartype
