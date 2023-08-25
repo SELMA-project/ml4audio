@@ -22,16 +22,15 @@ from conftest import (
 )
 from ctc_decoding.huggingface_ctc_decoding import VocabFromHFTokenizer
 from ctc_decoding.lm_model_for_pyctcdecode import (
-    GzippedArpaAndUnigramsForPyCTCDecodeFromArpa,
-    GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus,
     GzippedArpaAndUnigramsForPyCTCDecode,
+    KenLMBinaryUnigramsFromArpa,
 )
 from ctc_decoding.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
 from data_io.readwrite_files import read_lines
 from misc_utils.buildable import BuildableList
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
-from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
+from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs, AnArpaFile
 from ml4audio.text_processing.word_based_text_corpus import (
     WordBasedLMCorpus,
     RglobRawCorpus,
@@ -40,7 +39,7 @@ from ml4audio.text_processing.word_based_text_corpus import (
 TARGET_SAMPLE_RATE = 16000
 
 # TODO: this is very ugly
-cache_base = PrefixSuffix("pwd", "/tmp/cache")
+cache_base = PrefixSuffix("pwd", "test_cache")
 shutil.rmtree(str(cache_base), ignore_errors=True)
 os.makedirs(str(cache_base))
 
@@ -49,30 +48,41 @@ tn = TranscriptNormalizer(
 )
 
 
+def _get_test_arpa_unigrams():
+    return GzippedArpaAndUnigramsForPyCTCDecode(
+        base_dir=cache_base,
+        raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/lm.arpa"),
+        transcript_normalizer=tn,
+    )
+
+
 @pytest.mark.parametrize(
     "ngram_lm_model,max_cer",
     [
         (
-            GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
-                name="test",
+            KenLMBinaryUnigramsFromArpa(
+                name="binary-lm",
                 base_dir=cache_base,
-                arpa_file=f"{TEST_RESOURCES}/lm.arpa",
-                transcript_normalizer=tn,
+                arpa_unigrams=_get_test_arpa_unigrams(),
             ),
             0.007,
         ),
         (
-            GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus(
+            _get_test_arpa_unigrams(),
+            0.007,
+        ),
+        (
+            GzippedArpaAndUnigramsForPyCTCDecode(
                 base_dir=cache_base,
                 transcript_normalizer=tn,
-                arpa_builder=ArpaBuilder(
+                raw_arpa=ArpaBuilder(
                     cache_base=cache_base,
                     arpa_args=ArpaArgs(
                         order=5,
                         prune="|".join(str(k) for k in [0, 8, 16]),
                     ),
                     corpus=WordBasedLMCorpus(
-                        name="test",
+                        name="test-corpus",
                         cache_base=cache_base,
                         raw_corpora=BuildableList[RglobRawCorpus](
                             [
@@ -114,14 +124,7 @@ def test_PyCTCKenLMDecoder(
     assert_transcript_cer(hyp, ref, max_cer)
 
 
-lm_data: GzippedArpaAndUnigramsForPyCTCDecodeFromArpa = (
-    GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
-        name="test",
-        base_dir=cache_base,
-        arpa_file=f"{TEST_RESOURCES}/lm.arpa",
-        transcript_normalizer=tn,
-    ).build()
-)
+lm_data = _get_test_arpa_unigrams().build()
 unigrams = list(read_lines(lm_data.unigrams_filepath))
 
 

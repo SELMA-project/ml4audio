@@ -38,20 +38,6 @@ LmModelFile = Annotated[
 ]
 
 
-@beartype
-def build_unigrams_from_lexicon_file(
-    lexicon_file: str, transcript_normalizer: TranscriptNormalizer
-) -> NeList[str]:
-    def parse_lexicon_file(l: str) -> str:
-        s = "".join(l.split("\t")[1].split(" "))
-        unigram = s.replace("|", "").strip(" ")
-        assert " " not in unigram
-        unigram = transcript_normalizer.apply(unigram)
-        return unigram
-
-    return list({parse_lexicon_file(l) for l in read_lines(lexicon_file)})
-
-
 @dataclass
 class OutputBeamDc:
     """
@@ -137,3 +123,19 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
 
 
 PyCTCBinKenLMDecoder = PyCTCKenLMDecoder
+"""
+old stuff: 
+
+@beartype
+def build_unigrams_from_lexicon_file(
+    lexicon_file: str, transcript_normalizer: TranscriptNormalizer
+) -> NeList[str]:
+    def parse_lexicon_file(l: str) -> str:
+        s = "".join(l.split("\t")[1].split(" "))
+        unigram = s.replace("|", "").strip(" ")
+        assert " " not in unigram
+        unigram = transcript_normalizer.apply(unigram)
+        return unigram
+
+    return list({parse_lexicon_file(l) for l in read_lines(lexicon_file)})
+"""
