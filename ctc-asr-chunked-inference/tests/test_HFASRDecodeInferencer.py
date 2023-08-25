@@ -16,7 +16,8 @@ from ml4audio.text_processing.asr_metrics import calc_cer
         ((16_000, "greedy"), 0.0),  # WTF! this model reaches 0% CER! overfitted?
         ((8_000, "greedy"), 0.0033),
         ((4_000, "greedy"), 0.091),
-        # ((4_000,"beamsearch"), 0.091),
+        ((4_000, "beamsearch"), 0.02),
+        ((8_000, "beamsearch"), 0.007),
     ],
     indirect=["asr_hf_inferencer"],
 )
