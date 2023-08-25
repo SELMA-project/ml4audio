@@ -14,7 +14,8 @@ from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM
 from ml4audio.audio_utils.torchaudio_utils import torchaudio_resample
 from transformers import set_seed
 
-from ctc_decoding.ctc_decoding import BaseCTCDecoder, LogitAlignedTranscript
+from ctc_decoding.ctc_decoding import BaseCTCDecoder
+from ctc_decoding.logit_aligned_transcript import LogitAlignedTranscript
 from misc_utils.beartypes import TorchTensor2D, NumpyFloat1DArray
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED

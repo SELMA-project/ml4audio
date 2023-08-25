@@ -18,7 +18,7 @@ from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
 from ctc_asr_chunked_inference.hfwav2vec2_asr_decode_inferencer import (
     HFASRDecodeInferencer,
 )
-from ctc_decoding.ctc_decoding import GreedyDecoder
+from ctc_decoding.huggingface_ctc_decoding import HFCTCGreedyDecoder
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
 )
@@ -54,7 +54,7 @@ def asr_decode_inferencer(request):
     )
     asr = HFASRDecodeInferencer(
         logits_inferencer=logits_inferencer,
-        decoder=GreedyDecoder(tokenizer_name_or_path=model),
+        decoder=HFCTCGreedyDecoder(tokenizer_name_or_path=model),
         input_sample_rate=input_sample_rate,
     )
     asr.build()
