@@ -58,10 +58,7 @@ def build_unigrams_from_arpa(
 
 
 @dataclass
-class KenLMForPyCTCDecode(CachedData):
-    """
-    TODO: rename to ArpaFile for pyctcdecode
-    """
+class GzippedArpaAndUnigramsForPyCTCDecode(CachedData):
 
     transcript_normalizer: Union[_UNDEFINED, TranscriptNormalizer] = UNDEFINED
     cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_models"])
@@ -94,7 +91,6 @@ class KenLMForPyCTCDecode(CachedData):
         unigrams = build_unigrams_from_arpa(
             self.arpa_filepath, transcript_normalizer=self.transcript_normalizer
         )
-        # KenLMBinaryAndLexicon() # TODO
         write_lines(self.unigrams_filepath, unigrams)
 
 
@@ -120,7 +116,10 @@ class KenLMBinaryUnigramsFile(CachedData):
 
 
 @dataclass
-class KenLMForPyCTCDecodeFromArpaCorpus(KenLMForPyCTCDecode):
+class GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus(
+    GzippedArpaAndUnigramsForPyCTCDecode
+):
+    # TODO: this seems to be unnecessary!
     arpa_builder: Union[ArpaBuilder, _UNDEFINED] = UNDEFINED
 
     @property
@@ -143,7 +142,9 @@ class KenLMForPyCTCDecodeFromArpaCorpus(KenLMForPyCTCDecode):
 
 
 @dataclass
-class KenLMForPyCTCDecodeFromArpa(KenLMForPyCTCDecode):
+class GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
+    GzippedArpaAndUnigramsForPyCTCDecode
+):
     name: Union[_UNDEFINED, str] = UNDEFINED
     arpa_file: Union[ArpaFile, _UNDEFINED] = UNDEFINED
 

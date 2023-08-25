@@ -27,9 +27,9 @@ from ml4audio.audio_utils.overlap_array_chunker import MessageChunk
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
 from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs
 from ctc_decoding.lm_model_for_pyctcdecode import (
-    KenLMForPyCTCDecodeFromArpa,
-    KenLMForPyCTCDecodeFromArpaCorpus,
-    KenLMForPyCTCDecode,
+    GzippedArpaAndUnigramsForPyCTCDecodeFromArpa,
+    GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus,
+    GzippedArpaAndUnigramsForPyCTCDecode,
 )
 from ctc_decoding.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
 from ml4audio.text_processing.word_based_text_corpus import (
@@ -50,19 +50,19 @@ tn = TranscriptNormalizer(
 
 
 @pytest.mark.parametrize(
-    "lm_data,max_cer",
+    "ngram_lm_model,max_cer",
     [
         (
-            KenLMForPyCTCDecodeFromArpa(
+                GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
                 name="test",
                 cache_base=cache_base,
                 arpa_file=f"{TEST_RESOURCES}/lm.arpa",
                 transcript_normalizer=tn,
             ),
-            0.007,
+                0.007,
         ),
         (
-            KenLMForPyCTCDecodeFromArpaCorpus(
+                GzippedArpaAndUnigramsForPyCTCDecodeFromArpaCorpus(
                 cache_base=cache_base,
                 transcript_normalizer=tn,
                 arpa_builder=ArpaBuilder(
@@ -87,13 +87,13 @@ tn = TranscriptNormalizer(
                     ),
                 ),
             ),
-            0.0035,
+                0.0035,
         ),
     ],
 )
 def test_PyCTCKenLMDecoder(
     hfwav2vec2_base_tokenizer,
-    lm_data: KenLMForPyCTCDecode,
+    ngram_lm_model: GzippedArpaAndUnigramsForPyCTCDecode,
     max_cer: float,
     librispeech_logtis_file,
     librispeech_ref,
@@ -105,7 +105,7 @@ def test_PyCTCKenLMDecoder(
         tokenizer_name_or_path="facebook/wav2vec2-base-960h",
         lm_weight=1.0,
         beta=0.5,
-        lm_data=lm_data,
+        ngram_lm_model=ngram_lm_model,
     )
     decoder.build()
     transcript = decoder.ctc_decode(logits.squeeze())[0]
@@ -114,7 +114,7 @@ def test_PyCTCKenLMDecoder(
     assert_transcript_cer(hyp, ref, max_cer)
 
 
-lm_data: KenLMForPyCTCDecodeFromArpa = KenLMForPyCTCDecodeFromArpa(
+lm_data: GzippedArpaAndUnigramsForPyCTCDecodeFromArpa = GzippedArpaAndUnigramsForPyCTCDecodeFromArpa(
     name="test",
     cache_base=cache_base,
     arpa_file=f"{TEST_RESOURCES}/lm.arpa",

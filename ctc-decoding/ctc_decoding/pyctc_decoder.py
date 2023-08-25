@@ -21,7 +21,7 @@ from ctc_decoding.ctc_decoding import (
 from ctc_decoding.huggingface_ctc_decoding import HFCTCDecoder
 from ctc_decoding.logit_aligned_transcript import LogitAlignedTranscript
 from ctc_decoding.lm_model_for_pyctcdecode import (
-    KenLMForPyCTCDecode,
+    GzippedArpaAndUnigramsForPyCTCDecode,
     KenLMBinaryUnigramsFile,
 )
 from pyctcdecode.decoder import (
@@ -82,8 +82,8 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
     # cannot do this with beartype NeList[str] for vocab, cause it might be a CachedList
     # vocab: Union[_UNDEFINED, list[str]] = UNDEFINED
 
-    lm_data: Union[
-        KenLMForPyCTCDecode, _UNDEFINED
+    ngram_lm_model: Union[
+        GzippedArpaAndUnigramsForPyCTCDecode, _UNDEFINED
     ] = UNDEFINED  # TODO: rename lm_data to lm_model
 
     num_best: int = 1  # number of beams to return
@@ -96,14 +96,14 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
     def _build_self(self) -> Any:
         super()._build_self()
         # TODO: use binary-kenlm model instead of arpa
-        unigrams = list(read_lines(self.lm_data.unigrams_filepath))
+        unigrams = list(read_lines(self.ngram_lm_model.unigrams_filepath))
         if len(unigrams) < 10_000:
-            print(f"{self.lm_data.name} only got {len(unigrams)} unigrams")
+            print(f"{self.ngram_lm_model.name} only got {len(unigrams)} unigrams")
 
         print(f"{len(unigrams)=}")
         self._pyctc_decoder = build_ctcdecoder(
             labels=self.vocab,
-            kenlm_model_path=self.lm_data.arpa_filepath,
+            kenlm_model_path=self.ngram_lm_model.arpa_filepath,
             unigrams=unigrams,
             alpha=self.lm_weight,  # tuned on a val set
             beta=self.beta,  # tuned on a val set
