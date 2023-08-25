@@ -4,15 +4,18 @@ from typing import Union, Optional
 import numpy as np
 import torch
 from beartype import beartype
-from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import \
-    ASRLogitsInferencer
-from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import \
-    HfModelFromCheckpoint
+from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
+    ASRLogitsInferencer,
+)
+from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import (
+    HfModelFromCheckpoint,
+)
 from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 from misc_utils.beartypes import (
     NumpyFloat1DArray,
-    TorchTensor2D, NeStr,
+    TorchTensor2D,
+    NeStr,
 )
 from misc_utils.dataclass_utils import UNDEFINED
 
@@ -77,6 +80,7 @@ class HFWav2Vec2LogitsInferencer(ASRLogitsInferencer):
             )
         assert logits.shape[1] == len(self.vocab), f"{logits.shape=},{len(self.vocab)=}"
         return logits
+
 
 #
 # @dataclass

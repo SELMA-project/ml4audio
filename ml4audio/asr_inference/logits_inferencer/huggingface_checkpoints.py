@@ -36,7 +36,6 @@ set_seed(42)
 
 
 def _export_model_files_from_checkpoint_dir(model_name_or_path: str, model_dir: str):
-    # TODO: does currently not work for pretrained models from hub
     os.makedirs(model_dir, exist_ok=True)
     needed_files = [
         "config.json",
@@ -44,7 +43,7 @@ def _export_model_files_from_checkpoint_dir(model_name_or_path: str, model_dir: 
     ]
     for f in needed_files:
         file = f"{model_name_or_path}/{f}"
-        assert os.path.isfile(file)
+        assert os.path.isfile(file), f"cannot find {file}"
         shutil.copy(file, f"{model_dir}/")
     could_be_one_dir_above = [
         "preprocessor_config.json",
@@ -67,6 +66,8 @@ def _export_model_files_from_checkpoint_dir(model_name_or_path: str, model_dir: 
 
 
 HfPretrainedModelType = str
+
+
 @dataclass
 class HfModelFromCheckpoint(BuildableData):
     name: NeStr = UNDEFINED
@@ -131,7 +132,6 @@ class HfModelFromCheckpoint(BuildableData):
             AutoProcessor.from_pretrained(self.model_name_or_path).save_pretrained(
                 self.data_dir
             )
-
 
 
 #
@@ -222,5 +222,3 @@ class HfModelFromCheckpoint(BuildableData):
 #
 #         onnx_model = onnx.load(self.onnx_model)
 #         onnx.checker.check_model(self.onnx_model)
-
-

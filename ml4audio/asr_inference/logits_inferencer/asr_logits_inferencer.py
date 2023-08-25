@@ -9,6 +9,7 @@ from misc_utils.beartypes import (
     NumpyFloat1DArray,
     NeList,
     NeStr,
+    TorchTensor2D,
 )
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
@@ -63,5 +64,5 @@ class ASRLogitsInferencer(Buildable):
 
     @abstractmethod
     @beartype
-    def calc_logits(self, audio: NumpyFloat1DArray) -> torch.Tensor:
+    def calc_logits(self, audio: NumpyFloat1DArray) -> TorchTensor2D:
         raise NotImplementedError
