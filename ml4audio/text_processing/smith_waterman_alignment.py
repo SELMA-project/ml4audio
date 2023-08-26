@@ -97,7 +97,7 @@ def smith_waterman_alignment(
     del_score=-1,
     ins_score=-1,
     align_full_hyp=True,
-) -> Tuple[list[Alignment], float]:
+) -> tuple[list[Alignment], float]:
     """
     stolen from kaldi; see egs/wsj/s5/steps/cleanup/internal/align_ctm_ref.py
 
@@ -379,7 +379,7 @@ def padded_smith_waterman_alignments(
 
 def calc_aligned_ngram_tuples(
     ref_tok: list[str], hyp_tok: list[str], order: int
-) -> Generator[Tuple[list[str], list[str]], None, None]:
+) -> Generator[tuple[list[str], list[str]], None, None]:
     alignments = padded_smith_waterman_alignments(ref_tok, hyp_tok)
 
     ri_to_alignment = defaultdict(list)
@@ -412,12 +412,12 @@ def edt_to_symbol(edt: EditType) -> str:
 @beartype
 def regex_tokenizer(
     text: str, pattern=r"\w+(?:'\w+)?|[^\w\s]"
-) -> list[Tuple[int, int, str]]:  # pattern stolen from scikit-learn
+) -> list[tuple[int, int, str]]:  # pattern stolen from scikit-learn
     return [(m.start(), m.end(), m.group()) for m in re.finditer(pattern, text)]
 
 
 @beartype
-def calc_error_word_tuples(ref: NeStr, hyp: NeStr, eps: str) -> list[Tuple[str, str]]:
+def calc_error_word_tuples(ref: NeStr, hyp: NeStr, eps: str) -> list[tuple[str, str]]:
     alignments = padded_smith_waterman_alignments(list(ref), list(hyp), eps)
     padded_ref = "".join(x.ref for x in alignments)
     padded_hyp = "".join(x.hyp for x in alignments)
@@ -432,7 +432,7 @@ def calc_error_word_tuples(ref: NeStr, hyp: NeStr, eps: str) -> list[Tuple[str, 
 @beartype
 def align_split(
     a: str, b: str, split_len_a: int = 50, debug=False
-) -> Tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str]]:
     """
     useful to help stupid difflib (which is used in icdiff) to handle pairs with more severe differences
     splits at first space after split_len_a
