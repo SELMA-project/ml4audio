@@ -2,10 +2,12 @@ import os
 import sys
 from dataclasses import dataclass
 
+from ctc_asr_chunked_inference.asr_infer_decode import ASRInferDecoder
 from ctc_decoding.lm_model_for_pyctcdecode import GzippedArpaAndUnigramsForPyCTCDecode
 from ctc_decoding.pyctc_decoder import PyCTCKenLMDecoder
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     ASRLogitsInferencer,
+    determine_casing,
 )
 from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import (
     HfModelFromCheckpoint,
@@ -18,20 +20,15 @@ from ml4audio.audio_utils.test_utils import (
     get_test_cache_base,
     TEST_RESOURCES,
 )
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
+from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
 from ml4audio.text_processing.kenlm_arpa import AnArpaFile
 
-sys.path.append(os.path.dirname(__file__))  # TODO: WTF! this is a hack!
 from warnings import filterwarnings
 
 from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
 
-from ctc_asr_chunked_inference.hfwav2vec2_asr_decode_inferencer import (
-    HFASRDecodeInferencer,
-)
 from ctc_decoding.huggingface_ctc_decoding import (
     HFCTCGreedyDecoder,
-    VocabFromHFTokenizer,
 )
 from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
     HFWav2Vec2LogitsInferencer,
@@ -52,6 +49,7 @@ class TestParams:
     input_sample_rate: int = 16000
     inferencer_name: str = "hf-wav2vec2"
     decoder_name: str = "greedy"
+    lm_weight: float = 1.0
 
 
 @pytest.fixture
@@ -59,35 +57,24 @@ def vocab():
     return get_test_vocab()
 
 
-def build_decoder(name: str, vocab: list[str]):
+def build_decoder(tp: TestParams, vocab: list[str]):
     NAME2DECODER = {
         "greedy": HFCTCGreedyDecoder(tokenizer_name_or_path=TEST_MODEL_NAME),
         "beamsearch": PyCTCKenLMDecoder(
             vocab=vocab,
-            lm_weight=1.0,
+            lm_weight=tp.lm_weight,
             beta=0.5,
+            beam_size=100,
             ngram_lm_model=GzippedArpaAndUnigramsForPyCTCDecode(
                 base_dir=cache_base,
                 raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/lm.arpa"),
                 transcript_normalizer=TranscriptNormalizer(
-                    casing=Casing.upper, text_cleaner="en", vocab=vocab
-                ),
-            ),
-        ),
-        "beamsearch-stupidlm": PyCTCKenLMDecoder(
-            vocab=vocab,
-            lm_weight=1.0,
-            beta=0.5,
-            ngram_lm_model=GzippedArpaAndUnigramsForPyCTCDecode(
-                base_dir=cache_base,
-                raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/stupid_lm.arpa"),
-                transcript_normalizer=TranscriptNormalizer(
-                    casing=Casing.upper, text_cleaner="en", vocab=vocab
+                    casing=determine_casing(vocab), text_cleaner="en", vocab=vocab
                 ),
             ),
         ),
     }
-    return NAME2DECODER[name]
+    return NAME2DECODER[tp.decoder_name]
 
 
 def build_logits_inferencer(name: str) -> ASRLogitsInferencer:
@@ -108,14 +95,17 @@ def build_logits_inferencer(name: str) -> ASRLogitsInferencer:
 
 
 @pytest.fixture
-def asr_hf_inferencer(request):
+def asr_infer_decoder(request):
 
-    tp: TestParams = request.param
+    if not hasattr(request, "param"):
+        tp = TestParams()
+    else:
+        tp: TestParams = request.param
 
     inferencer = build_logits_inferencer(tp.inferencer_name)
-    asr = HFASRDecodeInferencer(
+    asr = ASRInferDecoder(
         logits_inferencer=inferencer,
-        decoder=build_decoder(tp.decoder_name, inferencer.vocab),
+        decoder=build_decoder(tp, inferencer.vocab),
         input_sample_rate=tp.input_sample_rate,
     )
     asr.build()

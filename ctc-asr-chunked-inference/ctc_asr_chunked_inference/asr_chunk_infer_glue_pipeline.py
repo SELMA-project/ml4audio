@@ -11,9 +11,7 @@ from beartype import beartype
 from beartype.vale import Is
 from transformers import set_seed
 
-from ctc_asr_chunked_inference.hfwav2vec2_asr_decode_inferencer import (
-    HFASRDecodeInferencer,
-)
+from ctc_asr_chunked_inference.asr_infer_decode import ASRInferDecoder
 from misc_utils.beartypes import Numpy1D, NumpyInt16_1D, NeList
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
@@ -48,7 +46,7 @@ class Aschinglupi(Buildable):
         naming: Aschinglupi == ASR Chunking Inference Gluing Pipeline
         does:
         1. chunking
-        2. asr-inference
+        2. asr-inference = inference + decoding
         3. transcript glueing
         TODO: split it into pieces!
 
@@ -60,7 +58,7 @@ class Aschinglupi(Buildable):
 
     """
 
-    hf_asr_decoding_inferencer: HFASRDecodeInferencer = UNDEFINED
+    hf_asr_decoding_inferencer: ASRInferDecoder = UNDEFINED
     transcript_gluer: TranscriptGluer = UNDEFINED
     # step_dur: Union[
     #     float, int

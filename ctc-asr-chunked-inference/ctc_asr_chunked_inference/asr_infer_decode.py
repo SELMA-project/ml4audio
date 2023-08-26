@@ -51,7 +51,7 @@ def convert_and_resample(
 
 
 @dataclass
-class HFASRDecodeInferencer(Buildable):
+class ASRInferDecoder(Buildable):
     """
     does asr-inference WITH decoding greedy/lm-based
     TODO:
