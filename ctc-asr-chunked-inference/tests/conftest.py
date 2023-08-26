@@ -113,7 +113,7 @@ def asr_infer_decoder(request):
 
 
 @pytest.fixture
-def librispeech_raw_ref():
+def librispeech_ref():
     ref_txt = (
         f"{TEST_RESOURCES}/LibriSpeech_dev-other_116_288046_116-288046-0011_ref.txt"
     )

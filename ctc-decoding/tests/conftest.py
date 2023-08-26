@@ -1,10 +1,7 @@
 import os
 import sys
 
-import icdiff
-
-from ml4audio.audio_utils.test_utils import get_test_vocab, TEST_RESOURCES
-from ml4audio.text_processing.asr_metrics import calc_cer
+from ml4audio.audio_utils.test_utils import TEST_RESOURCES
 
 sys.path.append(os.path.dirname(__file__))  # TODO: WTF! this is a hack!
 
@@ -25,10 +22,6 @@ filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
 import pytest
 
 
-@pytest.fixture
-def vocab():
-    return get_test_vocab()
-
 
 @pytest.fixture
 def hfwav2vec2_base_tokenizer():
@@ -48,26 +41,11 @@ def librispeech_logtis_file():
 
 
 @pytest.fixture
-def librispeech_ref(vocab) -> NeStr:
+def librispeech_ref():
     ref_txt = (
         f"{TEST_RESOURCES}/LibriSpeech_dev-other_116_288046_116-288046-0011_ref.txt"
     )
     raw_ref = next(iter(read_lines(ref_txt)))
-    ref = normalize_filter_text(raw_ref, vocab, text_cleaner="en", casing=Casing.upper)
-    return ref
+    return raw_ref
 
 
-def assert_transcript_cer(hyp, ref, max_cer):
-    cd = icdiff.ConsoleDiff(cols=120)
-    diff_line = "\n".join(
-        cd.make_table(
-            [ref],
-            [hyp],
-            "ref",
-            "hyp",
-        )
-    )
-    print(diff_line)
-    cer = calc_cer([(hyp, ref)])
-    print(f"{cer=}")
-    assert cer < max_cer

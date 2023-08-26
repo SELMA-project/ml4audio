@@ -21,15 +21,6 @@ def test_GreedyDecoder(
     transcript = decoder.ctc_decode(logits.squeeze())[0]
     hyp = transcript.text
 
-    cd = icdiff.ConsoleDiff(cols=120)
-    diff_line = "\n".join(
-        cd.make_table(
-            [librispeech_ref],
-            [hyp],
-            "ref",
-            "hyp",
-        )
-    )
-    print(diff_line)
-    cer = calc_cer([(hyp, librispeech_ref)])
+
+    cer = calc_cer([librispeech_ref],[hyp])
     assert cer == 0.0

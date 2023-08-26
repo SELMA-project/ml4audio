@@ -6,6 +6,7 @@ import pytest
 from ctc_asr_chunked_inference.asr_infer_decode import ASRInferDecoder
 from ml4audio.audio_utils.audio_io import load_and_resample_16bit_PCM
 from ml4audio.text_processing.asr_metrics import calc_cer
+from ml4audio.text_processing.pretty_diff import smithwaterman_aligned_icdiff
 from tests.conftest import TestParams
 
 
@@ -30,7 +31,7 @@ from tests.conftest import TestParams
 def test_ASRInferDecoder(
     asr_infer_decoder: ASRInferDecoder,
     librispeech_audio_file,
-    librispeech_raw_ref,
+    librispeech_ref,
     max_CER,
 ):
 
@@ -43,17 +44,9 @@ def test_ASRInferDecoder(
     transcript = asr_infer_decoder.transcribe_audio_array(audio_array.squeeze())
     inference_duration = time() - start_time
     hyp = transcript.letters.upper()
-    cd = icdiff.ConsoleDiff(cols=120)
-    diff_line = "\n".join(
-        cd.make_table(
-            [librispeech_raw_ref],
-            [hyp],
-            "ref",
-            "hyp",
-        )
-    )
-    print(diff_line)
-    cer = calc_cer([librispeech_raw_ref], [hyp])
+    # print(smithwaterman_aligned_icdiff(librispeech_ref, hyp))
+
+    cer = calc_cer([librispeech_ref], [hyp])
     decoder_name = asr_infer_decoder.decoder.__class__.__name__
     print(
         f"{asr_infer_decoder.logits_inferencer.name},{decoder_name}\t{cer=}, inference took: {inference_duration} seconds"

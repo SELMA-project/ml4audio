@@ -15,10 +15,8 @@ from pyctcdecode.constants import (
 from pyctcdecode.language_model import HotwordScorer
 
 from conftest import (
-    get_test_vocab,
     TEST_RESOURCES,
     load_hfwav2vec2_base_tokenizer,
-    assert_transcript_cer,
 )
 from ctc_decoding.huggingface_ctc_decoding import VocabFromHFTokenizer
 from ctc_decoding.lm_model_for_pyctcdecode import (
@@ -29,6 +27,8 @@ from ctc_decoding.pyctc_decoder import PyCTCKenLMDecoder, OutputBeamDc
 from data_io.readwrite_files import read_lines
 from misc_utils.buildable import BuildableList
 from misc_utils.prefix_suffix import PrefixSuffix
+from ml4audio.audio_utils.test_utils import get_test_vocab
+from ml4audio.text_processing.asr_metrics import calc_cer
 from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
 from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs, AnArpaFile
 from ml4audio.text_processing.word_based_text_corpus import (
@@ -65,11 +65,11 @@ def _get_test_arpa_unigrams():
                 base_dir=cache_base,
                 arpa_unigrams=_get_test_arpa_unigrams(),
             ),
-            0.007,
+            0.0053,
         ),
         (
             _get_test_arpa_unigrams(),
-            0.007,
+            0.0053,
         ),
         (
             GzippedArpaAndUnigramsForPyCTCDecode(
@@ -97,7 +97,7 @@ def _get_test_arpa_unigrams():
                     ),
                 ),
             ),
-            0.0035,
+            0.0027,
         ),
     ],
 )
@@ -119,9 +119,9 @@ def test_PyCTCKenLMDecoder(
     )
     decoder.build()
     transcript = decoder.ctc_decode(logits.squeeze())[0]
-    ref = librispeech_ref
-    hyp = transcript.text
-    assert_transcript_cer(hyp, ref, max_cer)
+    cer = calc_cer([librispeech_ref],[transcript.text])
+    print(f"{ngram_lm_model.name}\t{cer=}")
+    assert cer < max_cer
 
 
 lm_data = _get_test_arpa_unigrams().build()
@@ -149,7 +149,7 @@ unigrams = list(read_lines(lm_data.unigrams_filepath))
     ],
 )
 def test_beams_search_decoders(
-    decoder,
+    decoder: BeamSearchDecoderCTC,
     librispeech_logtis_file,
     librispeech_ref,
 ):
@@ -171,4 +171,7 @@ def test_beams_search_decoders(
 
     ref = librispeech_ref
     hyp = beams[0].text
-    assert_transcript_cer(hyp, ref, max_cer)
+    # print(smithwaterman_aligned_icdiff(ref, hyp))
+    cer = calc_cer([ref],[hyp])
+    print(f"BeamSearchDecoderCTC\t{cer=}")
+    assert cer < max_cer

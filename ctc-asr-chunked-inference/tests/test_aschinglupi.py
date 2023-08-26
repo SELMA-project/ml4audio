@@ -35,7 +35,8 @@ os.environ["DEBUG_GLUER"] = "True"
     "step_dur,window_dur,max_step_dur,chunk_dur,max_CER,num_responses",
     [
         # fmt: off
-        (1.0, 2.0, None,0.1, 0.073, 25),  # got worse due to using opus instead of wav
+        (1.0, 2.0, None,0.1, 0.073, 25),
+        # got worse due to using opus instead of wav
         (1.5, 3.0, None,0.1, 0.016, 17),
         (1.0, 4.0, None,0.1, 0.008, 25),
 
@@ -50,7 +51,7 @@ os.environ["DEBUG_GLUER"] = "True"
 def test_ASRStreamInferencer(
     asr_infer_decoder: ASRInferDecoder,
     librispeech_audio_file,
-    librispeech_raw_ref,
+    librispeech_ref,
     step_dur: float,
     window_dur: float,
     max_step_dur: Optional[float],
@@ -97,14 +98,12 @@ def test_ASRStreamInferencer(
 
     # print(f"{audio_duration,prefix.timestamps[-1]}")
     ref = normalize_filter_text(
-        librispeech_raw_ref,
+        librispeech_ref,
         asr_infer_decoder.logits_inferencer.vocab,
         text_cleaner="en",
         casing=Casing.upper,
     )
-    diff_line = smithwaterman_aligned_icdiff(ref, hyp)
-
-    print(diff_line)
+    # print(smithwaterman_aligned_icdiff(ref, hyp))
     cer = calc_cer([ref], [hyp])
     print(f"{step_dur=},{window_dur=},{cer=}")
 
