@@ -48,4 +48,3 @@ def micro_avg_asr_scores(
         "word": word_error_rates(refs, hyps),
         "char": character_error_rates(refs, hyps),
     }
-

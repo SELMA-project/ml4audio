@@ -12,7 +12,7 @@ def smithwaterman_aligned_icdiff(
     split_len_a=70,
     ref_header: Optional[str] = "ref",
     hyp_header: Optional[str] = "hyp",
-):
+) -> str:
     import icdiff
 
     refs, hyps = align_split(ref, hyp, split_len_a=split_len_a, debug=False)

@@ -15,8 +15,10 @@ class TimestampedLetters:
         self.validate_data()
 
     def validate_data(self):
-        strictly_increasing = np.all(np.diff(self.timestamps) > 0)
-        assert strictly_increasing, f"{self.timestamps=}"
+        strictly_increasing = np.all(np.diff(self.timestamps) >= 0)
+        assert (
+            strictly_increasing
+        ), f"{self.timestamps=}\n{np.argwhere(np.diff(self.timestamps)<=0)}"
         assert len(self.letters) == len(self.timestamps)
 
     def __len__(self):

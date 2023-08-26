@@ -21,12 +21,22 @@ from transformers import (
     set_seed,
 )
 
+from ml4audio.text_processing.asr_text_normalization import Casing
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 NumpyFloatORInt16_1DArray = Annotated[
     Union[NDArray[floating], NDArray[int16]], IsAttr["ndim", IsEqual[1]]
 ]
 
 set_seed(42)
+
+
+def determine_casing(vocab: list[str]) -> Casing:
+    more_than_half_is_upper = (
+        sum([1 if c.upper() == c else 0 for c in vocab]) > len(vocab) / 2
+    )
+    casing = Casing.upper if more_than_half_is_upper else Casing.lower
+    return casing
 
 
 @dataclass
