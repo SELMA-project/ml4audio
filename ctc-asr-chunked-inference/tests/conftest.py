@@ -2,6 +2,8 @@ import os
 import sys
 from dataclasses import dataclass
 
+from beartype import beartype
+
 from ctc_asr_chunked_inference.asr_infer_decode import ASRInferDecoder
 from ctc_decoding.lm_model_for_pyctcdecode import GzippedArpaAndUnigramsForPyCTCDecode
 from ctc_decoding.pyctc_decoder import PyCTCKenLMDecoder
@@ -20,7 +22,8 @@ from ml4audio.audio_utils.test_utils import (
     get_test_cache_base,
     TEST_RESOURCES,
 )
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
+from ml4audio.text_processing.asr_text_cleaning import VocabCasingAwareTextCleaner, \
+    Letters
 from ml4audio.text_processing.kenlm_arpa import AnArpaFile
 
 from warnings import filterwarnings
@@ -57,7 +60,8 @@ def vocab():
     return get_test_vocab()
 
 
-def build_decoder(tp: TestParams, vocab: list[str]):
+@beartype
+def build_decoder(tp: TestParams, vocab: Letters):
     NAME2DECODER = {
         "greedy": HFCTCGreedyDecoder(tokenizer_name_or_path=TEST_MODEL_NAME),
         "beamsearch": PyCTCKenLMDecoder(
@@ -66,9 +70,9 @@ def build_decoder(tp: TestParams, vocab: list[str]):
             beta=0.5,
             beam_size=100,
             ngram_lm_model=GzippedArpaAndUnigramsForPyCTCDecode(
-                base_dir=cache_base,
+                cache_base=cache_base,
                 raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/lm.arpa"),
-                transcript_normalizer=TranscriptNormalizer(
+                transcript_cleaner=VocabCasingAwareTextCleaner(
                     casing=determine_casing(vocab), text_cleaner="en", vocab=vocab
                 ),
             ),
@@ -105,7 +109,7 @@ def asr_infer_decoder(request):
     inferencer = build_logits_inferencer(tp.inferencer_name)
     asr = ASRInferDecoder(
         logits_inferencer=inferencer,
-        decoder=build_decoder(tp, inferencer.vocab),
+        decoder=build_decoder(tp, inferencer.letter_vocab),
         input_sample_rate=tp.input_sample_rate,
     )
     asr.build()

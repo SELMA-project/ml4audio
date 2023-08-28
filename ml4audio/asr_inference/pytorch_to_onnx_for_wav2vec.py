@@ -34,12 +34,17 @@ def convert_to_onnx(model_id_or_path: str, onnx_model_name):
 
 
 # WeightTypeName = Annotated[str, Is[lambda s: s in ONNX_QUANT_WEIGHT_TYPES.keys()]]
-WeightTypeName = Annotated[str, Is[lambda s: s in ["QUInt8","QInt8"]]] # TODO: I was too lazy to rebuild docker-image with onnxruntime!
+WeightTypeName = Annotated[
+    str, Is[lambda s: s in ["QUInt8", "QInt8"]]
+]  # TODO: I was too lazy to rebuild docker-image with onnxruntime!
 
 
 @beartype
 def quantize_onnx_model(
-    model_id_or_path:str,onnx_model_path: str, quantized_model_path: str, weight_type_name="QUInt8"
+    model_id_or_path: str,
+    onnx_model_path: str,
+    quantized_model_path: str,
+    weight_type_name="QUInt8",
 ):
     """
     TODO:
@@ -107,7 +112,9 @@ if __name__ == "__main__":
     convert_to_onnx(model_id_or_path, onnx_model_name)
     if args.quantize:
         quantized_model_path = model_id_or_path.split("/")[-1] + ".quant.onnx"
-        onnx_model_name = quantize_onnx_model(model_id_or_path,onnx_model_name, quantized_model_path)
+        onnx_model_name = quantize_onnx_model(
+            model_id_or_path, onnx_model_name, quantized_model_path
+        )
 
     import onnx
 

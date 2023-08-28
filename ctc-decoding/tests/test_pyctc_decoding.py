@@ -29,7 +29,10 @@ from misc_utils.buildable import BuildableList
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.audio_utils.test_utils import get_test_vocab
 from ml4audio.text_processing.asr_metrics import calc_cer
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
+from ml4audio.text_processing.asr_text_cleaning import (
+    Casing,
+    VocabCasingAwareTextCleaner,
+)
 from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, ArpaArgs, AnArpaFile
 from ml4audio.text_processing.word_based_text_corpus import (
     WordBasedLMCorpus,
@@ -43,16 +46,16 @@ cache_base = PrefixSuffix("pwd", "test_cache")
 shutil.rmtree(str(cache_base), ignore_errors=True)
 os.makedirs(str(cache_base))
 
-tn = TranscriptNormalizer(
+tn = VocabCasingAwareTextCleaner(
     casing=Casing.upper, text_cleaner="en", vocab=get_test_vocab()
 )
 
 
 def _get_test_arpa_unigrams():
     return GzippedArpaAndUnigramsForPyCTCDecode(
-        base_dir=cache_base,
+        cache_base=cache_base,
         raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/lm.arpa"),
-        transcript_normalizer=tn,
+        transcript_cleaner=tn,
     )
 
 
@@ -61,8 +64,7 @@ def _get_test_arpa_unigrams():
     [
         (
             KenLMBinaryUnigramsFromArpa(
-                name="binary-lm",
-                base_dir=cache_base,
+                cache_base=cache_base,
                 arpa_unigrams=_get_test_arpa_unigrams(),
             ),
             0.0053,
@@ -73,8 +75,8 @@ def _get_test_arpa_unigrams():
         ),
         (
             GzippedArpaAndUnigramsForPyCTCDecode(
-                base_dir=cache_base,
-                transcript_normalizer=tn,
+                cache_base=cache_base,
+                transcript_cleaner=tn,
                 raw_arpa=ArpaBuilder(
                     cache_base=cache_base,
                     arpa_args=ArpaArgs(
@@ -93,7 +95,7 @@ def _get_test_arpa_unigrams():
                                 )
                             ]
                         ),
-                        normalizer=tn,
+                        transcript_cleaner=tn,
                     ),
                 ),
             ),
@@ -119,7 +121,7 @@ def test_PyCTCKenLMDecoder(
     )
     decoder.build()
     transcript = decoder.ctc_decode(logits.squeeze())[0]
-    cer = calc_cer([librispeech_ref],[transcript.text])
+    cer = calc_cer([librispeech_ref], [transcript.text])
     print(f"{ngram_lm_model.name}\t{cer=}")
     assert cer < max_cer
 
@@ -172,6 +174,6 @@ def test_beams_search_decoders(
     ref = librispeech_ref
     hyp = beams[0].text
     # print(smithwaterman_aligned_icdiff(ref, hyp))
-    cer = calc_cer([ref],[hyp])
+    cer = calc_cer([ref], [hyp])
     print(f"BeamSearchDecoderCTC\t{cer=}")
     assert cer < max_cer

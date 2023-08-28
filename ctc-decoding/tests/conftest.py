@@ -6,11 +6,6 @@ from ml4audio.audio_utils.test_utils import TEST_RESOURCES
 sys.path.append(os.path.dirname(__file__))  # TODO: WTF! this is a hack!
 
 from data_io.readwrite_files import read_lines
-from misc_utils.beartypes import NeStr
-from ml4audio.text_processing.asr_text_normalization import (
-    normalize_filter_text,
-    Casing,
-)
 
 from warnings import filterwarnings
 
@@ -20,7 +15,6 @@ from transformers import Wav2Vec2CTCTokenizer
 filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
 
 import pytest
-
 
 
 @pytest.fixture
@@ -47,5 +41,3 @@ def librispeech_ref():
     )
     raw_ref = next(iter(read_lines(ref_txt)))
     return raw_ref
-
-

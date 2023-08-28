@@ -36,7 +36,6 @@ class OpenAiWhisperArgs(WhisperArgs, DecodingOptions):
     append_punctuations: str = "\"'.。,，!！?？:：”)]}、"
 
 
-
 @dataclass
 class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     """
@@ -92,12 +91,13 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
     ):  # -> StartEndTextsNonOverlap:
         from whisper import audio
 
-        audio.CHUNK_LENGTH = whisper_args.chunk_length
-        audio.N_SAMPLES = audio.CHUNK_LENGTH * audio.SAMPLE_RATE
-        audio.N_FRAMES = exact_div(audio.N_SAMPLES, audio.HOP_LENGTH)
+        if hasattr(whisper_args, "chunk_length"):
+            audio.CHUNK_LENGTH = whisper_args.chunk_length
+            audio.N_SAMPLES = audio.CHUNK_LENGTH * audio.SAMPLE_RATE
+            audio.N_FRAMES = exact_div(audio.N_SAMPLES, audio.HOP_LENGTH)
 
         audio_dur = float(len(audio_array) / self.sample_rate)
-        resp = self._model.transcribe(audio=audio_array,**asdict(whisper_args))
+        resp = self._model.transcribe(audio=audio_array, **asdict(whisper_args))
 
         # resp["text"].strip(" ") # somehow this sometimes repeats the transcribt twice
         whisper_segments = resp["segments"]
@@ -112,4 +112,3 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
         else:
             start_end_text = []
         return start_end_text
-

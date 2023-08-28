@@ -21,6 +21,5 @@ def test_GreedyDecoder(
     transcript = decoder.ctc_decode(logits.squeeze())[0]
     hyp = transcript.text
 
-
-    cer = calc_cer([librispeech_ref],[hyp])
+    cer = calc_cer([librispeech_ref], [hyp])
     assert cer == 0.0

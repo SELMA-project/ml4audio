@@ -5,28 +5,26 @@ import sys
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, Annotated, Any, Optional
+from typing import Union, Any, Optional
 
 from beartype import beartype
-from beartype.vale import Is
 from tqdm import tqdm
 
 from data_io.readwrite_files import read_lines, write_lines
 from misc_utils.beartypes import NeList
-from misc_utils.buildable_data import BuildableData
 from misc_utils.cached_data import CachedData
 from misc_utils.dataclass_utils import _UNDEFINED, UNDEFINED
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from misc_utils.processing_utils import exec_command
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
-from ml4audio.text_processing.kenlm_arpa import ArpaBuilder, GotArpaFile, ArpaFile
+from ml4audio.text_processing.asr_text_cleaning import VocabCasingAwareTextCleaner
+from ml4audio.text_processing.kenlm_arpa import GotArpaFile, ArpaFile
 
 Model_Unigrams_File = tuple[str, str]
 
 
 @beartype
 def build_unigrams_from_arpa(
-    arpa_file: ArpaFile, transcript_normalizer: TranscriptNormalizer
+    arpa_file: ArpaFile, transcript_cleaner: VocabCasingAwareTextCleaner
 ) -> NeList[str]:
     def gen_parse_arpa_file():
         for line in read_lines(arpa_file):
@@ -44,7 +42,7 @@ def build_unigrams_from_arpa(
                 gen_parse_arpa_file(),
                 desc="building unigrams, the LMs vocabulary",
             )
-            for l in transcript_normalizer.apply(raw).split(" ")
+            for l in transcript_cleaner(raw).split(" ")
         }
     )
 
@@ -55,8 +53,8 @@ def build_unigrams_from_arpa(
 
 
 @dataclass
-class NgramLmAndUnigrams(BuildableData):
-    base_dir: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_models"])
+class NgramLmAndUnigrams(CachedData):
+    cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_models"])
 
     @property
     @abstractmethod
@@ -72,16 +70,30 @@ class NgramLmAndUnigrams(BuildableData):
         raise NotImplementedError
 
     @property
-    def _is_data_valid(self) -> bool:
-        no_need = not self.unigrams_filepath
-        need_and_got_unigrams = no_need or os.path.isfile(self.unigrams_filepath)
-        return os.path.isfile(self.ngramlm_filepath) and need_and_got_unigrams
+    def data_dir(self):
+        return self.cache_dir
+
+    def _build_cache(self):
+        """
+        just because I am not sure yet wether it should be CachedData or BuildableData
+        """
+        self._build_data()
+
+    @abstractmethod
+    def _build_data(self):
+        raise NotImplementedError
+
+    # @property
+    # def _is_data_valid(self) -> bool:
+    #     no_need = not self.unigrams_filepath
+    #     need_and_got_unigrams = no_need or os.path.isfile(self.unigrams_filepath)
+    #     return os.path.isfile(self.ngramlm_filepath) and need_and_got_unigrams
 
 
 @dataclass
 class GzippedArpaAndUnigramsForPyCTCDecode(NgramLmAndUnigrams):
     raw_arpa: GotArpaFile = UNDEFINED
-    transcript_normalizer: Union[_UNDEFINED, TranscriptNormalizer] = UNDEFINED
+    transcript_cleaner: Union[_UNDEFINED, VocabCasingAwareTextCleaner] = UNDEFINED
 
     @property
     def name(self):
@@ -98,7 +110,7 @@ class GzippedArpaAndUnigramsForPyCTCDecode(NgramLmAndUnigrams):
     def _build_data(self) -> Any:
         self._gzip_or_copy_arpa()
         unigrams = build_unigrams_from_arpa(
-            self.ngramlm_filepath, transcript_normalizer=self.transcript_normalizer
+            self.ngramlm_filepath, transcript_cleaner=self.transcript_cleaner
         )
         write_lines(self.unigrams_filepath, unigrams)
 

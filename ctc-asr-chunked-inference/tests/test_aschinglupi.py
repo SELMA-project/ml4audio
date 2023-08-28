@@ -1,5 +1,4 @@
 import os
-from time import time
 from typing import Optional
 
 import numpy as np
@@ -21,11 +20,10 @@ from ml4audio.audio_utils.overlap_array_chunker import (
     OverlapArrayChunker,
 )
 from ml4audio.text_processing.asr_metrics import calc_cer
-from ml4audio.text_processing.asr_text_normalization import (
-    normalize_filter_text,
+from ml4audio.text_processing.asr_text_cleaning import (
+    clean_and_filter_text,
     Casing,
 )
-from ml4audio.text_processing.pretty_diff import smithwaterman_aligned_icdiff
 
 BASE_PATHES["asr_inference"] = get_test_cache_base()
 os.environ["DEBUG_GLUER"] = "True"
@@ -97,7 +95,7 @@ def test_ASRStreamInferencer(
     hyp = transcript.letters.strip(" ")
 
     # print(f"{audio_duration,prefix.timestamps[-1]}")
-    ref = normalize_filter_text(
+    ref = clean_and_filter_text(
         librispeech_ref,
         asr_infer_decoder.logits_inferencer.vocab,
         text_cleaner="en",
