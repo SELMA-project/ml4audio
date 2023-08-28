@@ -21,7 +21,7 @@ from transformers import (
     set_seed,
 )
 
-from ml4audio.text_processing.asr_text_normalization import Casing
+from ml4audio.text_processing.asr_text_cleaning import Casing, Letters
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 NumpyFloatORInt16_1DArray = Annotated[
@@ -70,6 +70,11 @@ class ASRLogitsInferencer(Buildable):
     @property
     @abstractmethod
     def vocab(self) -> NeList[str]:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def letter_vocab(self) -> Letters:
         raise NotImplementedError
 
     @abstractmethod

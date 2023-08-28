@@ -1,13 +1,18 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Union, Optional
+from typing import Union, Optional, Annotated
 
 from beartype import beartype
+from beartype.vale import Is
 
-from misc_utils.buildable import Buildable
+from misc_utils.beartypes import NeList
 from misc_utils.dataclass_utils import (
     UNDEFINED,
-    _UNDEFINED,
+)
+from ml4audio.text_processing.character_mappings.text_cleaning import (
+    TextCleaner,
+    CHARACTER_MAPPINGS,
+    TEXT_CLEANERS,
 )
 
 # TODO: validate mappings?
@@ -21,10 +26,6 @@ from misc_utils.dataclass_utils import (
 #     if not all(bad_keys):
 #         raise ValueError(f"{bad_keys} do not have len of 1!")
 #     return mapping
-from ml4audio.text_processing.character_mappings.text_normalization import (
-    CHARACTER_MAPPINGS,
-    TextCleaner,
-)
 
 SILENCE_SYMBOL = "|"
 # PUNCTUATION.replace(SILENCE_SYMBOL, "") # how to handle explicit silence? with space or silence-symbol?
@@ -63,25 +64,22 @@ class Casing(str, Enum):
 
 
 @beartype
-def normalize_filter_text(
+def clean_and_filter_text(
     text: str,
-    vocab: list[str],
-    text_cleaner: Union[str, TextCleaner],
+    vocab_letters: NeList[str],
+    text_cleaner: TextCleaner,
     casing: Casing,
 ) -> str:
-    text = normalize_upper_lower_text(text, text_cleaner, casing)
-    return filter_by_vocab(text, vocab)
+    text = clean_upper_lower_text(text, text_cleaner, casing)
+    return filter_by_lettervocab(text, vocab_letters)
 
 
 @beartype
-def normalize_upper_lower_text(
-    text, text_cleaner: Union[str, TextCleaner], casing: Casing = Casing.original
+def clean_upper_lower_text(
+    text, text_cleaner: TextCleaner, casing: Casing = Casing.original
 ):
-    if isinstance(text_cleaner, str):
-        text = CHARACTER_MAPPINGS[text_cleaner](text).strip(" ")
-        text = casing.apply(text)
-    else:
-        text = text_cleaner(text).strip(" ")
+    text = text_cleaner(text).strip(" ")
+    text = casing.apply(text)
     return text
 
 
@@ -93,48 +91,38 @@ def upper_lower_text(text, casing: Casing = Casing.original):
 
 
 @beartype
-def filter_by_vocab(text: str, vocab: list[str]) -> str:
-    return "".join([c for c in text if c in vocab or c == " "]).strip(" ")
+def filter_by_lettervocab(text: str, vocab_letters: list[str]) -> str:
+    return "".join([c for c in text if c in vocab_letters or c == " "]).strip(" ")
 
 
-@beartype
-def casing_vocab_filtering(
-    text: str, vocab: list[str], casing: Casing = Casing.original
-) -> str:
-    return filter_by_vocab(casing.apply(text), vocab)
+# @beartype
+# def casing_vocab_filtering(
+#     text: str, vocab_letters: list[str], casing: Casing = Casing.original
+# ) -> str:
+#     return filter_by_lettervocab(casing.apply(text), vocab_letters)
+
+
+Letters = Annotated[
+    NeList[str], Is[lambda letters: all((len(l) == 1) for l in letters)]
+]
 
 
 @dataclass
-class TranscriptNormalizer(Buildable):
-    """
-    TODO: confusing naming
-    the arg: text_normalizer is referring to CHARACTER_MAPPINGS
-    """
+class VocabCasingAwareTextCleaner(TextCleaner):
 
     casing: Union[str, Casing] = UNDEFINED
-    text_cleaner: Union[TextCleaner, str] = UNDEFINED
-    vocab: Union[
-        _UNDEFINED, list[str]
-    ] = UNDEFINED  # here not NeList cause CachedList initially is empty list (before build)
+    text_cleaner: Union[str, TextCleaner] = UNDEFINED
+    vocab: Letters = UNDEFINED
 
     def __post_init__(self):
         if isinstance(self.casing, str):
             self.casing = Casing(self.casing)
 
-    def _build_self(self):
-        """
-        TODO: it gets creepy!
-        vocab can be buildable list, which is empty when handed as argument to this dataclasses field, but after building nonempty!
-        also: buildable vocab serializes to big-fat dictionary -> might be too much information!
-        """
-        if isinstance(self.vocab, Buildable):
-            assert self.vocab._was_built
-
-        assert len(self.vocab) > 0, f"{self.vocab=} is empty!"
-
-    def apply(self, text: str) -> str:
+    def __call__(self, text: str) -> str:
         assert len(self.vocab) > 0
-        return normalize_filter_text(text, self.vocab, self.text_cleaner, self.casing)
+        if isinstance(self.text_cleaner, str):
+            self.text_cleaner = TEXT_CLEANERS[self.text_cleaner]
+        return clean_and_filter_text(text, self.vocab, self.text_cleaner, self.casing)
 
 
 # if __name__ == "__main__":

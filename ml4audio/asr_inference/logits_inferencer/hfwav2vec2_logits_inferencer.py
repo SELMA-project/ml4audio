@@ -4,7 +4,8 @@ from typing import Union, Optional
 
 import torch
 from beartype import beartype
-from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
+from ml4audio.text_processing.asr_text_cleaning import Casing, Letters
+from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC, Wav2Vec2CTCTokenizer
 
 from misc_utils.beartypes import (
     NumpyFloat1DArray,
@@ -14,12 +15,28 @@ from misc_utils.beartypes import (
 from misc_utils.dataclass_utils import UNDEFINED
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     ASRLogitsInferencer,
+    determine_casing,
 )
 from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import (
     HfModelFromCheckpoint,
 )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def fix_hf_ctc_tokenizers_casing(casing: Casing, tokenizer: Wav2Vec2CTCTokenizer):
+    """
+    do_lower_case means .upper() in huggingface/transformers!! see: https://github.com/huggingface/transformers/blob/870ff9e1dab249e4ffd8363ce132aa5145c94604/src/transformers/models/wav2vec2/tokenization_wav2vec2.py#L240
+    """
+    if casing is Casing.upper:
+        if not tokenizer.do_lower_case:
+            tokenizer.do_lower_case = True
+            # maybe this happens for having finetuned an old model?
+
+        print(f"{tokenizer.do_lower_case=} is upper-cased")
+    else:
+        assert not tokenizer.do_lower_case
+        print(f"{tokenizer.do_lower_case=} is lower-cased")
 
 
 @dataclass
@@ -45,6 +62,8 @@ class HFWav2Vec2LogitsInferencer(ASRLogitsInferencer):
         self._processor = self._load_prepare_processor()
         self._model = Wav2Vec2ForCTC.from_pretrained(self.checkpoint.model_path)
         self.move_to_device(DEVICE)
+        casing = determine_casing(self.vocab)
+        fix_hf_ctc_tokenizers_casing(casing, self._processor.tokenizer)
         return self
 
     @beartype
@@ -62,6 +81,10 @@ class HFWav2Vec2LogitsInferencer(ASRLogitsInferencer):
                 self._processor.tokenizer.get_vocab().items(), key=lambda x: x[1]
             )
         ]
+
+    @property
+    def letter_vocab(self) -> Letters:
+        return [l for l in self.vocab if len(l) == 1]
 
     @beartype
     def calc_logits(self, audio: NumpyFloat1DArray) -> TorchTensor2D:

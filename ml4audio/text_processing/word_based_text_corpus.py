@@ -1,9 +1,10 @@
+import itertools
 import json
 from collections import Counter
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional
 
 from tqdm import tqdm
 
@@ -18,7 +19,7 @@ from misc_utils.dataclass_utils import (
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
 from misc_utils.utils import get_val_from_nested_dict
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
+from ml4audio.text_processing.asr_text_cleaning import VocabCasingAwareTextCleaner
 
 
 @dataclass
@@ -27,6 +28,7 @@ class RglobRawCorpus(CachedData):
     file_pattern: str = "file-pattern"
     cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_data"])
     upsample_factor: int = 1
+    limit: Optional[int] = None
 
     @property
     def name(self):
@@ -48,10 +50,10 @@ class RglobRawCorpus(CachedData):
 
         files = self._get_files()
         print(f"{self.name} found {len(files)} files: {files=}")
+        lines_g = (line for file in files for line in read_lines(file))
         lines_g = (
             count_lines(self.get_raw_text_fun(line))
-            for file in files
-            for line in read_lines(file)
+            for line in itertools.islice(lines_g, self.limit)
         )
         write_lines(
             self.corpus_filepath, tqdm(lines_g, f"{self.name} is writing lines")
@@ -89,7 +91,7 @@ def spacesplit_tokenize_and_tokencounting(line, counter):
 class WordBasedLMCorpus(CachedData):
     name: Union[_UNDEFINED, str] = field(init=True, default=UNDEFINED)
     raw_corpora: Union[_UNDEFINED, BuildableList[RglobRawCorpus]] = UNDEFINED
-    normalizer: FILLME[TranscriptNormalizer] = UNDEFINED
+    transcript_cleaner: VocabCasingAwareTextCleaner = UNDEFINED
     cache_base: PrefixSuffix = field(default_factory=lambda: BASE_PATHES["lm_data"])
 
     @property
@@ -101,7 +103,7 @@ class WordBasedLMCorpus(CachedData):
         return self.prefix_cache_dir("word_counts.txt")
 
     def process_line(self, l: str, counter):
-        s = self.normalizer.apply(l)
+        s = self.transcript_cleaner(l)
         return spacesplit_tokenize_and_tokencounting(s, counter)
 
     def _build_cache(self):

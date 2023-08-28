@@ -18,8 +18,6 @@ from ml4audio.audio_utils.aligned_transcript import (
 )
 
 DEBUG = os.environ.get("DEBUG", "False").lower() != "false"
-if DEBUG:
-    print("TranscriptGluer DEBUGGING MODE")
 
 
 @dataclass

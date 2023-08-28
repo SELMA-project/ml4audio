@@ -17,6 +17,7 @@ from misc_utils.utils import slugify_with_underscores
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     ASRLogitsInferencer,
 )
+from ml4audio.text_processing.asr_text_cleaning import Letters
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -55,6 +56,12 @@ class NemoASRLogitsInferencer(ASRLogitsInferencer):
         vocabulary = self._model.cfg.decoder.vocabulary
         vocabulary = list(vocabulary)
         return vocabulary
+
+    @property
+    @beartype
+    def letter_vocab(self) -> Letters:
+        bad_letters = ["<", ">", "▁"]
+        return [l for l in dict.fromkeys("".join(self.vocab)) if l not in bad_letters]
 
     @beartype
     def calc_logits(self, audio: NumpyFloat1DArray) -> TorchTensor2D:
