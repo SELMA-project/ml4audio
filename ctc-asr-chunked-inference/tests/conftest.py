@@ -73,7 +73,7 @@ def build_decoder(tp: TestParams, vocab: Letters):
                 cache_base=cache_base,
                 raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/lm.arpa"),
                 transcript_cleaner=VocabCasingAwareTextCleaner(
-                    casing=determine_casing(vocab), text_cleaner="en", vocab=vocab
+                    casing=determine_casing(vocab), text_cleaner_name="en", vocab=vocab
                 ),
             ),
         ),

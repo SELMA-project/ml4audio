@@ -111,7 +111,7 @@ Letters = Annotated[
 class VocabCasingAwareTextCleaner(TextCleaner):
 
     casing: Union[str, Casing] = UNDEFINED
-    text_cleaner: Union[str, TextCleaner] = UNDEFINED
+    text_cleaner_name: str = UNDEFINED
     vocab: Letters = UNDEFINED
 
     def __post_init__(self):
@@ -120,9 +120,9 @@ class VocabCasingAwareTextCleaner(TextCleaner):
 
     def __call__(self, text: str) -> str:
         assert len(self.vocab) > 0
-        if isinstance(self.text_cleaner, str):
-            self.text_cleaner = TEXT_CLEANERS[self.text_cleaner]
-        return clean_and_filter_text(text, self.vocab, self.text_cleaner, self.casing)
+        return clean_and_filter_text(
+            text, self.vocab, TEXT_CLEANERS[self.text_cleaner_name], self.casing
+        )
 
 
 # if __name__ == "__main__":

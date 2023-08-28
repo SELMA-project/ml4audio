@@ -47,7 +47,7 @@ shutil.rmtree(str(cache_base), ignore_errors=True)
 os.makedirs(str(cache_base))
 
 tn = VocabCasingAwareTextCleaner(
-    casing=Casing.upper, text_cleaner="en", vocab=get_test_vocab()
+    casing=Casing.upper, text_cleaner_name="en", vocab=get_test_vocab()
 )
 
 
