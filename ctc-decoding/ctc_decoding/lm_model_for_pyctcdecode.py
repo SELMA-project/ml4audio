@@ -5,7 +5,7 @@ import sys
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, Annotated, Any
+from typing import Union, Annotated, Any, Optional
 
 from beartype import beartype
 from beartype.vale import Is
@@ -65,14 +65,17 @@ class NgramLmAndUnigrams(BuildableData):
 
     @property
     @abstractmethod
-    def unigrams_filepath(self) -> str:
+    def unigrams_filepath(self) -> Optional[str]:
+        """
+        pyctcdecode can also decode without a unigrams-file, even though it throws some warnings
+        """
         raise NotImplementedError
 
     @property
     def _is_data_valid(self) -> bool:
-        return all(
-            [os.path.isfile(f) for f in [self.ngramlm_filepath, self.unigrams_filepath]]
-        )
+        no_need = not self.unigrams_filepath
+        need_and_got_unigrams = no_need or os.path.isfile(self.unigrams_filepath)
+        return os.path.isfile(self.ngramlm_filepath) and need_and_got_unigrams
 
 
 @dataclass
@@ -115,19 +118,24 @@ class KenLMBinaryUnigramsFile(NgramLmAndUnigrams):
 
     name: str = UNDEFINED
     kenlm_binary_file: PrefixSuffix = UNDEFINED
-    unigrams_file: PrefixSuffix = UNDEFINED
+    unigrams_file: Optional[PrefixSuffix] = None
 
     @property
     def ngramlm_filepath(self) -> str:
         return f"{self.data_dir}/{Path(str(self.kenlm_binary_file)).name}"
 
     @property
-    def unigrams_filepath(self) -> str:
-        return f"{self.data_dir}/{Path(str(self.unigrams_file)).name}"
+    def unigrams_filepath(self) -> Optional[str]:
+        return (
+            f"{self.data_dir}/{Path(str(self.unigrams_file)).name}"
+            if self.unigrams_file is not None
+            else None
+        )
 
     def _build_data(self) -> Any:
         shutil.copy(str(self.kenlm_binary_file), self.ngramlm_filepath)
-        shutil.copy(str(self.unigrams_file), self.unigrams_filepath)
+        if self.unigrams_filepath:
+            shutil.copy(str(self.unigrams_file), self.unigrams_filepath)
 
 
 def build_binary_kenlm(kenlm_bin_path: str, arpa_file: str, kenlm_binary_file: str):
@@ -154,8 +162,11 @@ def build_binary_kenlm(kenlm_bin_path: str, arpa_file: str, kenlm_binary_file: s
 @dataclass
 class KenLMBinaryUnigramsFromArpa(NgramLmAndUnigrams):
 
-    name: str = UNDEFINED
     arpa_unigrams: GzippedArpaAndUnigramsForPyCTCDecode = UNDEFINED
+
+    @property
+    def name(self):
+        return f"binary-{self.arpa_unigrams.name}"
 
     @property
     def ngramlm_filepath(self) -> str:

@@ -81,11 +81,14 @@ class PyCTCKenLMDecoder(HFCTCDecoder):
     )
 
     def _build_self(self) -> Any:
-        unigrams = list(read_lines(self.ngram_lm_model.unigrams_filepath))
-        if len(unigrams) < 10_000:
-            print(f"{self.ngram_lm_model.name} only got {len(unigrams)} unigrams")
+        if self.ngram_lm_model.unigrams_filepath:
+            unigrams = list(read_lines(self.ngram_lm_model.unigrams_filepath))
+            if len(unigrams) < 10_000:
+                print(f"{self.ngram_lm_model.name} only got {len(unigrams)} unigrams")
 
-        print(f"{len(unigrams)=}")
+            print(f"{len(unigrams)=}")
+        else:
+            unigrams = None
         self._pyctc_decoder = build_ctcdecoder(
             labels=self.vocab,
             kenlm_model_path=self.ngram_lm_model.ngramlm_filepath,
