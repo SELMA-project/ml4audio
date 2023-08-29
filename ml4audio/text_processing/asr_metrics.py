@@ -1,7 +1,7 @@
 import jiwer as jiwer
 from beartype import beartype
 
-from misc_utils.beartypes import NeList
+from misc_utils.beartypes import NeList, NeStr
 
 
 @beartype
@@ -31,17 +31,19 @@ def word_error_rates(refs: NeList[str], hyps: NeList[str]) -> dict[str, float]:
     }
 
 
-def calc_cer(refs, hyps) -> float:
+@beartype
+def calc_cer(refs: NeList[NeStr], hyps: NeList[str]) -> float:
     return character_error_rates(refs, hyps)["cer"]
 
 
-def calc_wer(refs, hyps) -> float:
+@beartype
+def calc_wer(refs: NeList[NeStr], hyps: NeList[str]) -> float:
     return word_error_rates(refs, hyps)["wer"]
 
 
 @beartype
 def micro_avg_asr_scores(
-    refs_hyps: NeList[tuple[str, str]]
+    refs_hyps: NeList[tuple[NeStr, str]]
 ) -> dict[str, dict[str, float]]:
     refs, hyps = [list(x) for x in zip(*refs_hyps)]
     return {
