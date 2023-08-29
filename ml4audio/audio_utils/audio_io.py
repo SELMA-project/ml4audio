@@ -165,7 +165,7 @@ def load_and_resample_16bit_PCM(
 
 
 @beartype
-def convert_to_16bit_array(a: NumpyFloat1DArray) -> NumpyInt16Dim1:
+def convert_to_16bit_array(a: NumpyFloat1D) -> NumpyInt16Dim1:
     a = a / np.max(np.abs(a)) * (MAX_16_BIT_PCM - 1)
     a = a.astype(np.int16)
     return a

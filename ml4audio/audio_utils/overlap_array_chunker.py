@@ -1,20 +1,22 @@
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import (
     Iterator,
     Union,
     Iterable,
     Optional,
-    ClassVar,
 )
 
 import numpy as np
 from beartype import beartype
+from beartype.door import is_bearable
 from numpy.typing import NDArray
 
 from misc_utils.beartypes import Numpy1DArray, NumpyInt16Dim1
 from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.utils import Singleton
-from ml4audio.audio_utils.audio_io import read_audio_chunks_from_file
+from ml4audio.audio_utils.audio_io import (
+    read_audio_chunks_from_file,
+)
 
 
 @dataclass
@@ -43,8 +45,7 @@ class AudioMessageChunk(MessageChunk):
     # frame_idx: int  # points to very first frame of this chunk
     # array: Union[_UNDEFINED,NumpyInt16Dim1]=UNDEFINED
     array: NumpyInt16Dim1 = UNDEFINED
-    chunk_idx: Optional[int] = None  # index of this chunk
-    # end_of_signal: bool = False
+    chunk_idx: Optional[int] = None  # index of this chunk, TODO: who wanted this?
 
 
 @dataclass
@@ -80,7 +81,7 @@ def messages_from_chunks(
         frame_idx += len(chunk)
 
     len_of_dummy_chunk = (
-        0  # TODO does empty dummy-chunk really not break anything downstream?
+        42  # TODO does empty dummy-chunk really not break anything downstream?
     )
     shape = [x for x in chunk.shape]
     shape[0] = len_of_dummy_chunk
@@ -98,11 +99,11 @@ def audio_messages_from_chunks(
     signal_id: str, chunks: Iterable[NumpyInt16Dim1]
 ) -> Iterator[AudioMessageChunk]:
     for chunk_idx, m in enumerate(messages_from_chunks(signal_id, chunks)):
-        array = m.array.astype(np.int16)
+        assert is_bearable(m.array, NumpyInt16Dim1), f"{type(m.array)=},{m.array.dtype}"
         yield AudioMessageChunk(
             message_id=m.message_id,
             frame_idx=m.frame_idx,
-            array=array,
+            array=m.array,
             chunk_idx=chunk_idx,
             end_of_signal=m.end_of_signal,
         )
