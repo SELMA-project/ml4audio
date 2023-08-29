@@ -97,7 +97,7 @@ def test_ASRStreamInferencer(
     # print(f"{audio_duration,prefix.timestamps[-1]}")
     ref = clean_and_filter_text(
         librispeech_ref,
-        asr_infer_decoder.logits_inferencer.vocab,
+        asr_infer_decoder.logits_inferencer.letter_vocab,
         text_cleaner="en",
         casing=Casing.upper,
     )

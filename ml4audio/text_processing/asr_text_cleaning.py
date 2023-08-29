@@ -63,13 +63,20 @@ class Casing(str, Enum):
         return Casing(str(value))
 
 
+Letters = Annotated[
+    NeList[str], Is[lambda letters: all((len(l) == 1) for l in letters)]
+]
+
+
 @beartype
 def clean_and_filter_text(
     text: str,
-    vocab_letters: NeList[str],
-    text_cleaner: TextCleaner,
+    vocab_letters: Letters,
+    text_cleaner: Union[str, TextCleaner],
     casing: Casing,
 ) -> str:
+    if isinstance(text_cleaner, str):
+        text_cleaner = TEXT_CLEANERS[text_cleaner]
     text = clean_upper_lower_text(text, text_cleaner, casing)
     return filter_by_lettervocab(text, vocab_letters)
 
@@ -102,26 +109,20 @@ def filter_by_lettervocab(text: str, vocab_letters: list[str]) -> str:
 #     return filter_by_lettervocab(casing.apply(text), vocab_letters)
 
 
-Letters = Annotated[
-    NeList[str], Is[lambda letters: all((len(l) == 1) for l in letters)]
-]
-
-
 @dataclass
 class VocabCasingAwareTextCleaner(TextCleaner):
 
     casing: Union[str, Casing] = UNDEFINED
     text_cleaner_name: str = UNDEFINED
-    vocab: Letters = UNDEFINED
+    letter_vocab: Letters = UNDEFINED
 
     def __post_init__(self):
         if isinstance(self.casing, str):
             self.casing = Casing(self.casing)
 
     def __call__(self, text: str) -> str:
-        assert len(self.vocab) > 0
         return clean_and_filter_text(
-            text, self.vocab, TEXT_CLEANERS[self.text_cleaner_name], self.casing
+            text, self.letter_vocab, TEXT_CLEANERS[self.text_cleaner_name], self.casing
         )
 
 
