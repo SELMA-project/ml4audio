@@ -1,12 +1,10 @@
 from time import time
 
-import icdiff
 import pytest
 
 from ctc_asr_chunked_inference.asr_infer_decode import ASRInferDecoder
 from ml4audio.audio_utils.audio_io import load_and_resample_16bit_PCM
 from ml4audio.text_processing.asr_metrics import calc_cer
-from ml4audio.text_processing.pretty_diff import smithwaterman_aligned_icdiff
 from tests.conftest import TestParams
 
 
@@ -36,6 +34,7 @@ def test_ASRInferDecoder(
 ):
 
     expected_sample_rate = asr_infer_decoder.input_sample_rate
+    print(f"{asr_infer_decoder.logits_inferencer.letter_vocab=}")
     audio_array = load_and_resample_16bit_PCM(
         librispeech_audio_file, expected_sample_rate
     )

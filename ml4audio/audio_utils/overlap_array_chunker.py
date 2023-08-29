@@ -81,7 +81,7 @@ def messages_from_chunks(
         frame_idx += len(chunk)
 
     len_of_dummy_chunk = (
-        42  # TODO does empty dummy-chunk really not break anything downstream?
+        0  # TODO does empty dummy-chunk really not break anything downstream?
     )
     shape = [x for x in chunk.shape]
     shape[0] = len_of_dummy_chunk

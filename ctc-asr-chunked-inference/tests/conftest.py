@@ -1,15 +1,21 @@
-import os
-import sys
 from dataclasses import dataclass
+from warnings import filterwarnings
 
 from beartype import beartype
+from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
 
 from ctc_asr_chunked_inference.asr_infer_decode import ASRInferDecoder
+from ctc_decoding.huggingface_ctc_decoding import (
+    HFCTCGreedyDecoder,
+)
 from ctc_decoding.lm_model_for_pyctcdecode import GzippedArpaAndUnigramsForPyCTCDecode
 from ctc_decoding.pyctc_decoder import PyCTCKenLMDecoder
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     ASRLogitsInferencer,
     determine_casing,
+)
+from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
+    HFWav2Vec2LogitsInferencer,
 )
 from ml4audio.asr_inference.logits_inferencer.huggingface_checkpoints import (
     HfModelFromCheckpoint,
@@ -22,20 +28,11 @@ from ml4audio.audio_utils.test_utils import (
     get_test_cache_base,
     TEST_RESOURCES,
 )
-from ml4audio.text_processing.asr_text_cleaning import VocabCasingAwareTextCleaner, \
-    Letters
+from ml4audio.text_processing.asr_text_cleaning import (
+    VocabCasingAwareTextCleaner,
+    Letters,
+)
 from ml4audio.text_processing.kenlm_arpa import AnArpaFile
-
-from warnings import filterwarnings
-
-from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
-
-from ctc_decoding.huggingface_ctc_decoding import (
-    HFCTCGreedyDecoder,
-)
-from ml4audio.asr_inference.logits_inferencer.hfwav2vec2_logits_inferencer import (
-    HFWav2Vec2LogitsInferencer,
-)
 
 filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
 
@@ -60,8 +57,11 @@ def vocab():
     return get_test_vocab()
 
 
+Words = list[str]
+
+
 @beartype
-def build_decoder(tp: TestParams, vocab: Letters):
+def build_decoder(tp: TestParams, vocab: Words, letter_vocab: Letters):
     NAME2DECODER = {
         "greedy": HFCTCGreedyDecoder(tokenizer_name_or_path=TEST_MODEL_NAME),
         "beamsearch": PyCTCKenLMDecoder(
@@ -73,7 +73,9 @@ def build_decoder(tp: TestParams, vocab: Letters):
                 cache_base=cache_base,
                 raw_arpa=AnArpaFile(arpa_filepath=f"{TEST_RESOURCES}/lm.arpa"),
                 transcript_cleaner=VocabCasingAwareTextCleaner(
-                    casing=determine_casing(vocab), text_cleaner_name="en", vocab=vocab
+                    casing=determine_casing(letter_vocab),
+                    text_cleaner_name="en",
+                    letter_vocab=letter_vocab,
                 ),
             ),
         ),
@@ -109,7 +111,7 @@ def asr_infer_decoder(request):
     inferencer = build_logits_inferencer(tp.inferencer_name)
     asr = ASRInferDecoder(
         logits_inferencer=inferencer,
-        decoder=build_decoder(tp, inferencer.letter_vocab),
+        decoder=build_decoder(tp, inferencer.vocab, inferencer.letter_vocab),
         input_sample_rate=tp.input_sample_rate,
     )
     asr.build()

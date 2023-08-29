@@ -34,6 +34,7 @@ from ml4audio.audio_utils.overlap_array_chunker import (
     OverlapArrayChunker,
     AudioMessageChunk,
     audio_messages_from_chunks,
+    MessageChunk,
 )
 
 set_seed(42)
@@ -60,11 +61,6 @@ class Aschinglupi(Buildable):
 
     hf_asr_decoding_inferencer: ASRInferDecoder = UNDEFINED
     transcript_gluer: TranscriptGluer = UNDEFINED
-    # step_dur: Union[
-    #     float, int
-    # ] = 1.0  # union cause json (de)serialization sometimes loses float information!
-    # window_dur: Union[float, int] = 4.0
-    # dtype: str = "int16"
     audio_bufferer: Optional[OverlapArrayChunker] = field(
         init=True, repr=True, default=None
     )
@@ -74,7 +70,7 @@ class Aschinglupi(Buildable):
         self.transcript_gluer.reset()
 
     @property
-    def sample_rate(self) -> int:
+    def input_sample_rate(self) -> int:
         return self.hf_asr_decoding_inferencer.input_sample_rate
 
     @property
@@ -98,11 +94,11 @@ class Aschinglupi(Buildable):
         self, inpt: AudioMessageChunk
     ) -> Iterator[ASRStreamInferenceOutput]:
         for chunk in self.audio_bufferer.handle_datum(inpt):
-            chunk: AudioMessageChunk
+            chunk: MessageChunk
             letters = self.hf_asr_decoding_inferencer.transcribe_audio_array(
                 chunk.array
             )
-            letters.timestamps += (chunk.frame_idx) / self.sample_rate
+            letters.timestamps += (chunk.frame_idx) / self.input_sample_rate
             new_suffix = self.transcript_gluer.calc_transcript_suffix(letters)
             if new_suffix is not NO_NEW_SUFFIX:
                 yield ASRStreamInferenceOutput(
@@ -149,15 +145,15 @@ def aschinglupi_transcribe_chunks(
     return transcript
 
 
-@beartype
-def transcribe_audio_array(
-    inferencer: Aschinglupi, array: Numpy1D, chunk_dur: float = 4.0
-) -> TimestampedLetters:
-    if array.dtype is not np.int16:
-        array = convert_to_16bit_array(array)
-    chunks = break_array_into_chunks(array, int(inferencer.sample_rate * chunk_dur))
-    last_response = aschinglupi_transcribe_chunks(inferencer, chunks)
-    return last_response
+# @beartype
+# def transcribe_audio_array(
+#     inferencer: Aschinglupi, array: Numpy1D, chunk_dur: float = 4.0
+# ) -> TimestampedLetters:
+#     if array.dtype is not np.int16:
+#         array = convert_to_16bit_array(array)
+#     chunks = break_array_into_chunks(array, int(inferencer.sample_rate * chunk_dur))
+#     last_response = aschinglupi_transcribe_chunks(inferencer, chunks)
+#     return last_response
 
 
 """

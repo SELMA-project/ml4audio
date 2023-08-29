@@ -55,6 +55,7 @@ class ASRInferDecoder(Buildable):
     """
     does asr-inference WITH decoding greedy/lm-based
     TODO:
+        also does preprocessing of the audio-array (conversion+resampling)!
         split into logits-inferencer and decoder
         well seems huggingface's "src/transformers/pipelines/automatic_speech_recognition.py" cannot yet do streaming! just "long audio-files"
 
