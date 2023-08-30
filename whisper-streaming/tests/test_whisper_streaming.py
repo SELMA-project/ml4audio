@@ -30,7 +30,7 @@ from whisper_streaming.whisper_streaming import (
     "step_dur,window_dur,max_CER,num_responses_expected",
     [
         # fmt: off
-        # (4.0, 4.0, 0.053, 7), # TODO: broken!
+        (4.0, 4.0, 0.037, 7),
         (2.0, 4.0, 0.034, 12),
         # fmt: on
     ],
@@ -82,6 +82,7 @@ def test_whisper_streaming(
                 )
                 print(f"{overlap_segment=}###{new_segments=}")
     hyp = transcript
+
     cleaner = VocabCasingAwareTextCleaner(
         casing=Casing.upper,
         text_cleaner_name="en",

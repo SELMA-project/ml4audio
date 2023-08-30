@@ -139,16 +139,17 @@ class WhisperStreamer(Buildable, SetupTearDown):
             this_chunks_transcript_segments[1:],
         )
 
+    @beartype
     def _whisperprefix_and_removesuffix(
         self, chunk_offset: float, transcripts_buffer: StartEndTextsNonOverlap
     ) -> tuple[Optional[str], Optional[str]]:
         prefix_from, prefix_to = -4, -1  # TODO: which values here?
-        segments_within_this_chunk = [
-            (s, e, t) for s, e, t in transcripts_buffer if e >= chunk_offset
+        previous_segments_within_this_chunk = [
+            (s, e, t) for s, e, t in transcripts_buffer if e > chunk_offset
         ]
-        if len(segments_within_this_chunk) > 0:
+        if len(previous_segments_within_this_chunk) > 0:
             words_inside_this_chunk = concat_transcript(
-                segments_within_this_chunk
+                previous_segments_within_this_chunk
             ).split(" ")
             whisper_prefix = " ".join(words_inside_this_chunk[prefix_from:prefix_to])
             remove_suffix = " ".join(words_inside_this_chunk[prefix_from:])
