@@ -35,7 +35,10 @@ StartEndTextsNonOverlap = Annotated[
 
 
 @dataclass
-class ASRAudioSegmentInferencer(SetupTearDown):
+class AudioArray2SegmentedTranscripts(SetupTearDown):
+    """
+    TODO: AA2ST = Audio Array 2 Segmented Transcripts
+    """
     @property
     @abstractmethod
     def name(self) -> str:
@@ -46,7 +49,7 @@ class ASRAudioSegmentInferencer(SetupTearDown):
         return 16000
 
     @abstractmethod
-    def predict_transcribed_segments(
+    def audio_to_segmented_transcripts(
         self, audio_array: NumpyFloat1D
     ) -> StartEndTextsNonOverlap:
         raise NotImplementedError
