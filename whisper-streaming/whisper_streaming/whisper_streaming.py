@@ -57,6 +57,9 @@ class WhisperStreamer(Buildable, SetupTearDown):
     audio_bufferer: Optional[OverlapArrayChunker] = field(
         init=True, repr=True, default=None
     )
+    prefix_from: int = -4
+    prefix_to: int = -1  # TODO: which values here?
+
     transcripts_buffer: Optional[StartEndTextsNonOverlap] = field(
         init=True, repr=False, default_factory=lambda: []
     )
@@ -143,17 +146,27 @@ class WhisperStreamer(Buildable, SetupTearDown):
     def _whisperprefix_and_removesuffix(
         self, chunk_offset: float, transcripts_buffer: StartEndTextsNonOverlap
     ) -> tuple[Optional[str], Optional[str]]:
-        prefix_from, prefix_to = -4, -1  # TODO: which values here?
         previous_segments_within_this_chunk = [
             (s, e, t) for s, e, t in transcripts_buffer if e > chunk_offset
         ]
         if len(previous_segments_within_this_chunk) > 0:
-            words_inside_this_chunk = concat_transcript(
-                previous_segments_within_this_chunk
-            ).split(" ")
-            whisper_prefix = " ".join(words_inside_this_chunk[prefix_from:prefix_to])
-            remove_suffix = " ".join(words_inside_this_chunk[prefix_from:])
+            remove_suffix, whisper_prefix = self._cut_words_for_whisper_prefix(
+                previous_segments_within_this_chunk, self.prefix_from, self.prefix_to
+            )
         else:
             whisper_prefix = None
             remove_suffix = None
+        return remove_suffix, whisper_prefix
+
+    def _cut_words_for_whisper_prefix(
+        self,
+        previous_segments_within_this_chunk: StartEndTextsNonOverlap,
+        from_idx: int,
+        to_idx: int,
+    ):
+        words_inside_this_chunk = concat_transcript(
+            previous_segments_within_this_chunk
+        ).split(" ")
+        whisper_prefix = " ".join(words_inside_this_chunk[from_idx:to_idx])
+        remove_suffix = " ".join(words_inside_this_chunk[from_idx:])
         return remove_suffix, whisper_prefix

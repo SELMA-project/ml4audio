@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import pytest
 from beartype import beartype
@@ -27,17 +25,20 @@ from whisper_streaming.whisper_streaming import (
 
 
 @pytest.mark.parametrize(
-    "step_dur,window_dur,max_CER,num_responses_expected",
+    "name,step_dur,window_dur,max_CER,num_responses_expected",
     [
         # fmt: off
-        (4.0, 4.0, 0.037, 7),
-        (2.0, 4.0, 0.034, 12),
+        # one might be tempted to interpret those CER-values, but I think there is not pattern here, everything around 5% or lower is acceptable, 3% is NOT better than 5%! its just a very-small+very instable "base-whisper"-model!
+        ("non-overlapping",4.0, 4.0, 0.037, 7),
+        ("good-overlap",2.0, 4.0, 0.042, 12),
+        ("big-overlap",1.0, 4.0, 0.05, 22),
         # fmt: on
     ],
 )
 def test_whisper_streaming(
-    librispeech_audio_file,
-    librispeech_ref,
+    name: str,
+    librispeech_audio_file: str,
+    librispeech_ref: str,
     step_dur: float,
     window_dur: float,
     max_CER: float,
@@ -67,6 +68,8 @@ def test_whisper_streaming(
             min_step_size=int(step_dur * SR),
             # max_step_size=int(max_step_dur * SR) if max_step_dur is not None else None,
         ),
+        prefix_from=-9,
+        prefix_to=-3,
     )
     streaming_asr.build()
     transcript: str = ""
@@ -92,7 +95,7 @@ def test_whisper_streaming(
     ref = librispeech_ref
     print(smithwaterman_aligned_icdiff(ref, hyp))
     cer = calc_cer([ref], [hyp])
-    print(f"{step_dur=},{window_dur=},{cer=}")
+    print(f"{name}: {step_dur=},{window_dur=},{cer=}")
     assert cer <= max_CER
     assert num_responses_expected == num_responses, f"{num_responses=}"
 
