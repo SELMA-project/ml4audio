@@ -2,17 +2,19 @@ from dataclasses import dataclass, field
 from typing import Iterator, Optional, Any, ClassVar
 
 from beartype import beartype
+from beartype.door import is_bearable
 from transformers import set_seed
 
 from ctc_asr_chunked_inference.asr_infer_decode import (
     convert_and_resample,
 )
+from misc_utils.beartypes import NumpyFloat1D
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
 )
 from ml4audio.asr_inference.faster_whisper_inferencer import (
-    FasterWhisperASRSegmentInferencer,
+    FasterWhisperArray2SegmentedTranscripts,
 )
 from ml4audio.asr_inference.inference import StartEndTextsNonOverlap, SetupTearDown
 from ml4audio.audio_utils.overlap_array_chunker import (
@@ -52,8 +54,8 @@ class WhisperStreamer(Buildable, SetupTearDown):
     """
 
     input_sample_rate: int = 16_000
-    asr_inferencer: FasterWhisperASRSegmentInferencer = UNDEFINED
-    max_prompt_len_int_letters: int = 100
+    asr_inferencer: FasterWhisperArray2SegmentedTranscripts = UNDEFINED
+    # max_prompt_len_int_letters: int = 100
     audio_bufferer: Optional[OverlapArrayChunker] = field(
         init=True, repr=True, default=None
     )
@@ -107,6 +109,9 @@ class WhisperStreamer(Buildable, SetupTearDown):
         self, chunk: MessageChunk, transcripts_buffer: StartEndTextsNonOverlap
     ) -> tuple[OverlappingSegment, StartEndTextsNonOverlap]:
 
+        assert is_bearable(
+            chunk.array, NumpyFloat1D
+        )  # why should I want to allow int16 or other crazy stuff here?
         audio_array = convert_and_resample(
             chunk.array,
             self.input_sample_rate,
@@ -169,4 +174,22 @@ class WhisperStreamer(Buildable, SetupTearDown):
         ).split(" ")
         whisper_prefix = " ".join(words_inside_this_chunk[from_idx:to_idx])
         remove_suffix = " ".join(words_inside_this_chunk[from_idx:])
+        assert "  " not in whisper_prefix, f"{whisper_prefix=}"
+        assert "  " not in remove_suffix, f"{remove_suffix=}"
         return remove_suffix, whisper_prefix
+
+
+@beartype
+def accumulate_transcript(
+    overlap_segment: OverlappingSegment,
+    new_segments: StartEndTextsNonOverlap,
+    transcript: str,
+) -> str:
+    if overlap_segment.remove_suffix is not None:
+        assert transcript.endswith(
+            overlap_segment.remove_suffix
+        ), f"{transcript=},{overlap_segment.remove_suffix=}"
+        transcript = transcript.replace(overlap_segment.remove_suffix, "")
+    transcript += overlap_segment.append_suffix + concat_transcript(new_segments)
+    transcript = transcript.replace("  ", " ")
+    return transcript
