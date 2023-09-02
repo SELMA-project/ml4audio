@@ -19,9 +19,9 @@ from ml4audio.asr_inference.faster_whisper_inferencer import (
 from ml4audio.asr_inference.inference import StartEndTextsNonOverlap, SetupTearDown
 from ml4audio.audio_utils.overlap_array_chunker import (
     OverlapArrayChunker,
-    AudioMessageChunk,
     MessageChunk,
 )
+from ml4audio.audio_utils.audio_io import AudioMessageChunk
 from whisper.audio import SAMPLE_RATE as WHISPER_SAMPLE_RATE
 
 set_seed(42)
@@ -71,8 +71,7 @@ class WhisperStreamer(Buildable, SetupTearDown):
     audio_bufferer: Optional[OverlapArrayChunker] = field(
         init=True, repr=True, default=None
     )
-    prefix_from: int = -4
-    prefix_to: int = -1  # TODO: which values here?
+    overwrite_last_k_words: int = 3  # TODO: which values here?
 
     transcripts_buffer: Optional[StartEndTextsNonOverlap] = field(
         init=True, repr=False, default_factory=lambda: []
@@ -103,23 +102,22 @@ class WhisperStreamer(Buildable, SetupTearDown):
     ) -> Iterator[tuple[OverlappingSegment, StartEndTextsNonOverlap]]:
         for chunk in self.audio_bufferer.handle_datum(inpt):
             # print(f"chunk-dur: {len(chunk.array)/self.input_sample_rate}")
-            overlap_segment, non_overlapping_segments = self._transcribe_chunk(
-                chunk, self.transcripts_buffer
-            )
-
-            smaller_than_and_non_negative = chunk.frame_idx / self.input_sample_rate
-            self.transcripts_buffer = [
-                (
-                    smaller_than_and_non_negative,
-                    overlap_segment.end,
-                    overlap_segment.append_suffix,
-                )
-            ] + non_overlapping_segments
-            yield overlap_segment, non_overlapping_segments
+            out = self._transcribe_chunk(chunk, self.transcripts_buffer)
+            if out is not None:
+                overlap_segment, non_overlapping_segments = out
+                smaller_than_and_non_negative = chunk.frame_idx / self.input_sample_rate
+                self.transcripts_buffer = [
+                    (
+                        smaller_than_and_non_negative,
+                        overlap_segment.end,
+                        overlap_segment.append_suffix,
+                    )
+                ] + non_overlapping_segments
+                yield overlap_segment, non_overlapping_segments
 
     def _transcribe_chunk(
         self, chunk: MessageChunk, transcripts_buffer: StartEndTextsNonOverlap
-    ) -> tuple[OverlappingSegment, StartEndTextsNonOverlap]:
+    ) -> Optional[tuple[OverlappingSegment, StartEndTextsNonOverlap]]:
 
         assert is_bearable(
             chunk.array, NeNumpyFloat1DArray
@@ -143,23 +141,30 @@ class WhisperStreamer(Buildable, SetupTearDown):
                 audio_array, whisper_args
             )
         ]
-        assert (
-            this_chunks_transcript_segments[0][0] == chunk_offset
-        )  # this actually doesn't matter
+        # print(
+        #     f"{chunk_offset=},{len(audio_array)/self.input_sample_rate},{whisper_args.initial_prompt=},{whisper_args.prefix=},{this_chunks_transcript_segments=}"
+        # )
+        if len(this_chunks_transcript_segments) > 0:
+            assert (
+                this_chunks_transcript_segments[0][0] == chunk_offset
+            )  # this actually doesn't matter
 
-        (
-            _first_start_is_invalid,
-            first_end,
-            first_transcript,
-        ) = this_chunks_transcript_segments[0]
-        return (
-            OverlappingSegment(
-                end=first_end,
-                append_suffix=first_transcript,
-                remove_suffix=remove_suffix,
-            ),
-            this_chunks_transcript_segments[1:],
-        )
+            (
+                _first_start_is_invalid,
+                first_end,
+                first_transcript,
+            ) = this_chunks_transcript_segments[0]
+            out = (
+                OverlappingSegment(
+                    end=first_end,
+                    append_suffix=first_transcript,
+                    remove_suffix=remove_suffix,
+                ),
+                this_chunks_transcript_segments[1:],
+            )
+        else:
+            out = None
+        return out
 
     @beartype
     def _whisperprefix_and_removesuffix(
@@ -182,9 +187,10 @@ class WhisperStreamer(Buildable, SetupTearDown):
                 )
                 if est_timestamp > chunk_offset
             ]
-            print(f"{previous_segments_within_this_chunk=}")
 
-            whisper_prefix = " ".join(words_inside_this_chunk[: self.prefix_to])
+            whisper_prefix = " ".join(
+                words_inside_this_chunk[: -self.overwrite_last_k_words]
+            )
             whisper_prompt = None
             remove_suffix = " ".join(words_inside_this_chunk)
             assert "  " not in whisper_prefix, f"{whisper_prefix=}"
