@@ -91,6 +91,8 @@ def torchaudio_load(
 ) -> tuple[TorchTensor1D, int]:
     if isinstance(data_source, BytesIO):
         assert format is not None, f"when reading from BytesIO a format must be given"
+    if sample_rate is None and offset is not None:
+        _, sample_rate, _ = torchaudio_info(data_source)
     signal, sample_rate = torchaudio.load(
         data_source,
         format=format,
