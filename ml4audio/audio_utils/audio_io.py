@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Optional, Union, Iterator, Any, Annotated
+from typing import Optional, Union, Iterator, Any, Annotated, Iterable
 
 import ffmpeg
 import librosa
@@ -13,18 +13,25 @@ from beartype import beartype
 from beartype.vale import Is
 from numpy.typing import NDArray
 
+from misc_utils.dataclass_utils import UNDEFINED
 from ml4audio.audio_utils.audio_data_models import FileLikeAudioDatum
+from ml4audio.audio_utils.overlap_array_chunker import (
+    MessageChunk,
+    messages_from_chunks,
+)
 from ml4audio.audio_utils.torchaudio_utils import (
     load_resample_with_torch,
     get_first_channel,
 )
 from misc_utils.beartypes import (
-    NumpyFloat1DArray,
+    NeNumpyFloat1DArray,
     NumpyInt16Dim1,
     Numpy1DArray,
     TorchTensor1D,
     NumpyFloat1D,
     File,
+    NeNpFloatDim1,
+    NpFloatDim1,
 )
 from misc_utils.processing_utils import exec_command
 from misc_utils.utils import get_val_from_nested_dict, NOT_EXISTING
@@ -40,7 +47,7 @@ def load_audio_array_from_filelike(
     sample_rate: Optional[int] = None,
     offset: float = 0.0,
     duration: Optional[float] = None,
-) -> NumpyFloat1DArray:
+) -> NeNumpyFloat1DArray:
     # TODO: WTF why is fisher faster with nemo, but kaldi which is also wav, faster with torchaudio??
     if filelike.format == "wav" and not any(
         (s in filelike.audio_source for s in ["Fisher"])
@@ -151,17 +158,17 @@ def extract_streams_from_video_file(
     return audio_files
 
 
-@beartype
-def load_and_resample_16bit_PCM(
-    audio_filepath: str,
-    target_sample_rate: int,
-    offset=0.0,
-    duration: Optional[float] = None,
-) -> NumpyInt16Dim1:
-    a = load_resample_with_nemo(audio_filepath, target_sample_rate, offset, duration)
-    a = convert_to_16bit_array(a)
-    # a = np.expand_dims(a, axis=1)  # TODO: why did I every want this?
-    return a
+# @beartype
+# def load_and_resample_16bit_PCM(
+#     audio_filepath: str,
+#     target_sample_rate: int,
+#     offset=0.0,
+#     duration: Optional[float] = None,
+# ) -> NumpyInt16Dim1:
+#     a = load_resample_with_nemo(audio_filepath, target_sample_rate, offset, duration)
+#     a = convert_to_16bit_array(a)
+#     # a = np.expand_dims(a, axis=1)  # TODO: why did I every want this?
+#     return a
 
 
 @beartype
@@ -198,7 +205,7 @@ def load_resample_with_soundfile(
     duration: Optional[float] = None,
     trim: bool = False,
     trim_db=60,
-) -> NumpyFloat1DArray:
+) -> NeNumpyFloat1DArray:
     """
     based on nemo code: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/preprocessing/segment.py#L173
     """
@@ -238,7 +245,7 @@ def load_resample_with_nemo(
     target_sample_rate: Optional[int] = 16000,
     offset=0.0,
     duration: Optional[float] = None,
-) -> NumpyFloat1DArray:
+) -> NeNumpyFloat1DArray:
     from nemo.collections.asr.parts.preprocessing import AudioSegment
 
     # cause nemo wants 0 if no duration
@@ -291,18 +298,23 @@ def read_audio_chunks_from_file(
     offset=0.0,
     duration=None,
     chunk_duration=0.05,
-) -> Iterator[NumpyInt16Dim1]:
+) -> Iterator[NeNpFloatDim1]:
     """
     formerly named resample_stream_file
     """
-    array = load_and_resample_16bit_PCM(
-        audio_filepath, target_sample_rate, offset, duration
+    array = load_resample_with_torch(
+        data_source=audio_filepath,
+        target_sample_rate=target_sample_rate,
+        offset=offset,
+        duration=duration,
     )
-    return break_array_into_chunks(array, int(target_sample_rate * chunk_duration))
+    return break_array_into_chunks(
+        array.numpy(), int(target_sample_rate * chunk_duration)
+    )
 
 
 @beartype
-def normalize_audio_array(array: Numpy1DArray) -> NumpyFloat1DArray:
+def normalize_audio_array(array: Numpy1DArray) -> NeNumpyFloat1DArray:
     """
     copypasted from nvidia/nemo: TranscodePerturbation
     """
@@ -429,3 +441,46 @@ def ffmpeg_torch_load(
             target_sample_rate=target_sample_rate,
         )
     return audio
+
+
+@dataclass
+class AudioMessageChunk(MessageChunk):
+    """
+    instance of this represents one chunks of an audio-message
+    an audio-message can be split into possibly overlapping chunks, entire message got one message_id
+    frame_idx is counter/absolut-position of audio-chunk's start frame in entire audio-message
+    """
+
+    # message_id: str  # same for all chunks of same message
+    # frame_idx: int  # points to very first frame of this chunk
+    # array: Union[_UNDEFINED,NumpyInt16Dim1]=UNDEFINED
+    array: NpFloatDim1 = (
+        UNDEFINED  # TODO: former NumpyInt16Dim1 here, why was it like this?
+    )
+    chunk_idx: Optional[int] = None  # index of this chunk, TODO: who wanted this?
+
+
+@beartype
+def audio_messages_from_file(
+    audio_filepath: str, client_sample_rate: int, chunk_duration: float = 0.1
+) -> Iterator[AudioMessageChunk]:
+    chunks = list(
+        read_audio_chunks_from_file(
+            audio_filepath, client_sample_rate, chunk_duration=chunk_duration
+        )
+    )
+    yield from audio_messages_from_chunks(audio_filepath, chunks)
+
+
+@beartype
+def audio_messages_from_chunks(
+    signal_id: str, chunks: Iterable[NpFloatDim1]
+) -> Iterator[AudioMessageChunk]:
+    for chunk_idx, m in enumerate(messages_from_chunks(signal_id, chunks)):
+        yield AudioMessageChunk(
+            message_id=m.message_id,
+            frame_idx=m.frame_idx,
+            array=m.array,
+            chunk_idx=chunk_idx,
+            end_of_signal=m.end_of_signal,
+        )

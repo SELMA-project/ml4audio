@@ -6,10 +6,10 @@ import pytest
 from beartype import beartype
 
 from ml4audio.audio_utils.overlap_array_chunker import (
-    AudioMessageChunk,
     _DONT_EMIT_PREMATURE_CHUNKS,
     DONT_EMIT_PREMATURE_CHUNKS,
     OverlapArrayChunker,
+    MessageChunk,
 )
 
 
@@ -30,11 +30,11 @@ TestSequence = list[list[int]]
 
 
 @beartype
-def build_test_chunks(input_data: Iterable[TestSequence]) -> list[AudioMessageChunk]:
+def build_test_chunks(input_data: Iterable[TestSequence]) -> list[MessageChunk]:
     def gen_seq(test_chunks):
         frame_idx = np.cumsum([0] + [len(tc) for tc in test_chunks[:-1]]).tolist()
         yield from [
-            AudioMessageChunk(
+            MessageChunk(
                 message_id=f"test-message",
                 frame_idx=k,
                 array=np.array(chunk, dtype=np.int16),
@@ -49,7 +49,7 @@ def build_test_chunks(input_data: Iterable[TestSequence]) -> list[AudioMessageCh
 
 @dataclass
 class TestCase:
-    input_chunks: list[AudioMessageChunk]
+    input_chunks: list[MessageChunk]
     chunk_size: int
     min_step_size: int
     expected: list[int]
