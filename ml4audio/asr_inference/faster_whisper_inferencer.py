@@ -12,7 +12,7 @@ from misc_utils.buildable_data import BuildableData
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.asr_inference.inference import (
     StartEndTextsNonOverlap,
-    ASRAudioSegmentInferencer,
+    AudioArray2SegmentedTranscripts,
 )
 from ml4audio.asr_inference.whisper_inference import (
     WhisperArgs,
@@ -20,8 +20,8 @@ from ml4audio.asr_inference.whisper_inference import (
 )
 
 
-@dataclass(frozen=True)
-class FasterWhisperArgs(WhisperArgs):
+@dataclass
+class FasterWhisperArgs:
     """
     this is based on the faster-whispers transcribe-methods input arguments
     see: https://github.com/guillaumekln/faster-whisper/blob/7b271da0351e4f81f80e8bb4d2c21c9406475aa9/faster_whisper/transcribe.py#L155
@@ -46,6 +46,7 @@ class FasterWhisperArgs(WhisperArgs):
     log_prob_threshold: Optional[float] = -1.0
     no_speech_threshold: Optional[float] = 0.6
     condition_on_previous_text: bool = True
+    # prompt_reset_on_temperature: float = 0.5
     initial_prompt: Optional[Union[str, Iterable[int]]] = None
     prefix: Optional[str] = None
     suppress_blank: bool = True
@@ -60,7 +61,9 @@ class FasterWhisperArgs(WhisperArgs):
 
 
 @dataclass
-class FasterWhisperASRSegmentInferencer(BuildableData, ASRAudioSegmentInferencer):
+class FasterWhisperArray2SegmentedTranscripts(
+    BuildableData, AudioArray2SegmentedTranscripts
+):
 
     model_name: str = "base"
     whisper_args: FasterWhisperArgs = None
@@ -117,7 +120,7 @@ class FasterWhisperASRSegmentInferencer(BuildableData, ASRAudioSegmentInferencer
         del self._model
 
     @beartype
-    def predict_transcribed_segments(
+    def audio_to_segmented_transcripts(
         self, audio_array: NumpyFloat1D
     ) -> StartEndTextsNonOverlap:
         return self.predict_transcribed_with_whisper_args(
@@ -130,10 +133,13 @@ class FasterWhisperASRSegmentInferencer(BuildableData, ASRAudioSegmentInferencer
     ) -> StartEndTextsNonOverlap:
         segments, _ = self._model.transcribe(audio_array, **asdict(whisper_args))
         segments = list(segments)
-        raw_whisper_segments = [(seg.start, seg.end, seg.text) for seg in segments]
-        audio_dur = float(len(audio_array) / self.sample_rate)
-        start_end_text = fix_whisper_segments(
-            raw_whisper_segments,
-            audio_dur,
-        )
+        if len(segments) > 0:
+            raw_whisper_segments = [(seg.start, seg.end, seg.text) for seg in segments]
+            audio_dur = float(len(audio_array) / self.sample_rate)
+            start_end_text = fix_whisper_segments(
+                raw_whisper_segments,
+                audio_dur,
+            )
+        else:
+            start_end_text = []
         return start_end_text
