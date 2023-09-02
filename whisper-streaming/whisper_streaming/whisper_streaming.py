@@ -8,7 +8,7 @@ from transformers import set_seed
 from ctc_asr_chunked_inference.asr_infer_decode import (
     convert_and_resample,
 )
-from misc_utils.beartypes import NumpyFloat1D
+from misc_utils.beartypes import NumpyFloat1D, NeNumpyFloat1DArray
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
@@ -40,6 +40,18 @@ class OverlappingSegment:
     end: float
     append_suffix: str
     remove_suffix: Optional[str] = None
+
+
+@beartype
+def linear_interpolate(start: float, end: float, seq_len: int) -> list[float]:
+    if seq_len > 1:
+        interpolated = [
+            start + (end - start) * k / (seq_len - 1)  # interpolate
+            for k in range(seq_len)
+        ]
+    else:
+        interpolated = [(start + end) / 2]
+    return interpolated
 
 
 @dataclass
@@ -95,7 +107,7 @@ class WhisperStreamer(Buildable, SetupTearDown):
                 chunk, self.transcripts_buffer
             )
 
-            smaller_than_and_non_negative = 0.0
+            smaller_than_and_non_negative = chunk.frame_idx / self.input_sample_rate
             self.transcripts_buffer = [
                 (
                     smaller_than_and_non_negative,
@@ -110,7 +122,7 @@ class WhisperStreamer(Buildable, SetupTearDown):
     ) -> tuple[OverlappingSegment, StartEndTextsNonOverlap]:
 
         assert is_bearable(
-            chunk.array, NumpyFloat1D
+            chunk.array, NeNumpyFloat1DArray
         )  # why should I want to allow int16 or other crazy stuff here?
         audio_array = convert_and_resample(
             chunk.array,
@@ -120,9 +132,11 @@ class WhisperStreamer(Buildable, SetupTearDown):
         chunk_offset = float(chunk.frame_idx) / self.input_sample_rate
         whisper_args = self.asr_inferencer.whisper_args
 
-        remove_suffix, whisper_args.prefix = self._whisperprefix_and_removesuffix(
-            chunk_offset, transcripts_buffer
-        )
+        (
+            remove_suffix,
+            whisper_args.initial_prompt,
+            whisper_args.prefix,
+        ) = self._whisperprefix_and_removesuffix(chunk_offset, transcripts_buffer)
         this_chunks_transcript_segments = [
             (s + chunk_offset, e + chunk_offset, t)
             for s, e, t in self.asr_inferencer.predict_transcribed_with_whisper_args(
@@ -150,33 +164,38 @@ class WhisperStreamer(Buildable, SetupTearDown):
     @beartype
     def _whisperprefix_and_removesuffix(
         self, chunk_offset: float, transcripts_buffer: StartEndTextsNonOverlap
-    ) -> tuple[Optional[str], Optional[str]]:
+    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
         previous_segments_within_this_chunk = [
             (s, e, t) for s, e, t in transcripts_buffer if e > chunk_offset
         ]
         if len(previous_segments_within_this_chunk) > 0:
-            remove_suffix, whisper_prefix = self._cut_words_for_whisper_prefix(
-                previous_segments_within_this_chunk, self.prefix_from, self.prefix_to
-            )
+
+            def simple_tokenize(text: str) -> list[str]:
+                return [w for w in text.split(" ") if len(w) > 0]
+
+            words_inside_this_chunk = [
+                word
+                for s, e, t in previous_segments_within_this_chunk
+                for word, est_timestamp in zip(
+                    simple_tokenize(t),
+                    linear_interpolate(s, e, len(simple_tokenize(t))),
+                )
+                if est_timestamp > chunk_offset
+            ]
+            print(f"{previous_segments_within_this_chunk=}")
+
+            whisper_prefix = " ".join(words_inside_this_chunk[: self.prefix_to])
+            whisper_prompt = None
+            remove_suffix = " ".join(words_inside_this_chunk)
+            assert "  " not in whisper_prefix, f"{whisper_prefix=}"
+            assert "  " not in remove_suffix, f"{remove_suffix=}"
         else:
             whisper_prefix = None
+            whisper_prompt = (
+                transcripts_buffer[-1][2] if len(transcripts_buffer) > 0 else None
+            )
             remove_suffix = None
-        return remove_suffix, whisper_prefix
-
-    def _cut_words_for_whisper_prefix(
-        self,
-        previous_segments_within_this_chunk: StartEndTextsNonOverlap,
-        from_idx: int,
-        to_idx: int,
-    ):
-        words_inside_this_chunk = concat_transcript(
-            previous_segments_within_this_chunk
-        ).split(" ")
-        whisper_prefix = " ".join(words_inside_this_chunk[from_idx:to_idx])
-        remove_suffix = " ".join(words_inside_this_chunk[from_idx:])
-        assert "  " not in whisper_prefix, f"{whisper_prefix=}"
-        assert "  " not in remove_suffix, f"{remove_suffix=}"
-        return remove_suffix, whisper_prefix
+        return remove_suffix, whisper_prompt, whisper_prefix
 
 
 @beartype
