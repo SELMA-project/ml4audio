@@ -129,7 +129,7 @@ class OverlapArrayChunker:
         return self.frame_counter is None
 
     @beartype
-    def handle_datum(self, datum: MessageChunk) -> Iterator[MessageChunk]:
+    def handle_datum(self, datum: MessageChunk) -> list[MessageChunk]:
         self._check_framecounter_consistency(datum)
 
         self._buffer = (
@@ -137,12 +137,11 @@ class OverlapArrayChunker:
             if self._buffer is not None
             else datum.array
         )
-
         if self.__can_yield_full_grown_chunk():
-            yielded_final, messages = self._fullgrown_chunks(
+            output_messages = self._fullgrown_chunks(
                 datum,
             )
-            yield from messages
+            print(f"{output_messages=}")
 
         elif (
             self.minimum_chunk_size is not DONT_EMIT_PREMATURE_CHUNKS
@@ -150,23 +149,31 @@ class OverlapArrayChunker:
             and self.is_very_start
             and self.__premature_chunk_long_enough_to_yield_again()
         ):
-            yielded_final = False
             self.last_buffer_size = self._buffer_size
             premature_chunk = self._buffer
-            yield MessageChunk(
-                message_id=datum.message_id,
-                array=premature_chunk,
-                frame_idx=0,
-                end_of_signal=datum.end_of_signal,  # can happen for short audio-signals!
-            )
+            output_messages = [
+                MessageChunk(
+                    message_id=datum.message_id,
+                    array=premature_chunk,
+                    frame_idx=0,
+                    end_of_signal=datum.end_of_signal,  # can happen for short audio-signals!
+                )
+            ]
+        else:
+            output_messages = []
+        if len(output_messages) > 0:
+            assert sum(1 for om in output_messages if om.end_of_signal) <= 1
+            yielded_final = output_messages[-1].end_of_signal
         else:
             yielded_final = False
 
         if datum.end_of_signal:
-            got_final_chunk = not yielded_final and self._buffer_size > 0
-            if got_final_chunk:
-                yield self._do_flush(datum.message_id)
+            if not yielded_final:
+                assert self._buffer_size > 0
+                output_messages += [self._do_flush(datum.message_id)]
             self.reset()
+
+        return output_messages
 
     def _check_framecounter_consistency(self, datum):
         if not self.is_very_start:
@@ -175,9 +182,8 @@ class OverlapArrayChunker:
                     False
                 ), f"frame-counter inconsistency: {self.frame_counter + self._buffer_size=} != {datum.frame_idx=}"
 
-    def _fullgrown_chunks(self, datum: MessageChunk) -> tuple[bool, list[MessageChunk]]:
+    def _fullgrown_chunks(self, datum: MessageChunk) -> list[MessageChunk]:
         msg_chunks = []
-        yielded_final = False
         while self.__can_yield_full_grown_chunk():
             step_size = self._calc_step_size(len(self._buffer), self.is_very_start)
             self._buffer = self._buffer[step_size:]
@@ -186,24 +192,17 @@ class OverlapArrayChunker:
             )
 
             full_grown_chunk = self._buffer[: self.chunk_size]
-            if datum.end_of_signal and len(self._buffer) == self.chunk_size:
-                # print(
-                #     f"this is super rare! yielded final audio-chunk without flushing!"
-                # )
-                yielded_final = True
-                eos = True
-            else:
-                eos = False
 
             msg_chunks.append(
                 MessageChunk(
                     message_id=datum.message_id,
                     array=full_grown_chunk,
                     frame_idx=self.frame_counter,
-                    end_of_signal=eos,
+                    end_of_signal=datum.end_of_signal
+                    and len(self._buffer) == self.chunk_size,
                 )
             )
-        return yielded_final, msg_chunks
+        return msg_chunks
 
     @beartype
     def _do_flush(self, message_id: str) -> MessageChunk:

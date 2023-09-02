@@ -44,6 +44,7 @@ def build_test_chunks(input_data: Iterable[TestSequence]) -> list[MessageChunk]:
         ]
 
     input_chunks = [x for tc in input_data for x in gen_seq(tc)]
+    print(f"{[len(ic.array) for ic in input_chunks]=}")
     return input_chunks
 
 
@@ -68,6 +69,41 @@ test_case_0 = TestCase(
     expected=[0, 1, 2, 3, 2, 3, 4, 5, 4, 5, 6, 7, 6, 7, 8, 9],
     # + [8, 9],  # cropped,
     minimum_chunk_size=DONT_EMIT_PREMATURE_CHUNKS,
+)
+
+flushed_fullgrown = [7, 8, 9, 10]
+shorten_stepsize_to_flush_fullgrown = TestCase(
+    input_chunks=build_test_chunks(
+        [
+            list(chunk_test_data([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 2)),
+        ]
+    ),
+    chunk_size=4,
+    min_step_size=2,
+    expected=[0, 1, 2, 3]
+    + [2, 3, 4, 5]
+    + [4, 5, 6, 7]
+    + [6, 7, 8, 9]
+    + flushed_fullgrown,
+    minimum_chunk_size=DONT_EMIT_PREMATURE_CHUNKS,
+    max_step_size=None,
+)
+
+big_input_chunk_len = TestCase(
+    input_chunks=build_test_chunks(
+        [
+            list(chunk_test_data([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 6)),
+        ]
+    ),
+    chunk_size=4,
+    min_step_size=2,
+    expected=[0, 1, 2, 3]
+    + [2, 3, 4, 5]
+    + [4, 5, 6, 7]
+    + [6, 7, 8, 9]
+    + flushed_fullgrown,
+    minimum_chunk_size=DONT_EMIT_PREMATURE_CHUNKS,
+    max_step_size=None,
 )
 premature_chunk = [0, 1]
 
@@ -184,6 +220,8 @@ test_case_premature_3_varlen = TestCase(
     "test_case",
     [
         test_case_0,
+        shorten_stepsize_to_flush_fullgrown,
+        big_input_chunk_len,
         test_case_premature,
         test_case_premature_1,
         test_case_premature_2,
