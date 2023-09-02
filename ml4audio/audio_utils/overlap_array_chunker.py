@@ -115,13 +115,14 @@ class OverlapArrayChunker:
             self._buffer_size >= self.last_buffer_size + self.min_step_size
         )  # alter!!
 
-    def _calc_step_size(self, buffer_len: int) -> int:
+    @beartype
+    def _calc_step_size(self, buffer_len: int, is_very_start: bool) -> int:
 
         if self.max_step_size is None:
             sz = self.min_step_size
         else:
             sz = min(self.max_step_size, buffer_len - self.chunk_size)
-        return sz
+        return sz if not is_very_start else 0
 
     @property
     def is_very_start(self):
@@ -129,12 +130,7 @@ class OverlapArrayChunker:
 
     @beartype
     def handle_datum(self, datum: MessageChunk) -> Iterator[MessageChunk]:
-        current_message_id = datum.message_id
-        if not self.is_very_start:
-            if self.frame_counter + self._buffer_size != datum.frame_idx:
-                assert (
-                    False
-                ), f"frame-counter inconsistency: {self.frame_counter + self._buffer_size=} != {datum.frame_idx=}"
+        self._check_framecounter_consistency(datum)
 
         self._buffer = (
             np.concatenate([self._buffer, datum.array], axis=0)
@@ -142,37 +138,11 @@ class OverlapArrayChunker:
             else datum.array
         )
 
-        yielded_final = False
         if self.__can_yield_full_grown_chunk():
-            while self.__can_yield_full_grown_chunk():
-                step_size = (
-                    self._calc_step_size(len(self._buffer))
-                    if not self.is_very_start
-                    else 0
-                )
-                self._buffer = self._buffer[step_size:]
-                self.frame_counter = (
-                    self.frame_counter + step_size
-                    if not self.is_very_start
-                    else step_size
-                )
-
-                full_grown_chunk = self._buffer[: self.chunk_size]
-                if datum.end_of_signal and len(self._buffer) == self.chunk_size:
-                    # print(
-                    #     f"this is super rare! yielded final audio-chunk without flushing!"
-                    # )
-                    yielded_final = True
-                    eos = True
-                else:
-                    eos = False
-
-                yield MessageChunk(
-                    message_id=current_message_id,
-                    array=full_grown_chunk,
-                    frame_idx=self.frame_counter,
-                    end_of_signal=eos,
-                )
+            yielded_final, messages = self._fullgrown_chunks(
+                datum,
+            )
+            yield from messages
 
         elif (
             self.minimum_chunk_size is not DONT_EMIT_PREMATURE_CHUNKS
@@ -180,22 +150,60 @@ class OverlapArrayChunker:
             and self.is_very_start
             and self.__premature_chunk_long_enough_to_yield_again()
         ):
-            # TODO: in february this led to some error elsewhere?
+            yielded_final = False
             self.last_buffer_size = self._buffer_size
             premature_chunk = self._buffer
             yield MessageChunk(
-                message_id=current_message_id,
+                message_id=datum.message_id,
                 array=premature_chunk,
                 frame_idx=0,
                 end_of_signal=datum.end_of_signal,  # can happen for short audio-signals!
             )
-
-        got_final_chunk = not yielded_final and self._buffer_size > 0
-        if datum.end_of_signal and got_final_chunk:
-            yield self._do_flush(current_message_id)
+        else:
+            yielded_final = False
 
         if datum.end_of_signal:
+            got_final_chunk = not yielded_final and self._buffer_size > 0
+            if got_final_chunk:
+                yield self._do_flush(datum.message_id)
             self.reset()
+
+    def _check_framecounter_consistency(self, datum):
+        if not self.is_very_start:
+            if self.frame_counter + self._buffer_size != datum.frame_idx:
+                assert (
+                    False
+                ), f"frame-counter inconsistency: {self.frame_counter + self._buffer_size=} != {datum.frame_idx=}"
+
+    def _fullgrown_chunks(self, datum: MessageChunk) -> tuple[bool, list[MessageChunk]]:
+        msg_chunks = []
+        yielded_final = False
+        while self.__can_yield_full_grown_chunk():
+            step_size = self._calc_step_size(len(self._buffer), self.is_very_start)
+            self._buffer = self._buffer[step_size:]
+            self.frame_counter = (
+                self.frame_counter + step_size if not self.is_very_start else step_size
+            )
+
+            full_grown_chunk = self._buffer[: self.chunk_size]
+            if datum.end_of_signal and len(self._buffer) == self.chunk_size:
+                # print(
+                #     f"this is super rare! yielded final audio-chunk without flushing!"
+                # )
+                yielded_final = True
+                eos = True
+            else:
+                eos = False
+
+            msg_chunks.append(
+                MessageChunk(
+                    message_id=datum.message_id,
+                    array=full_grown_chunk,
+                    frame_idx=self.frame_counter,
+                    end_of_signal=eos,
+                )
+            )
+        return yielded_final, msg_chunks
 
     @beartype
     def _do_flush(self, message_id: str) -> MessageChunk:
