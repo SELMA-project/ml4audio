@@ -101,13 +101,15 @@ class OverlapArrayChunker:
     def _buffer_size(self) -> int:
         return self._buffer.shape[0] if self._buffer is not None else 0
 
-    def __can_yield_full_grown_chunk(self):
+    @property
+    def _can_yield_full_grown_chunk(self):
         if self.is_very_start:
             return self._buffer_size >= self.chunk_size
         else:
             return self._buffer_size >= self.chunk_size + self.min_step_size
 
-    def __premature_chunk_long_enough_to_yield_again(self):
+    @property
+    def _premature_chunk_long_enough_to_yield_again(self):
         """
         if premature-chunk grew bigger by step-size compared to last time it was yielded
         """
@@ -137,18 +139,15 @@ class OverlapArrayChunker:
             if self._buffer is not None
             else datum.array
         )
-        if self.__can_yield_full_grown_chunk():
-            output_messages = self._fullgrown_chunks(
+        if self._can_yield_full_grown_chunk:
+            fullgrown_msgs = self._fullgrown_chunks(
                 datum,
             )
-            print(f"{output_messages=}")
-
-        elif (
-            self.minimum_chunk_size is not DONT_EMIT_PREMATURE_CHUNKS
-            and self._buffer_size >= self.minimum_chunk_size
-            and self.is_very_start
-            and self.__premature_chunk_long_enough_to_yield_again()
-        ):
+            output_messages = self._maybe_append_flush_message(
+                datum,
+                fullgrown_msgs,
+            )
+        elif self._can_emit_premature_chunk:
             self.last_buffer_size = self._buffer_size
             premature_chunk = self._buffer
             output_messages = [
@@ -160,20 +159,34 @@ class OverlapArrayChunker:
                 )
             ]
         else:
-            output_messages = []
-        if len(output_messages) > 0:
-            assert sum(1 for om in output_messages if om.end_of_signal) <= 1
-            yielded_final = output_messages[-1].end_of_signal
-        else:
-            yielded_final = False
+            output_messages = self._maybe_append_flush_message(datum, [])
 
         if datum.end_of_signal:
-            if not yielded_final:
-                assert self._buffer_size > 0
-                output_messages += [self._do_flush(datum.message_id)]
             self.reset()
 
         return output_messages
+
+    def _maybe_append_flush_message(
+        self, input_msg: MessageChunk, output_msgs: list[MessageChunk]
+    ) -> list[MessageChunk]:
+        if len(output_msgs) > 0:
+            assert sum(1 for om in output_msgs if om.end_of_signal) <= 1
+            emitted_final = output_msgs[-1].end_of_signal
+        else:
+            emitted_final = False
+        if input_msg.end_of_signal and not emitted_final:
+            assert self._buffer_size > 0
+            output_msgs += [self._do_flush(input_msg.message_id)]
+        return output_msgs
+
+    @property
+    def _can_emit_premature_chunk(self):
+        return (
+            self.minimum_chunk_size is not DONT_EMIT_PREMATURE_CHUNKS
+            and self._buffer_size >= self.minimum_chunk_size
+            and self.is_very_start
+            and self._premature_chunk_long_enough_to_yield_again
+        )
 
     def _check_framecounter_consistency(self, datum):
         if not self.is_very_start:
@@ -184,7 +197,7 @@ class OverlapArrayChunker:
 
     def _fullgrown_chunks(self, datum: MessageChunk) -> list[MessageChunk]:
         msg_chunks = []
-        while self.__can_yield_full_grown_chunk():
+        while self._can_yield_full_grown_chunk:
             step_size = self._calc_step_size(len(self._buffer), self.is_very_start)
             self._buffer = self._buffer[step_size:]
             self.frame_counter = (
