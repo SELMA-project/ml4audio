@@ -1,14 +1,17 @@
+import re
+import string
 from dataclasses import dataclass, field
 from typing import Iterator, Optional, Any, ClassVar
 
 from beartype import beartype
 from beartype.door import is_bearable
+from faster_whisper.transcribe import get_compression_ratio
 from transformers import set_seed
 
 from ctc_asr_chunked_inference.asr_infer_decode import (
     convert_and_resample,
 )
-from misc_utils.beartypes import NumpyFloat1D, NeNumpyFloat1DArray
+from misc_utils.beartypes import NpFloatDim1, NeNpFloatDim1
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
@@ -105,10 +108,9 @@ class WhisperStreamer(Buildable, SetupTearDown):
             out = self._transcribe_chunk(chunk, self.transcripts_buffer)
             if out is not None:
                 overlap_segment, non_overlapping_segments = out
-                smaller_than_and_non_negative = chunk.frame_idx / self.input_sample_rate
                 self.transcripts_buffer = [
                     (
-                        smaller_than_and_non_negative,
+                        chunk.frame_idx / self.input_sample_rate,
                         overlap_segment.end,
                         overlap_segment.append_suffix,
                     )
@@ -120,7 +122,7 @@ class WhisperStreamer(Buildable, SetupTearDown):
     ) -> Optional[tuple[OverlappingSegment, StartEndTextsNonOverlap]]:
 
         assert is_bearable(
-            chunk.array, NeNumpyFloat1DArray
+            chunk.array, NeNpFloatDim1
         )  # why should I want to allow int16 or other crazy stuff here?
         audio_array = convert_and_resample(
             chunk.array,
@@ -154,13 +156,18 @@ class WhisperStreamer(Buildable, SetupTearDown):
                 first_end,
                 first_transcript,
             ) = this_chunks_transcript_segments[0]
+            filtered_for_strange_transcripts = [
+                (s, e, t)
+                for s, e, t in this_chunks_transcript_segments[1:]
+                if len(re.sub(r"[^A-Z]", "", t)) > 0
+            ]
             out = (
                 OverlappingSegment(
                     end=first_end,
                     append_suffix=first_transcript,
                     remove_suffix=remove_suffix,
                 ),
-                this_chunks_transcript_segments[1:],
+                filtered_for_strange_transcripts,
             )
         else:
             out = None
@@ -171,7 +178,7 @@ class WhisperStreamer(Buildable, SetupTearDown):
         self, chunk_offset: float, transcripts_buffer: StartEndTextsNonOverlap
     ) -> tuple[Optional[str], Optional[str], Optional[str]]:
         previous_segments_within_this_chunk = [
-            (s, e, t) for s, e, t in transcripts_buffer if e > chunk_offset
+            (s, e, t) for s, e, t in transcripts_buffer if e >= chunk_offset
         ]
         if len(previous_segments_within_this_chunk) > 0:
 
@@ -185,16 +192,19 @@ class WhisperStreamer(Buildable, SetupTearDown):
                     simple_tokenize(t),
                     linear_interpolate(s, e, len(simple_tokenize(t))),
                 )
-                if est_timestamp > chunk_offset
+                if est_timestamp >= chunk_offset
             ]
-
-            whisper_prefix = " ".join(
-                words_inside_this_chunk[: -self.overwrite_last_k_words]
+            num_words_in_prefix = max(
+                2, len(words_inside_this_chunk) - self.overwrite_last_k_words
             )
+            whisper_prefix = " ".join(words_inside_this_chunk[:num_words_in_prefix])
             whisper_prompt = None
             remove_suffix = " ".join(words_inside_this_chunk)
             assert "  " not in whisper_prefix, f"{whisper_prefix=}"
             assert "  " not in remove_suffix, f"{remove_suffix=}"
+            if get_compression_ratio(whisper_prefix) > 2.0:
+                print(f"bad prefix: {whisper_prefix=}")
+                whisper_prefix = None
         else:
             whisper_prefix = None
             whisper_prompt = (

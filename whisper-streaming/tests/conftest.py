@@ -14,7 +14,8 @@ from data_io.readwrite_files import read_lines
 import pytest
 
 cache_base = get_test_cache_base()
-BASE_PATHES["cache_root"]=cache_base
+BASE_PATHES["cache_root"] = cache_base
+
 
 @pytest.fixture
 def librispeech_ref():

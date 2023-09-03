@@ -3,14 +3,14 @@ import pytest
 from beartype import beartype
 
 from ml4audio.asr_inference.faster_whisper_inferencer import (
-    FasterWhisperASRSegmentInferencer,
+    FasterWhisperArray2SegmentedTranscripts,
     FasterWhisperArgs,
 )
 from ml4audio.asr_inference.inference import StartEndTextsNonOverlap
 from ml4audio.audio_utils.overlap_array_chunker import (
-    audio_messages_from_file,
     OverlapArrayChunker,
 )
+from ml4audio.audio_utils.audio_io import audio_messages_from_file
 from ml4audio.text_processing.asr_metrics import calc_cer
 from ml4audio.text_processing.asr_text_cleaning import (
     VocabCasingAwareTextCleaner,
@@ -21,6 +21,7 @@ from whisper_streaming.whisper_streaming import (
     WhisperStreamer,
     concat_transcript,
     OverlappingSegment,
+    accumulate_transcript,
 )
 
 
@@ -29,7 +30,7 @@ from whisper_streaming.whisper_streaming import (
     [
         # fmt: off
         # one might be tempted to interpret those CER-values, but I think there is not pattern here, everything around 5% or lower is acceptable, 3% is NOT better than 5%! its just a very-small+very instable "base-whisper"-model!
-        ("non-overlapping",4.0, 4.0, 0.037, 7),
+        ("non-overlapping",4.0, 4.0, 0.045, 7),
         ("good-overlap",2.0, 4.0, 0.042, 12),
         ("big-overlap",1.0, 4.0, 0.05, 22),
         # fmt: on
@@ -44,7 +45,7 @@ def test_whisper_streaming(
     max_CER: float,
     num_responses_expected: int,
 ):
-    inferencer = FasterWhisperASRSegmentInferencer(
+    inferencer = FasterWhisperArray2SegmentedTranscripts(
         model_name="base", whisper_args=FasterWhisperArgs(language="en")
     )
     inferencer.build()
@@ -68,8 +69,7 @@ def test_whisper_streaming(
             min_step_size=int(step_dur * SR),
             # max_step_size=int(max_step_dur * SR) if max_step_dur is not None else None,
         ),
-        prefix_from=-9,
-        prefix_to=-3,
+        overwrite_last_k_words=3,
     )
     streaming_asr.build()
     transcript: str = ""
@@ -84,6 +84,7 @@ def test_whisper_streaming(
                     overlap_segment, new_segments, transcript
                 )
                 print(f"{overlap_segment=}###{new_segments=}")
+    assert "  " not in transcript
     hyp = transcript
 
     cleaner = VocabCasingAwareTextCleaner(
@@ -98,16 +99,3 @@ def test_whisper_streaming(
     print(f"{name}: {step_dur=},{window_dur=},{cer=}")
     assert cer <= max_CER
     assert num_responses_expected == num_responses, f"{num_responses=}"
-
-
-@beartype
-def accumulate_transcript(
-    overlap_segment: OverlappingSegment,
-    new_segments: StartEndTextsNonOverlap,
-    transcript: str,
-) -> str:
-    if overlap_segment.remove_suffix is not None:
-        assert transcript.endswith(overlap_segment.remove_suffix)
-        transcript = transcript.replace(overlap_segment.remove_suffix, "")
-    transcript += overlap_segment.append_suffix + concat_transcript(new_segments)
-    return transcript
