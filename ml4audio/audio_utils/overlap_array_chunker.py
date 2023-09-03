@@ -65,18 +65,7 @@ def messages_from_chunks(
 @dataclass
 class OverlapArrayChunker:
     """
-    TODO: this is a variable step-size sequencer chunker! -> split into two classes: 1. "fixed" and 2. "variable" chunk-size
-
-    call it "SegChunker" ? in the end its sequences that are being chunked!
-    formerly called AudioMessageChunker
-    TODO: why is this not buildable? where build_self essentially calls reset
-    does chunking
-    input-stream: consists of numpy arrays
-    output-stream: consists of (chunked) numpy-arrays which are longer than minimum_chunk_size and at most "chunk_size" long
-    indepentently of chunk_size of input-stream an output-chunk is yielded every "step_size"
-    at very beginning of input-stream "premature-chunks" are yielded (every step-size)
-    after internal buffer grew bigger than chunk_size, it behaves as ring-buffer and further output_chunks all (but very last) have chunk_size
-    at very end it is flushed what remained in buffer
+    after internal buffer grew bigger than chunk_size, it behaves as ring-buffer and further output_chunks all have chunk_size
     """
 
     chunk_size: int
@@ -102,7 +91,7 @@ class OverlapArrayChunker:
         return self._buffer.shape[0] if self._buffer is not None else 0
 
     @property
-    def _can_yield_full_grown_chunk(self):
+    def _can_emit_full_grown_chunk(self):
         if self.is_very_start:
             return self._buffer_size >= self.chunk_size
         else:
@@ -131,20 +120,20 @@ class OverlapArrayChunker:
         return self.frame_counter is None
 
     @beartype
-    def handle_datum(self, datum: MessageChunk) -> list[MessageChunk]:
-        self._check_framecounter_consistency(datum)
+    def handle_datum(self, inpt_msg: MessageChunk) -> list[MessageChunk]:
+        self._check_framecounter_consistency(inpt_msg)
 
         self._buffer = (
-            np.concatenate([self._buffer, datum.array], axis=0)
+            np.concatenate([self._buffer, inpt_msg.array], axis=0)
             if self._buffer is not None
-            else datum.array
+            else inpt_msg.array
         )
-        if self._can_yield_full_grown_chunk:
+        if self._can_emit_full_grown_chunk:
             fullgrown_msgs = self._fullgrown_chunks(
-                datum,
+                inpt_msg,
             )
             output_messages = self._maybe_append_flush_message(
-                datum,
+                inpt_msg,
                 fullgrown_msgs,
             )
         elif self._can_emit_premature_chunk:
@@ -152,16 +141,16 @@ class OverlapArrayChunker:
             premature_chunk = self._buffer
             output_messages = [
                 MessageChunk(
-                    message_id=datum.message_id,
+                    message_id=inpt_msg.message_id,
                     array=premature_chunk,
                     frame_idx=0,
-                    end_of_signal=datum.end_of_signal,  # can happen for short audio-signals!
+                    end_of_signal=inpt_msg.end_of_signal,  # can happen for short audio-signals!
                 )
             ]
         else:
-            output_messages = self._maybe_append_flush_message(datum, [])
+            output_messages = self._maybe_append_flush_message(inpt_msg, [])
 
-        if datum.end_of_signal:
+        if inpt_msg.end_of_signal:
             self.reset()
 
         return output_messages
@@ -197,7 +186,7 @@ class OverlapArrayChunker:
 
     def _fullgrown_chunks(self, datum: MessageChunk) -> list[MessageChunk]:
         msg_chunks = []
-        while self._can_yield_full_grown_chunk:
+        while self._can_emit_full_grown_chunk:
             step_size = self._calc_step_size(len(self._buffer), self.is_very_start)
             self._buffer = self._buffer[step_size:]
             self.frame_counter = (
@@ -224,7 +213,7 @@ class OverlapArrayChunker:
         ), f"cannot happen that len of buffer: {self._buffer_size} > {self.chunk_size=}"
         last_step_size = max(0, self._buffer_size - self.chunk_size)
         flushed_chunk = self._buffer[-self.chunk_size :]
-        last_frame_count = self.frame_counter if self.frame_counter is not None else 0
+        last_frame_count = self.frame_counter if not self.is_very_start else 0
         frame_idx = last_frame_count + last_step_size
         return MessageChunk(
             message_id=message_id,
