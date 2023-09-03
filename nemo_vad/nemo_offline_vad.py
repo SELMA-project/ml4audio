@@ -14,7 +14,7 @@ from beartype.door import is_bearable
 from beartype.vale import Is
 from omegaconf import DictConfig, OmegaConf
 
-from misc_utils.beartypes import NumpyFloat1D, NeList, File
+from misc_utils.beartypes import NpFloatDim1, NeList, File
 from misc_utils.buildable_data import BuildableData
 from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
@@ -323,7 +323,7 @@ class NemoOfflineVAD(BuildableData):
         return self.model_file
 
     @beartype
-    def predict(self, audio: NumpyFloat1D) -> StartEndsVADProbas:
+    def predict(self, audio: NpFloatDim1) -> StartEndsVADProbas:
         with tempfile.NamedTemporaryFile(
             suffix=".wav"
         ) as tmpfile, tempfile.TemporaryDirectory(
@@ -339,5 +339,3 @@ class NemoOfflineVAD(BuildableData):
                 segments, min_gap_dur=self.min_gap_dur, expand_by=self.expand_by
             )
         return segments, probas
-
-

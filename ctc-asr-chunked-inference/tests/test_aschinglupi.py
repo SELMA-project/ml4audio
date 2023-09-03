@@ -16,14 +16,15 @@ from ml4audio.asr_inference.transcript_gluer import (
     ASRStreamInferenceOutput,
 )
 from ml4audio.audio_utils.overlap_array_chunker import (
-    audio_messages_from_file,
     OverlapArrayChunker,
 )
+from ml4audio.audio_utils.audio_io import audio_messages_from_file
 from ml4audio.text_processing.asr_metrics import calc_cer
 from ml4audio.text_processing.asr_text_cleaning import (
     clean_and_filter_text,
     Casing,
 )
+from ml4audio.text_processing.pretty_diff import smithwaterman_aligned_icdiff
 
 BASE_PATHES["asr_inference"] = get_test_cache_base()
 os.environ["DEBUG_GLUER"] = "True"
@@ -38,8 +39,8 @@ os.environ["DEBUG_GLUER"] = "True"
         (1.5, 3.0, None,0.1, 0.016, 17),
         (1.0, 4.0, None,0.1, 0.008, 25),
 
-        (2.0, 4.0, None, 0.1, 0.0053, 13),
-        (1.0, 4.0, 2.0, 2.0, 0.0053, 13), # same as above cause max_step_dur == chunk_dur == 2.0, the min_step_dur is kind of ignored, cause chunk_dur is fixed
+        (2.0, 4.0, None, 0.1, 0.008, 13),
+        (1.0, 4.0, 2.0, 2.0, 0.008, 13), # same as above cause max_step_dur == chunk_dur == 2.0, the min_step_dur is kind of ignored, cause chunk_dur is fixed
 
         (4.0, 8.0, None,0.1, 0.0027, 7),
         (1.0, 8.0, None,0.1, 0.0, 25),

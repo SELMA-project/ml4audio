@@ -25,6 +25,7 @@ expected = [(0.31, 2.93), (3.27, 6.109999999999999), (6.81, 9.83), (10.69, 13.14
 
 BASE_PATHES["cache_root"] = get_test_cache_base()
 
+
 @beartype
 def vad_assertions(start_ends: list[tuple[float, float]]):
     assert len(start_ends) == len(expected), f"{len(start_ends)=},{len(expected)=}"

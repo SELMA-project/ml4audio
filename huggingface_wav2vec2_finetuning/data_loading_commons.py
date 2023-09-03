@@ -12,7 +12,7 @@ from huggingface_wav2vec2_finetuning.hf_finetune_utils import (
     apply_asr_processor,
     HfASRSample,
 )
-from misc_utils.beartypes import NumpyFloat1DArray
+from misc_utils.beartypes import NeNpFloatDim1
 from misc_utils.dataclass_utils import UNDEFINED
 from misc_utils.utils import just_try, TimedIterable
 from ml4audio.audio_data.nemo_perturbation import (
@@ -20,7 +20,7 @@ from ml4audio.audio_data.nemo_perturbation import (
     apply_nemo_perturbations_with_retry,
 )
 from ml4audio.audio_utils.audio_data_models import ArrayText
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer
+from ml4audio.text_processing.asr_text_cleaning import TranscriptNormalizer
 
 logging.getLogger("filelock._api").setLevel(logging.ERROR)
 import torch
@@ -114,7 +114,7 @@ class IterableDatasetBase(torch.utils.data.IterableDataset):
                 sys.stderr.flush()
 
     @beartype
-    def process_array_text(self, array: NumpyFloat1DArray, text: str) -> HfASRSample:
+    def process_array_text(self, array: NeNpFloatDim1, text: str) -> HfASRSample:
         sr = self.feature_extractor.sampling_rate
         assert sr == 16000
         if self.augmentor is not None:

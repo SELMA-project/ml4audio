@@ -8,7 +8,7 @@ from ml4audio.text_processing.asr_text_cleaning import Casing, Letters
 from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC, Wav2Vec2CTCTokenizer
 
 from misc_utils.beartypes import (
-    NumpyFloat1DArray,
+    NeNpFloatDim1,
     TorchTensor2D,
     NeStr,
 )
@@ -87,7 +87,7 @@ class HFWav2Vec2LogitsInferencer(ASRLogitsInferencer):
         return [l for l in self.vocab if len(l) == 1]
 
     @beartype
-    def calc_logits(self, audio: NumpyFloat1DArray) -> TorchTensor2D:
+    def calc_logits(self, audio: NeNpFloatDim1) -> TorchTensor2D:
 
         features = self._processor(
             audio,

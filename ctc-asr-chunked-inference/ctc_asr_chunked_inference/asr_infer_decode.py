@@ -8,7 +8,6 @@ import torch
 from beartype import beartype
 from ml4audio.asr_inference.logits_inferencer.asr_logits_inferencer import (
     ASRLogitsInferencer,
-    NumpyFloatORInt16_1DArray,
 )
 from ml4audio.audio_utils.audio_io import MAX_16_BIT_PCM
 from ml4audio.audio_utils.torchaudio_utils import torchaudio_resample
@@ -16,7 +15,12 @@ from transformers import set_seed
 
 from ctc_decoding.ctc_decoding import BaseCTCDecoder
 from ctc_decoding.logit_aligned_transcript import LogitAlignedTranscript
-from misc_utils.beartypes import TorchTensor2D, NumpyFloat1DArray
+from misc_utils.beartypes import (
+    TorchTensor2D,
+    NeNpFloatDim1,
+    NeNpFloatDim1,
+    NeNpInt16Dim1,
+)
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
 from ml4audio.audio_utils.aligned_transcript import (
@@ -35,10 +39,13 @@ if DEBUG:
 set_seed(42)
 
 
+NumpyFloatORInt16_1DArray = Union[NeNpFloatDim1, NeNpInt16Dim1]
+
+
 @beartype
 def convert_and_resample(
     audio: NumpyFloatORInt16_1DArray, input_sample_rate: int, target_sample_rate: int
-) -> NumpyFloat1DArray:
+) -> NeNpFloatDim1:
     if audio.dtype == np.int16:
         audio = audio.astype(np.float32) / MAX_16_BIT_PCM
     if input_sample_rate != target_sample_rate:
@@ -70,9 +77,7 @@ class ASRInferDecoder(Buildable):
         return self.logits_inferencer.vocab
 
     @beartype
-    def transcribe_audio_array(
-        self, audio_array: NumpyFloatORInt16_1DArray
-    ) -> TimestampedLetters:
+    def transcribe_audio_array(self, audio_array: NeNpFloatDim1) -> TimestampedLetters:
         audio_array = convert_and_resample(
             audio_array,
             self.input_sample_rate,

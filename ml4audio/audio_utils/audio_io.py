@@ -24,11 +24,11 @@ from ml4audio.audio_utils.torchaudio_utils import (
     get_first_channel,
 )
 from misc_utils.beartypes import (
-    NeNumpyFloat1DArray,
+    NeNpFloatDim1,
     NumpyInt16Dim1,
-    Numpy1DArray,
+    NpNumberDim1,
     TorchTensor1D,
-    NumpyFloat1D,
+    NpFloatDim1,
     File,
     NeNpFloatDim1,
     NpFloatDim1,
@@ -47,7 +47,7 @@ def load_audio_array_from_filelike(
     sample_rate: Optional[int] = None,
     offset: float = 0.0,
     duration: Optional[float] = None,
-) -> NeNumpyFloat1DArray:
+) -> NeNpFloatDim1:
     # TODO: WTF why is fisher faster with nemo, but kaldi which is also wav, faster with torchaudio??
     if filelike.format == "wav" and not any(
         (s in filelike.audio_source for s in ["Fisher"])
@@ -172,7 +172,7 @@ def extract_streams_from_video_file(
 
 
 @beartype
-def convert_to_16bit_array(a: NumpyFloat1D) -> NumpyInt16Dim1:
+def convert_to_16bit_array(a: NpFloatDim1) -> NumpyInt16Dim1:
     a = a / np.max(np.abs(a)) * (MAX_16_BIT_PCM - 1)
     a = a.astype(np.int16)
     return a
@@ -205,7 +205,7 @@ def load_resample_with_soundfile(
     duration: Optional[float] = None,
     trim: bool = False,
     trim_db=60,
-) -> NeNumpyFloat1DArray:
+) -> NeNpFloatDim1:
     """
     based on nemo code: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/nemo/collections/asr/parts/preprocessing/segment.py#L173
     """
@@ -245,7 +245,7 @@ def load_resample_with_nemo(
     target_sample_rate: Optional[int] = 16000,
     offset=0.0,
     duration: Optional[float] = None,
-) -> NeNumpyFloat1DArray:
+) -> NeNpFloatDim1:
     from nemo.collections.asr.parts.preprocessing import AudioSegment
 
     # cause nemo wants 0 if no duration
@@ -280,9 +280,9 @@ def break_array_into_chunks(array: NDArray, chunk_size: int) -> Iterator[NDArray
 
 @dataclass
 class VarsizeNonOverlapChunker:
-    array: Numpy1DArray
+    array: NpNumberDim1
 
-    def get_chunk(self, chunk_size: int) -> Optional[Numpy1DArray]:
+    def get_chunk(self, chunk_size: int) -> Optional[NpNumberDim1]:
         if len(self.array) > 0:
             out = self.array[:chunk_size]
             self.array = self.array[chunk_size:]
@@ -314,7 +314,7 @@ def read_audio_chunks_from_file(
 
 
 @beartype
-def normalize_audio_array(array: Numpy1DArray) -> NeNumpyFloat1DArray:
+def normalize_audio_array(array: NpNumberDim1) -> NeNpFloatDim1:
     """
     copypasted from nvidia/nemo: TranscodePerturbation
     """
@@ -337,7 +337,7 @@ Seconds = float
 def ffmpeg_load_audio_from_bytes(
     audio_bytes: bytes,
     sr: int = 16_000,
-) -> NumpyFloat1D:
+) -> NpFloatDim1:
     """
     based on: https://github.com/openai/whisper/blob/d18e9ea5dd2ca57c697e8e55f9e654f06ede25d0/whisper/audio.py#L22
     """
@@ -379,7 +379,7 @@ def ffmpeg_load_audio_from_file(
     sr: int = 16_000,
     # start: Optional[Seconds] = None,
     # end: Optional[Seconds] = None,
-) -> NumpyFloat1D:
+) -> NpFloatDim1:
     """
     based on: https://github.com/openai/whisper/blob/d18e9ea5dd2ca57c697e8e55f9e654f06ede25d0/whisper/audio.py#L22
     """
@@ -406,7 +406,7 @@ def ffmpeg_load_trim(
     sr: int = 16_000,
     start: Optional[Seconds] = None,
     end: Optional[Seconds] = None,
-) -> NumpyFloat1D:
+) -> NpFloatDim1:
     array = ffmpeg_load_audio_from_file(audio_file, sr)
     if start and end:
         array = array[round(start * sr) : round(end * sr)]

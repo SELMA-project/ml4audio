@@ -7,7 +7,7 @@ from faster_whisper import download_model, WhisperModel
 from faster_whisper.vad import VadOptions
 
 import whisper as whisper_module
-from misc_utils.beartypes import NumpyFloat1D
+from misc_utils.beartypes import NpFloatDim1
 from misc_utils.buildable_data import BuildableData
 from misc_utils.prefix_suffix import PrefixSuffix
 from ml4audio.asr_inference.inference import (
@@ -121,7 +121,7 @@ class FasterWhisperArray2SegmentedTranscripts(
 
     @beartype
     def audio_to_segmented_transcripts(
-        self, audio_array: NumpyFloat1D
+        self, audio_array: NpFloatDim1
     ) -> StartEndTextsNonOverlap:
         return self.predict_transcribed_with_whisper_args(
             audio_array, self.whisper_args
@@ -129,7 +129,7 @@ class FasterWhisperArray2SegmentedTranscripts(
 
     @beartype
     def predict_transcribed_with_whisper_args(
-        self, audio_array: NumpyFloat1D, whisper_args: FasterWhisperArgs
+        self, audio_array: NpFloatDim1, whisper_args: FasterWhisperArgs
     ) -> StartEndTextsNonOverlap:
         segments, _ = self._model.transcribe(audio_array, **asdict(whisper_args))
         segments = list(segments)

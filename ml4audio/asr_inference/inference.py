@@ -4,7 +4,7 @@ from typing import Annotated
 
 from beartype.vale import Is
 
-from misc_utils.beartypes import NumpyFloat1D
+from misc_utils.beartypes import NpFloatDim1
 from ml4audio.audio_utils.audio_segmentation_utils import (
     StartEndArray,
     StartEndText,
@@ -39,6 +39,7 @@ class AudioArray2SegmentedTranscripts(SetupTearDown):
     """
     TODO: AA2ST = Audio Array 2 Segmented Transcripts
     """
+
     @property
     @abstractmethod
     def name(self) -> str:
@@ -46,10 +47,11 @@ class AudioArray2SegmentedTranscripts(SetupTearDown):
 
     @property
     def sample_rate(self) -> int:
+        # rename to input_sample_rate?
         return 16000
 
     @abstractmethod
     def audio_to_segmented_transcripts(
-        self, audio_array: NumpyFloat1D
+        self, audio_array: NpFloatDim1
     ) -> StartEndTextsNonOverlap:
         raise NotImplementedError

@@ -6,7 +6,7 @@ import whisper as whisper_module
 from beartype import beartype
 from whisper import Whisper, DecodingOptions
 
-from misc_utils.beartypes import NumpyFloat1DArray, NumpyFloat1D
+from misc_utils.beartypes import NeNpFloatDim1, NpFloatDim1
 from misc_utils.dataclass_utils import UNDEFINED, FillUndefined
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from ml4audio.asr_inference.inference import (
@@ -87,8 +87,8 @@ class OpenAIWhisperASRSegmentInferencer(WhisperInferencer):
 
     @beartype
     def predict_transcribed_with_whisper_args(
-        self, audio_array: NumpyFloat1D, whisper_args: OpenAiWhisperArgs
-    ):  # -> StartEndTextsNonOverlap:
+        self, audio_array: NpFloatDim1, whisper_args: OpenAiWhisperArgs
+    ) -> StartEndTextsNonOverlap:
         from whisper import audio
 
         if hasattr(whisper_args, "chunk_length"):

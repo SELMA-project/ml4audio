@@ -1,30 +1,24 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Union, Annotated, ClassVar
+from typing import ClassVar
 
 import torch
 from beartype import beartype
-from beartype.vale import IsAttr, IsEqual
-from misc_utils.beartypes import (
-    NumpyFloat1DArray,
-    NeList,
-    NeStr,
-    TorchTensor2D, NeNumpyFloat1DArray, Ne1DNumpyInt16,
-)
-from misc_utils.buildable import Buildable
-from misc_utils.dataclass_utils import (
-    UNDEFINED,
-)
-from numpy import floating, int16
-from numpy.typing import NDArray
 from transformers import (
     set_seed,
 )
 
+from misc_utils.beartypes import (
+    NeList,
+    NeStr,
+    TorchTensor2D,
+    NeNpFloatDim1,
+    NeNpFloatDim1,
+)
+from misc_utils.buildable import Buildable
 from ml4audio.text_processing.asr_text_cleaning import Casing, Letters
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-NumpyFloatORInt16_1DArray = Union[NeNumpyFloat1DArray, Ne1DNumpyInt16]
 set_seed(42)
 
 
@@ -76,5 +70,5 @@ class ASRLogitsInferencer(Buildable):
 
     @abstractmethod
     @beartype
-    def calc_logits(self, audio: NumpyFloat1DArray) -> TorchTensor2D:
+    def calc_logits(self, audio: NeNpFloatDim1) -> TorchTensor2D:
         raise NotImplementedError

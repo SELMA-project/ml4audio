@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from misc_utils.beartypes import (
     NeList,
-    NumpyFloat1D,
+    NpFloatDim1,
 )
 from misc_utils.buildable import Buildable
 from misc_utils.buildable_data import BuildableData, SlugStr
@@ -25,9 +25,9 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 @beartype
 def embed_audio_chunks_with_nemo(
     speaker_model: EncDecSpeakerLabelModel,
-    overlapping_chunks: NeList[NumpyFloat1D],
+    overlapping_chunks: NeList[NpFloatDim1],
     batch_size: int,
-) -> NeList[NumpyFloat1D]:
+) -> NeList[NpFloatDim1]:
     """
     based on: https://github.com/NVIDIA/NeMo/blob/aff169747378bcbcec3fc224748242b36205413f/examples/speaker_tasks/recognition/extract_speaker_embeddings.py
 
@@ -98,7 +98,7 @@ class NemoAudioEmbedder(SignalEmbedder):
         del self._speaker_model
 
     @beartype
-    def predict(self, arrays: NeList[NumpyFloat1D]) -> NeList[NumpyFloat1D]:
+    def predict(self, arrays: NeList[NpFloatDim1]) -> NeList[NpFloatDim1]:
         return embed_audio_chunks_with_nemo(self._speaker_model, arrays, batch_size=1)
 
 

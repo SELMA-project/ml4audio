@@ -3,7 +3,10 @@ import tempfile
 from data_io.readwrite_files import read_lines
 from misc_utils.buildable import BuildableList
 from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
+from ml4audio.text_processing.asr_text_cleaning import (
+    VocabCasingAwareTextCleaner,
+    Casing,
+)
 from ml4audio.text_processing.kenlm_arpa import ArpaArgs, ArpaBuilder
 from ml4audio.text_processing.word_based_text_corpus import (
     WordBasedLMCorpus,
@@ -14,8 +17,8 @@ from conftest import TEST_RESOURCES
 
 def test_arpa_from_corpus(vocab):
     test_corpus_dir = TEST_RESOURCES
-    normalizer = TranscriptNormalizer(
-        casing=Casing.upper, text_cleaner="en", vocab=vocab
+    normalizer = VocabCasingAwareTextCleaner(
+        casing=Casing.upper, text_cleaner_name="en", letter_vocab=vocab
     )
 
     with tempfile.TemporaryDirectory() as cache_base:
@@ -39,7 +42,7 @@ def test_arpa_from_corpus(vocab):
                     )
                 ]
             ),
-            normalizer=normalizer,
+            transcript_cleaner=normalizer,
         )
 
         arpa_builder = ArpaBuilder(

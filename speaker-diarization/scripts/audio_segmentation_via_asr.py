@@ -1,6 +1,6 @@
 from beartype import beartype
 
-from misc_utils.beartypes import NumpyFloat1DArray
+from misc_utils.beartypes import NeNpFloatDim1
 from ml4audio.asr_inference.asr_chunk_infer_glue_pipeline import (
     Aschinglupi,
     calc_final_transcript,
@@ -22,11 +22,11 @@ from ml4audio.audio_utils.aligned_transcript import AlignedTranscript
 from ml4audio.audio_utils.audio_io import (
     convert_to_16bit_array,
     break_array_into_chunks,
+    audio_messages_from_file,
+    audio_messages_from_chunks,
 )
 from ml4audio.audio_utils.overlap_array_chunker import (
     OverlapArrayChunker,
-    audio_messages_from_file,
-    audio_messages_from_chunks,
 )
 from ml4audio.text_processing.ctc_decoding import GreedyDecoder
 
@@ -69,7 +69,7 @@ def aschinglupi_infer_file(
 
 @beartype
 def aschinglupi_infer_array(
-    array: NumpyFloat1DArray,
+    array: NeNpFloatDim1,
     model_name,
     target_sample_rate: int,
     chunk_duration: float = 0.1,

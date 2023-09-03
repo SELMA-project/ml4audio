@@ -3,13 +3,13 @@ from dataclasses import dataclass
 import numpy as np
 from beartype import beartype
 from numpy.typing import NDArray
-from misc_utils.beartypes import NeNumpyFloat1DArray
+from misc_utils.beartypes import NeNpFloatDim1
 
 
 @dataclass
 class TimestampedLetters:
     letters: str
-    timestamps: NeNumpyFloat1DArray
+    timestamps: NeNpFloatDim1
 
     def __post_init__(self):
         self.validate_data()

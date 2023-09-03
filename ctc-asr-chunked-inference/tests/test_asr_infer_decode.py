@@ -3,7 +3,7 @@ from time import time
 import pytest
 
 from ctc_asr_chunked_inference.asr_infer_decode import ASRInferDecoder
-from ml4audio.audio_utils.audio_io import load_and_resample_16bit_PCM
+from ml4audio.audio_utils.torchaudio_utils import load_resample_with_torch
 from ml4audio.text_processing.asr_metrics import calc_cer
 from tests.conftest import TestParams
 
@@ -35,9 +35,9 @@ def test_ASRInferDecoder(
 
     expected_sample_rate = asr_infer_decoder.input_sample_rate
     print(f"{asr_infer_decoder.logits_inferencer.letter_vocab=}")
-    audio_array = load_and_resample_16bit_PCM(
-        librispeech_audio_file, expected_sample_rate
-    )
+    audio_array = load_resample_with_torch(
+        librispeech_audio_file, target_sample_rate=expected_sample_rate
+    ).numpy()
 
     start_time = time()
     transcript = asr_infer_decoder.transcribe_audio_array(audio_array.squeeze())

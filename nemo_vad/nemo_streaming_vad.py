@@ -7,7 +7,7 @@ from typing import Optional
 import numpy as np
 import torch
 from beartype import beartype
-from misc_utils.beartypes import NumpyInt16Dim1, NumpyFloat1DArray
+from misc_utils.beartypes import NumpyInt16Dim1, NeNpFloatDim1
 from nemo.collections.asr.models.classification_models import EncDecClassificationModel
 from omegaconf.dictconfig import DictConfig
 from tqdm import tqdm
@@ -35,7 +35,7 @@ if DEBUG:
 @beartype
 def infer_signal(
     model: EncDecClassificationModel, signal: NumpyInt16Dim1
-) -> NumpyFloat1DArray:
+) -> NeNpFloatDim1:
     """
     based on https://github.com/NVIDIA/NeMo/blob/main/tutorials/asr/Online_Offline_Microphone_VAD_Demo.ipynb
     """

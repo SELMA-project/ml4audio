@@ -7,7 +7,7 @@ from beartype import beartype
 from nemo.collections.asr.models import EncDecCTCModel
 
 from misc_utils.beartypes import (
-    NumpyFloat1DArray,
+    NeNpFloatDim1,
     NeList,
     NeStr,
     TorchTensor2D,
@@ -64,7 +64,7 @@ class NemoASRLogitsInferencer(ASRLogitsInferencer):
         return [l for l in dict.fromkeys("".join(self.vocab)) if l not in bad_letters]
 
     @beartype
-    def calc_logits(self, audio: NumpyFloat1DArray) -> TorchTensor2D:
+    def calc_logits(self, audio: NeNpFloatDim1) -> TorchTensor2D:
         device = next(self._model.parameters()).device
         audio_signal = torch.as_tensor(audio.reshape(1, -1), dtype=torch.float32)
         audio_signal_len = torch.as_tensor([audio.size], dtype=torch.int64)
@@ -82,7 +82,7 @@ class NemoASRLogitsInferencer(ASRLogitsInferencer):
 # TODO: what about these?
 #
 #     @beartype
-#     def calc_logsoftmaxed_logits(self, audio: NumpyFloat1DArray) -> NumpyFloat2DArray:
+#     def calc_logsoftmaxed_logits(self, audio: NpFloatDim1) -> NumpyFloat2DArray:
 #         device = next(self._model.parameters()).device
 #         audio_signal = torch.as_tensor(audio.reshape(1, -1), dtype=torch.float32)
 #         audio_signal_len = torch.as_tensor([audio.size], dtype=torch.int64)

@@ -45,10 +45,10 @@ from pytorch_lightning import seed_everything
 
 from misc_utils.beartypes import (
     NumpyFloat2DArray,
-    NeNumpyFloat1DArray,
+    NeNpFloatDim1,
     NeList,
     NumpyFloat2D,
-    NumpyFloat1D,
+    NpFloatDim1,
     File,
 )
 from misc_utils.buildable import Buildable
@@ -70,7 +70,7 @@ from ml4audio.speaker_tasks.speaker_embedding_utils import (
 seed_everything(42)
 StartEndLabel = tuple[float, float, str]  # TODO: why not using TimeSpan here?
 
-LabeledArrays = NeList[tuple[NumpyFloat1D, str]]
+LabeledArrays = NeList[tuple[NpFloatDim1, str]]
 
 
 @beartype

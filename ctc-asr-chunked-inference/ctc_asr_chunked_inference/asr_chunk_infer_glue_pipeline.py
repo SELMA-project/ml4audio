@@ -6,13 +6,12 @@
 from dataclasses import dataclass, field
 from typing import Iterator, Optional, Iterable, Annotated, Any
 
-import numpy as np
 from beartype import beartype
 from beartype.vale import Is
 from transformers import set_seed
 
 from ctc_asr_chunked_inference.asr_infer_decode import ASRInferDecoder
-from misc_utils.beartypes import Numpy1D, NumpyInt16_1D, NeList
+from misc_utils.beartypes import NpInt16Dim1, NeList
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import (
     UNDEFINED,
@@ -27,13 +26,11 @@ from ml4audio.asr_inference.transcript_gluer import (
 )
 from ml4audio.audio_utils.aligned_transcript import TimestampedLetters
 from ml4audio.audio_utils.audio_io import (
-    convert_to_16bit_array,
-    break_array_into_chunks,
+    AudioMessageChunk,
+    audio_messages_from_chunks,
 )
 from ml4audio.audio_utils.overlap_array_chunker import (
     OverlapArrayChunker,
-    AudioMessageChunk,
-    audio_messages_from_chunks,
     MessageChunk,
 )
 
@@ -126,7 +123,7 @@ NO_TRANSCRIPT = " ... "
 
 @beartype
 def aschinglupi_transcribe_chunks(
-    inferencer: Aschinglupi, chunks: Iterable[NumpyInt16_1D]
+    inferencer: Aschinglupi, chunks: Iterable[NpInt16Dim1]
 ) -> TimestampedLetters:
     audio_messages = list(
         audio_messages_from_chunks(

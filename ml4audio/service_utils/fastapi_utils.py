@@ -8,7 +8,7 @@ from beartype import beartype
 from fastapi import UploadFile, HTTPException
 from starlette.datastructures import UploadFile as starlette_UploadFile
 
-from misc_utils.beartypes import NumpyFloat1D, NumpyFloat32_1D, Dataclass
+from misc_utils.beartypes import NpFloatDim1, NumpyFloat32_1D, Dataclass
 from misc_utils.buildable import Buildable
 from misc_utils.dataclass_utils import encode_dataclass, decode_dataclass
 

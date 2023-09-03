@@ -4,10 +4,10 @@ from typing import Annotated, Optional, Union
 from beartype import beartype
 from beartype.vale import Is
 
-from misc_utils.beartypes import NumpyFloat1D, NeList
+from misc_utils.beartypes import NpFloatDim1, NeList
 from misc_utils.buildable_data import BuildableData
 from ml4audio.asr_inference.inference import (
-    ASRAudioSegmentInferencer,
+    AudioArray2SegmentedTranscripts,
     StartEndTextsNonOverlap,
 )
 from ml4audio.audio_utils.audio_segmentation_utils import (
@@ -85,12 +85,12 @@ WHISPER_TASKS = {"transcribe", "translate"}
 
 
 @dataclass
-class WhisperInferencer(BuildableData, ASRAudioSegmentInferencer):
+class WhisperInferencer(BuildableData, AudioArray2SegmentedTranscripts):
     whisper_args: Optional[WhisperArgs] = None
 
     @beartype
-    def predict_transcribed_segments(
-        self, audio_array: NumpyFloat1D
+    def audio_to_segmented_transcripts(
+        self, audio_array: NpFloatDim1
     ) -> StartEndTextsNonOverlap:
         return self.predict_transcribed_with_whisper_args(
             audio_array, self.whisper_args
@@ -98,6 +98,6 @@ class WhisperInferencer(BuildableData, ASRAudioSegmentInferencer):
 
     @beartype
     def predict_transcribed_with_whisper_args(
-        self, audio_array: NumpyFloat1D, whisper_args: WhisperArgs
+        self, audio_array: NpFloatDim1, whisper_args: WhisperArgs
     ) -> StartEndTextsNonOverlap:
         raise NotImplementedError

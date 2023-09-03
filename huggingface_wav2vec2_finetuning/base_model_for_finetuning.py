@@ -20,8 +20,8 @@ from misc_utils.dataclass_utils import (
     UNDEFINED,
 )
 from misc_utils.prefix_suffix import BASE_PATHES, PrefixSuffix
-from ml4audio.text_processing.asr_text_normalization import TranscriptNormalizer, Casing
-from ml4audio.text_processing.character_mappings.text_normalization import (
+from ml4audio.text_processing.asr_text_cleaning import Casing
+from ml4audio.text_processing.character_mappings.text_cleaning import (
     TextCleaner,
 )
 
@@ -270,7 +270,7 @@ class ModelArgs(Buildable):
         if self.new_vocab is not None:
             self._transcript_normalizer = TranscriptNormalizer(
                 casing=self.casing,
-                text_cleaner=self.text_cleaner,
+                text_cleaner=self.text_cleaner_name,
                 vocab=self.new_vocab,
             )
 
@@ -313,7 +313,7 @@ class ModelArgs(Buildable):
         else:
             vocab = list(self.processor.tokenizer.get_vocab().keys())
             self._transcript_normalizer = TranscriptNormalizer(
-                casing=self.casing, text_cleaner=self.text_cleaner, vocab=vocab
+                casing=self.casing, text_cleaner=self.text_cleaner_name, vocab=vocab
             )
             state_dict = None
 

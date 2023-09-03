@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Union, Optional, Annotated
 
+import regex
 from beartype import beartype
 from beartype.vale import Is
 
@@ -78,6 +79,7 @@ def clean_and_filter_text(
     if isinstance(text_cleaner, str):
         text_cleaner = TEXT_CLEANERS[text_cleaner]
     text = clean_upper_lower_text(text, text_cleaner, casing)
+    text = regex.sub("\s+", " ", text)
     return filter_by_lettervocab(text, vocab_letters)
 
 

@@ -13,7 +13,7 @@ from typing import (
 from beartype.door import die_if_unbearable
 
 from misc_utils.beartypes import (
-    NumpyFloat1DArray,
+    NeNpFloatDim1,
     NeStr,
     NumpyInt16Dim1,
 )
@@ -23,11 +23,11 @@ from misc_utils.prefix_suffix import PrefixSuffix, BASE_PATHES
 from misc_utils.utils import Singleton
 from ml4audio.audio_utils.audio_segmentation_utils import StartEnd
 
-ArrayText = tuple[NumpyFloat1DArray, NeStr]
+ArrayText = tuple[NeNpFloatDim1, NeStr]
 
 
-IdArray = tuple[NeStr, NumpyFloat1DArray]
-IdArrayText = tuple[NeStr, NumpyFloat1DArray, NeStr]
+IdArray = tuple[NeStr, NeNpFloatDim1]
+IdArrayText = tuple[NeStr, NeNpFloatDim1, NeStr]
 IdInt16Array = tuple[NeStr, NumpyInt16Dim1]
 
 IdText = tuple[NeStr, NeStr]

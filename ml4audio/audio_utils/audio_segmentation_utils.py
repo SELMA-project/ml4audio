@@ -7,7 +7,7 @@ from beartype import beartype
 from beartype.door import die_if_unbearable, is_bearable
 from beartype.vale import Is
 
-from misc_utils.beartypes import NumpyFloat1DArray, NeList, NumpyFloat1D
+from misc_utils.beartypes import NeNpFloatDim1, NeList, NpFloatDim1
 
 non_empty = lambda x: x[1] > x[0]
 start_non_negative = lambda x: x[0] >= 0
@@ -38,7 +38,7 @@ StartEndText = Annotated[
 
 
 StartEndArray = Annotated[
-    tuple[float, float, NumpyFloat1D],
+    tuple[float, float, NpFloatDim1],
     (Is[non_empty] & Is[start_non_negative]),
 ]
 StartEndArrays = NeList[StartEndArray]
@@ -312,7 +312,7 @@ def segment_letter_timestamps(
 @beartype
 def write_segmentwise_wav_file_just_for_fun(
     start_end_speaker: list[tuple[float, float, str]],
-    array: NumpyFloat1DArray,
+    array: NeNpFloatDim1,
     SR: int = 16000,
 ):
     output_dir = "segments_wavs"

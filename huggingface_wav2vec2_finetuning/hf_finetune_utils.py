@@ -18,7 +18,7 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
-from misc_utils.beartypes import NumpyFloat1DArray, TorchTensor1D, NeStr
+from misc_utils.beartypes import NeNpFloatDim1, TorchTensor1D, NeStr
 
 SILENCE_SYMBOL = "|"
 
@@ -79,14 +79,14 @@ def get_len(datum):
 
 @dataclass
 class HfASRSample:
-    input_values: NumpyFloat1DArray
+    input_values: NeNpFloatDim1
     sampling_rate: int
     labels: list[int]
 
 
 @beartype
 def apply_asr_processor(
-    audio: NumpyFloat1DArray,
+    audio: NeNpFloatDim1,
     text: str,  # NeStr here?
     feature_extractor: Wav2Vec2FeatureExtractor,
     tokenizer: Wav2Vec2CTCTokenizer,

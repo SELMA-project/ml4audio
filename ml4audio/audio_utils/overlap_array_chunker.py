@@ -10,7 +10,7 @@ import numpy as np
 from beartype import beartype
 from numpy.typing import NDArray
 
-from misc_utils.beartypes import Numpy1DArray
+from misc_utils.beartypes import NpNumberDim1
 from misc_utils.utils import Singleton
 
 
@@ -70,7 +70,7 @@ class OverlapArrayChunker:
 
     chunk_size: int
     min_step_size: int  # if step_size==chunk_size it produced non-overlapping segments
-    _buffer: Optional[Numpy1DArray] = field(init=False, repr=False, default=None)
+    _buffer: Optional[NpNumberDim1] = field(init=False, repr=False, default=None)
     minimum_chunk_size: Union[
         int, _DONT_EMIT_PREMATURE_CHUNKS
     ] = DONT_EMIT_PREMATURE_CHUNKS

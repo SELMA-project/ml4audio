@@ -334,7 +334,7 @@ class SegmentsFromTarGzASRCorpus(SegmentCorpus, Buildable):
 #         return f"{self.cache_dir}/wavs/{file_name}"
 #
 #     def _gen_samples(self) -> Iterator[ASRSample]:
-#         g: Iterator[tuple[Optional[NumpyFloat1DArray], str]] = (
+#         g: Iterator[tuple[Optional[NpFloatDim1], str]] = (
 #             (try_to_read_audio(b, target_sample_rate=self.sample_rate), t)
 #             for b, t in self.targz_corpus
 #         )

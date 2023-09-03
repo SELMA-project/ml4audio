@@ -17,7 +17,7 @@ from nemo.collections.asr.parts.preprocessing import (
 
 from misc_utils.processing_utils import exec_command
 from ml4audio.audio_utils.audio_io import normalize_audio_array
-from misc_utils.beartypes import NumpyFloat1DArray
+from misc_utils.beartypes import NeNpFloatDim1
 from misc_utils.dataclass_utils import UNDEFINED, _UNDEFINED
 from ml4audio.audio_data.sox_signal_augmentation import (
     add_signals,
@@ -231,11 +231,11 @@ class SingleSox(SoxPerturbations):
 
 @beartype
 def apply_nemo_perturbations_with_retry(
-    audio_array: NumpyFloat1DArray,
+    audio_array: NeNpFloatDim1,
     sample_rate: int,
     augmentor: Optional[AudioAugmentor] = None,
     max_retries: int = 3,
-) -> NumpyFloat1DArray:
+) -> NeNpFloatDim1:
     audio = AudioSegment(samples=audio_array, sample_rate=sample_rate)
     for k in range(1, max_retries + 1):
         try:

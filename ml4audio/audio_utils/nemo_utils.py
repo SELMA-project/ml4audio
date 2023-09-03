@@ -1,7 +1,7 @@
 import numpy as np
 from beartype import beartype
 
-from misc_utils.beartypes import NumpyFloat1D
+from misc_utils.beartypes import NpFloatDim1
 from nemo.collections.asr.models import EncDecSpeakerLabelModel
 from nemo.utils import logging
 from nemo_vad.nemo_offline_vad import NemoOfflineVAD
@@ -28,8 +28,8 @@ def load_EncDecSpeakerLabelModel(pretrained_model: str) -> EncDecSpeakerLabelMod
 
 @beartype
 def nemo_offline_vad_to_cut_away_noise(
-    vad: NemoOfflineVAD, array: NumpyFloat1D, SR: int = 16_000
-) -> NumpyFloat1D:
+    vad: NemoOfflineVAD, array: NpFloatDim1, SR: int = 16_000
+) -> NpFloatDim1:
     start_ends, probas = vad.predict(array)
     if len(start_ends) == 0:
         # assuming that VAD fugedup so fallback to no-vad

@@ -11,7 +11,7 @@ from sklearn import preprocessing
 from misc_utils.beartypes import (
     NumpyFloat2DArray,
     NeList,
-    NumpyFloat1D,
+    NpFloatDim1,
     File,
 )
 from misc_utils.buildable_data import BuildableData
@@ -128,7 +128,7 @@ class SubSegment:
 
     offset: float
     start_end: StartEnd
-    audio_array: NumpyFloat1D
+    audio_array: NpFloatDim1
     label: str
 
     @property
@@ -142,7 +142,7 @@ class SubSegment:
 
 @beartype
 def calc_subsegments_for_clustering(
-    chunks: NeList[NumpyFloat1D],
+    chunks: NeList[NpFloatDim1],
     labeled_segments: StartEndLabels,
     sample_rate: int,
     shift: float,
@@ -166,12 +166,12 @@ def calc_subsegments_for_clustering(
 @dataclass
 class SignalEmbedder(BuildableData):
     @abstractmethod
-    def predict(self, arrays: NeList[NumpyFloat1D]) -> NeList[NumpyFloat1D]:
+    def predict(self, arrays: NeList[NpFloatDim1]) -> NeList[NpFloatDim1]:
         raise NotImplementedError
 
 
 @beartype
-def slice_me_nice(startend: StartEnd, array: NumpyFloat1D, SR: int) -> NumpyFloat1D:
+def slice_me_nice(startend: StartEnd, array: NpFloatDim1, SR: int) -> NpFloatDim1:
     start, end = startend
     ffrom = max(0, round(start * SR))
     tto = min(len(array) - 1, round(end * SR))

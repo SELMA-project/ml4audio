@@ -9,9 +9,12 @@ BASE_PATHES["test_resources"] = TEST_RESOURCES
 
 def get_test_cache_base():
     cache_base = PrefixSuffix("test_resources", "cache")
-    if os.path.isdir(str(cache_base)):
+    if (
+        os.path.isdir(str(cache_base))
+        and not os.environ.get("DONT_REMOVE_TEST_CACHE", "False") != "False"
+    ):
         shutil.rmtree(str(cache_base))
-    os.makedirs(str(cache_base))
+    os.makedirs(str(cache_base), exist_ok=True)
     return cache_base
 
 
