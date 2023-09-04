@@ -16,16 +16,11 @@ from misc_utils.utils import Singleton
 
 @dataclass
 class MessageChunk:
-    """
-    instance of this represents one chunks of an audio-message
-    an audio-message can be split into possibly overlapping chunks, entire message got one message_id
-    frame_idx is counter/absolut-position of audio-chunk's start frame in entire audio-message
-    """
 
     message_id: str  # same for all chunks of same message
     frame_idx: int  # points to very first frame of this chunk
     array: NDArray
-    end_of_signal: bool = False
+    end_of_signal: bool = False  # could also be called "end-of-message"
 
 
 @dataclass
@@ -132,9 +127,9 @@ class OverlapArrayChunker:
             fullgrown_msgs = self._fullgrown_chunks(
                 inpt_msg,
             )
-            output_messages = self._maybe_append_flush_message(
-                inpt_msg,
-                fullgrown_msgs,
+            assert sum(1 for om in fullgrown_msgs if om.end_of_signal) <= 1
+            output_messages = fullgrown_msgs + self._maybe_flush(
+                inpt_msg, emitted_final=fullgrown_msgs[-1].end_of_signal
             )
         elif self._can_emit_premature_chunk:
             self.last_buffer_size = self._buffer_size
@@ -147,26 +142,22 @@ class OverlapArrayChunker:
                     end_of_signal=inpt_msg.end_of_signal,  # can happen for short audio-signals!
                 )
             ]
+        elif inpt_msg.end_of_signal:
+            output_messages = [self._do_flush(inpt_msg.message_id)]
         else:
-            output_messages = self._maybe_append_flush_message(inpt_msg, [])
+            output_messages = []
 
         if inpt_msg.end_of_signal:
             self.reset()
 
         return output_messages
 
-    def _maybe_append_flush_message(
-        self, input_msg: MessageChunk, output_msgs: list[MessageChunk]
-    ) -> list[MessageChunk]:
-        if len(output_msgs) > 0:
-            assert sum(1 for om in output_msgs if om.end_of_signal) <= 1
-            emitted_final = output_msgs[-1].end_of_signal
+    def _maybe_flush(self, inpt_msg: MessageChunk, emitted_final) -> list[MessageChunk]:
+        if inpt_msg.end_of_signal and not emitted_final:
+            flushed = [self._do_flush(inpt_msg.message_id)]
         else:
-            emitted_final = False
-        if input_msg.end_of_signal and not emitted_final:
-            assert self._buffer_size > 0
-            output_msgs += [self._do_flush(input_msg.message_id)]
-        return output_msgs
+            flushed = []
+        return flushed
 
     @property
     def _can_emit_premature_chunk(self):
